@@ -15,23 +15,28 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    try {
-      // TODO: Implement actual API call to your backend
-      // For now, we'll simulate a successful login
+// In your AuthContext.js, update the login function
+const login = async (email, password) => {
+  try {
+    // Hard-coded password for admin access
+    // In a production environment, you'd want to use a more secure approach
+    if (password === "yadayada77") { // Change this to your preferred password
       const mockUser = {
         id: '1',
         email,
-        name: 'Demo User',
+        name: 'Admin',
       };
       
       setUser(mockUser);
       localStorage.setItem('user', JSON.stringify(mockUser));
       return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
+    } else {
+      return { success: false, error: 'Incorrect password' };
     }
-  };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
 
   const logout = () => {
     setUser(null);

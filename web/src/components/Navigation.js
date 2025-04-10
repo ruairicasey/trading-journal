@@ -1,9 +1,15 @@
-import React from 'react';
+// src/components/Navigation.js (update this)
+import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoginModal from './LoginModal'; // Import the modal component
 
 const Navigation = () => {
   const { user, logout } = useAuth();
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  const openLoginModal = () => setIsLoginModalOpen(true);
+  const closeLoginModal = () => setIsLoginModalOpen(false);
 
   return (
     <header className="bg-blue-900 text-white shadow-md">
@@ -44,15 +50,18 @@ const Navigation = () => {
           
           <div>
             {user ? (
-              <button 
-                onClick={logout}
-                className="px-4 py-2 rounded bg-red-500 hover:bg-red-600 transition"
-              >
-                Logout
-              </button>
+              <div className="flex items-center space-x-3">
+                <span className="text-sm hidden md:inline">Hello, {user.name}</span>
+                <button 
+                  onClick={logout}
+                  className="px-4 py-2 rounded bg-red-500 hover:bg-red-600 transition"
+                >
+                  Logout
+                </button>
+              </div>
             ) : (
               <button 
-                onClick={() => document.getElementById('login-modal').showModal()}
+                onClick={openLoginModal}
                 className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 transition"
               >
                 Login
@@ -61,6 +70,9 @@ const Navigation = () => {
           </div>
         </div>
       </div>
+      
+      {/* Modal component */}
+      <LoginModal isOpen={isLoginModalOpen} onClose={closeLoginModal} />
     </header>
   );
 };
