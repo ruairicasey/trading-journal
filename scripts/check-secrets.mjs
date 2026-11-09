@@ -31,6 +31,9 @@ const FIXTURE_DIR = /^tests\/fixtures\//;
 // Placeholder addresses: at least 30 leading zeros after 0x.
 const PLACEHOLDER_ADDR = /^0x0{30}[0-9a-f]{10}$/i;
 
+const SECRET_VARS =
+  "(AUTH_SECRET|AUTH_PASSWORD_HASH|CRON_SECRET|DATABASE_AUTH_TOKEN|R2_SECRET_ACCESS_KEY|R2_ACCESS_KEY_ID|HL_WALLET_ADDRESS)";
+
 const CONTENT_RULES = [
   {
     name: "wallet address (0x + 40 hex)",
@@ -47,8 +50,20 @@ const CONTENT_RULES = [
   { name: "bcrypt hash", re: /\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/g },
   { name: "JWT / bearer token", re: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
   {
+    // KEY=value (env files, shell, docs). Any non-placeholder value is a leak.
     name: "populated secret variable",
-    re: /\b(AUTH_SECRET|AUTH_PASSWORD_HASH|CRON_SECRET|DATABASE_AUTH_TOKEN|R2_SECRET_ACCESS_KEY|R2_ACCESS_KEY_ID|HL_WALLET_ADDRESS)\s*[=:]\s*["']?(?!\$\{|process\.env|<)[^\s"'#()\[\]{},;]{8,}/g,
+    re: new RegExp(`\\b${SECRET_VARS}\\s*=\\s*["']?(?!\\$\\{|process\\.env|<)[^\\s"'#()\\[\\]{},;]{8,}`, "g"),
+  },
+  {
+    // KEY: "value" (JSON/JS objects) — quoted literal only, so schema keys like `KEY: optional,` pass.
+    name: "populated secret variable",
+    re: new RegExp(`\\b${SECRET_VARS}["']?\\s*:\\s*["'](?!\\$\\{|<)[^\\s"'#]{8,}["']`, "g"),
+  },
+  {
+    // KEY: value in YAML (e.g. workflows) — must reference ${{ secrets.X }}, never a literal.
+    name: "populated secret variable (YAML)",
+    pathRe: /\.ya?ml$/i,
+    re: new RegExp(`\\b${SECRET_VARS}\\s*:\\s*["']?(?!\\$\\{)[^\\s"'#]{8,}`, "g"),
   },
 ];
 
@@ -93,6 +108,7 @@ export function checkContent(path, content) {
     if (line.includes("secret-check:allow")) return;
     for (const rule of CONTENT_RULES) {
       if (rule.fixturesOk && inFixtures) continue;
+      if (rule.pathRe && !rule.pathRe.test(path)) continue;
       for (const m of line.matchAll(rule.re)) {
         if (rule.allowMatch && rule.allowMatch(m[0])) continue;
         const shown = m[0].length > 14 ? `${m[0].slice(0, 6)}…${m[0].slice(-4)}` : "…";
@@ -124,6 +140,10 @@ function selfTest() {
   a(checkContent(".env.example", "AUTH_SECRET=").length === 0, "empty var allowed");
   a(checkContent("src/x.ts", "const s = process.env.AUTH_SECRET").length === 0, "env read allowed");
   a(checkContent("src/x.ts", `f("AUTH_SECRET=").length`).length === 0, "code mentioning var allowed");
+  a(checkContent("src/x.ts", "  AUTH_SECRET: optional,").length === 0, "schema key allowed");
+  a(checkContent("src/x.ts", 'const c = { CRON_SECRET: "abcdefgh12345" }').length === 1, "quoted object literal blocked"); // secret-check:allow (self-test fixture)
+  a(checkContent("ci.yml", "  CRON_SECRET: ${{ secrets.CRON_SECRET }}").length === 0, "yaml secret ref allowed");
+  a(checkContent("ci.yml", "  CRON_SECRET: abcdefgh12345").length === 1, "yaml literal blocked"); // secret-check:allow (self-test fixture)
   console.log("check-secrets self-test passed");
 }
 

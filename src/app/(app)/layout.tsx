@@ -1,11 +1,19 @@
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { getActiveAccount } from "@/server/db/queries/settings";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+// Everything under (app) reads the private database per request.
+export const dynamic = "force-dynamic";
+
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const { accounts, active } = await getActiveAccount();
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar
+        accounts={accounts.map((a) => ({ id: a.id, name: a.name, type: a.type }))}
+        activeId={active?.id ?? null}
+      />
       <SidebarInset>
         <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
           <SidebarTrigger className="-ml-1" />

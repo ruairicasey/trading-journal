@@ -26,12 +26,19 @@ There's no login locally unless you set `AUTH_PASSWORD_HASH`.
 
 | Script | What it does |
 |---|---|
-| `npm run dev` | Start the app |
+| `npm run dev` | Apply migrations + seed defaults, then start the app |
+| `npm run db:migrate` | Apply migrations and seed defaults (idempotent) |
+| `npm run db:generate` | Generate a migration after editing `src/server/db/schema.ts` |
+| `npm run db:studio` | Browse the database (Drizzle Studio) |
 | `npm test` | Unit tests (Vitest) |
 | `npm run lint` / `npm run typecheck` | Static checks |
 | `npm run check:secrets` | Scan all tracked files for personal data / secrets |
 
 More scripts arrive as the build continues: `seed:demo`, `sync:backfill`, `backup`, `hash-password`.
+
+## Data model in one line
+
+Exchange-derived data (raw fills, reconstructed trades) and your journal data (setup, notes, grades, screenshots) live in separate tables. A re-sync can never overwrite anything you've written. Journal lists (strategies, confluences, checklist, exit reasons, mistakes, emotions) are editable under **Settings → Journal lists**.
 
 ## Contributing
 

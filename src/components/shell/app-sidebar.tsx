@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
-  BookOpenText,
   LayoutDashboard,
   Lightbulb,
   ListOrdered,
@@ -23,6 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { AccountSwitcher, type AccountOption } from "./account-switcher";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -33,7 +33,7 @@ const NAV: NavItem[] = [
   { href: "/insights", label: "Insights", icon: Lightbulb, soon: "P3" },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ accounts, activeId }: { accounts: AccountOption[]; activeId: string | null }) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -42,18 +42,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
-                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 items-center justify-center rounded-md">
-                  <BookOpenText className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate text-sm font-semibold">Trading Journal</span>
-                  {/* Account switcher lands here in step 2 (accounts come from the DB, never code). */}
-                  <span className="text-muted-foreground truncate text-xs">No account yet</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <AccountSwitcher accounts={accounts} activeId={activeId} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
