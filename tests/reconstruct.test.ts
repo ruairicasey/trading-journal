@@ -223,9 +223,13 @@ describe("precision and special fills", () => {
     expect(t.metrics.grossPnl).toBe(-1000);
   });
 
-  test("non-USDC fee token is flagged", () => {
+  test("non-USD fee token is flagged; USD stablecoins used by HIP-3 dexes are not", () => {
     const s = sim("BTC").buy(1, 60000, 0, { feeToken: "HYPE" }).sell(1, 60100, 5);
     expect(one("BTC", s.fills)[0].flags.nonUsdcFee).toBe(true);
+    for (const token of ["USDH", "USDT0", "USDE", " USDC"]) {
+      const h = sim("vntl:X").buy(1, 100, 0, { feeToken: token }).sell(1, 101, 5, { feeToken: token });
+      expect(one("vntl:X", h.fills)[0].flags.nonUsdcFee).toBeUndefined();
+    }
   });
 });
 

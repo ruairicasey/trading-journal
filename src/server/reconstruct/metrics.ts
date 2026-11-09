@@ -8,9 +8,9 @@ import type { Leg, TradeMetrics } from "./types";
  *   long: pnl = (exit − entry)·sz  ⇒ entry = (Σpx·sz − Σpnl)/Σsz;  short: + instead of −.
  * - returnPct = net / notional × 100 (notional = avg entry × max position size).
  * - Fees are summed SIGNED: a negative fee is a maker rebate and reduces total fees. Never abs() a fee.
- * - Only `fee` is used. HL also reports `builderFee` on builder-routed fills; we assume `fee` already
- *   includes it, so it is stored on the fill but never subtracted again.
- *   TODO(step 5): confirm the builderFee assumption against a real builder-routed fill (Verify panel).
+ * - Only `fee` is used. HL documents `fee` as "the total fee, inclusive of builderFee" (verified in the
+ *   API docs 2026-11-09), so `builderFee` is stored on the fill but never subtracted again.
+ *   TODO: confirm against one real builder-routed fill (`npm run verify:sync` on the owner's machine).
  */
 export function computeMetrics(
   legs: Leg[],

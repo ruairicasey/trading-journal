@@ -4,12 +4,14 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { getConfig } from "@/server/config";
 import { getActiveAccount } from "@/server/db/queries/settings";
+import { getSyncStatus } from "@/server/db/queries/sync";
+import { SyncStatus } from "@/components/sync/sync-status";
 
 // Everything under (app) reads the private database per request.
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { accounts, active } = await getActiveAccount();
+  const [{ accounts, active }, syncStatus] = await Promise.all([getActiveAccount(), getSyncStatus()]);
   return (
     <SidebarProvider>
       <AppSidebar
@@ -26,8 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Badge>
           )}
           <div className="flex-1" />
-          {/* Sync status + balance arrive in step 5. */}
-          <span className="text-muted-foreground text-xs">Not synced</span>
+          <SyncStatus initial={syncStatus} isDemo={getConfig().isDemo} />
         </header>
         <div className="flex-1 p-4 md:p-6">{children}</div>
       </SidebarInset>

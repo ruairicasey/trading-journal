@@ -8,6 +8,13 @@
       "when": 1794192644165,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794266342650,
+      "tag": "0001_wallet_funding_cursor",
+      "breakpoints": true
     }
   ]
 }

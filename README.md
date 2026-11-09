@@ -32,11 +32,24 @@ There's no login locally unless you set `AUTH_PASSWORD_HASH`.
 | `npm run db:studio` | Browse the database (Drizzle Studio) |
 | `npm run seed:demo` | Build a fake demo account (about 250 synthetic trades with journal entries) in `data/demo/` |
 | `npm run dev:demo` | Run the app against the demo account (seeds it first if missing) |
+| `npm run sync:backfill` | Import all available fills for your wallet(s) from your machine, with no time limit (use it for the first big import) |
+| `npm run verify:sync` | Print an address-free report (counts, last 10 trades, per-fill detail with `-- --trade N`) to compare against Hyperliquid's UI |
 | `npm test` | Unit tests (Vitest) |
 | `npm run lint` / `npm run typecheck` | Static checks |
 | `npm run check:secrets` | Scan all tracked files for personal data / secrets |
 
-More scripts arrive as the build continues: `sync:backfill`, `backup`, `hash-password`.
+More scripts arrive as the build continues: `backup`, `hash-password`.
+
+`npm run dev` listens on `127.0.0.1` only until login is added.
+
+## Syncing from Hyperliquid
+
+1. Put your wallet address in `.env.local` (`HL_WALLET_ADDRESS=0x…`) or add it under **Settings → Wallets & sync**.
+2. Run `npm run sync:backfill` once for the full history, then use **Sync now** or leave auto-sync on while the app is open.
+3. Re-syncing any range is safe: fills are keyed by trade id, so nothing is duplicated, and your journal fields are never touched.
+
+> **History limit:** Hyperliquid's API only serves your **10,000 most recent fills**. Sync regularly and back up
+> your data folder; fills already stored are never deleted. Details are in [docs/hyperliquid.md](docs/hyperliquid.md).
 
 ## Demo data
 

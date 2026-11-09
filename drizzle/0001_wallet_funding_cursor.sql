@@ -1,0 +1,1 @@
+ALTER TABLE `wallets` ADD `last_funding_time` integer;

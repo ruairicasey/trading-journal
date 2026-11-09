@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const LINKS = [
+const LINKS: { href: string; label: string; soon?: boolean }[] = [
   { href: "/settings", label: "General" },
   { href: "/settings/accounts", label: "Accounts" },
   { href: "/settings/journal", label: "Journal lists" },
-  { href: "/settings/wallets", label: "Wallets & sync", soon: true },
+  { href: "/settings/wallets", label: "Wallets & sync" },
 ];
 
 export function SettingsNav() {

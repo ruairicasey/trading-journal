@@ -20,6 +20,11 @@ import type { FillInput, Leg, ReconFlags, ReconstructedTrade } from "./types";
 // HL sizes have ≤ 8 decimals; Decimal arithmetic on the string inputs is exact, this only absorbs dust.
 const EPS = new Decimal("1e-12");
 const isZero = (d: Decimal) => d.abs().lte(EPS);
+/**
+ * Fee tokens treated as $1. Some HIP-3 dexes settle in other USD stablecoins (seen live 2026-11:
+ * USDH on vntl/km/flx, USDT0 on cash, USDE on hyna). Anything else (e.g. HYPE) is flagged `nonUsdcFee`.
+ */
+export const USD_FEE_TOKENS = new Set(["USDC", "USDH", "USDT0", "USDT", "USDE"]);
 const sgn = (d: Decimal) => (isZero(d) ? 0 : d.isPositive() ? 1 : -1);
 
 type Building = {
@@ -70,7 +75,7 @@ export function reconstructCoin(walletId: string, coin: string, input: FillInput
       fee: fee.toNumber(),
       closedPnl: pnl.toNumber(),
     });
-    if (f.feeToken && f.feeToken !== "USDC") b.flags.nonUsdcFee = true;
+    if (f.feeToken && !USD_FEE_TOKENS.has(f.feeToken.trim().toUpperCase())) b.flags.nonUsdcFee = true;
     if (f.liquidation) b.flags.liquidated = true;
   };
   const touch = (b: Building, ...positions: Decimal[]) => {

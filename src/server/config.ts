@@ -30,6 +30,7 @@ const EnvSchema = z.object({
   R2_SECRET_ACCESS_KEY: optional,
   R2_BUCKET: optional,
   TJ_DEMO: optional, // set by `npm run dev:demo`
+  SYNC_BUDGET_MS: z.coerce.number().int().positive().default(40_000),
 });
 
 export type AppConfig = ReturnType<typeof buildConfig>;
@@ -53,7 +54,12 @@ function buildConfig(env: NodeJS.ProcessEnv) {
       authToken: e.DATABASE_AUTH_TOKEN,
     },
     timezone: e.APP_TIMEZONE,
-    hyperliquid: { apiUrl: e.HL_API_URL, bootstrapWallet: e.HL_WALLET_ADDRESS?.toLowerCase() },
+    hyperliquid: {
+      apiUrl: e.HL_API_URL,
+      bootstrapWallet: e.HL_WALLET_ADDRESS?.toLowerCase(),
+      /** Per-request time budget for /api/sync; keep under the host's function timeout. */
+      syncBudgetMs: e.SYNC_BUDGET_MS,
+    },
     auth: { passwordHash: e.AUTH_PASSWORD_HASH, secret: e.AUTH_SECRET, cronSecret: e.CRON_SECRET },
     storage: {
       driver: e.STORAGE_DRIVER,

@@ -13,11 +13,14 @@ async function main() {
     return;
   }
   const { getDb } = await import("../src/server/db/client");
-  const { runMigrations, seedDefaults } = await import("../src/server/db/bootstrap");
+  const { runMigrations, seedDefaults, ensureBootstrapWallet } = await import("../src/server/db/bootstrap");
   const db = getDb();
   await runMigrations(db);
   const { seeded } = await seedDefaults(db);
-  console.log(`db-setup: migrations applied${seeded ? ", defaults seeded" : ""}`);
+  const walletAdded = await ensureBootstrapWallet(db);
+  console.log(
+    `db-setup: migrations applied${seeded ? ", defaults seeded" : ""}${walletAdded ? ", wallet added from HL_WALLET_ADDRESS" : ""}`,
+  );
 }
 
 main().catch((err) => {

@@ -15,6 +15,23 @@ export async function runMigrations(db: DB) {
 const SEED_VERSION = 1;
 
 /**
+ * Create the wallet from HL_WALLET_ADDRESS (.env.local) if it isn't in the DB yet. Safe to call
+ * every startup: adding the address to .env.local later still works. Attaches to the first account.
+ */
+export async function ensureBootstrapWallet(db: DB): Promise<boolean> {
+  const address = getConfig().hyperliquid.bootstrapWallet;
+  if (!address) return false;
+  const [account] = await db.select({ id: s.accounts.id }).from(s.accounts).limit(1);
+  if (!account) return false;
+  const res = await db
+    .insert(s.wallets)
+    .values({ accountId: account.id, address, label: "Main" })
+    .onConflictDoNothing()
+    .returning({ id: s.wallets.id });
+  return res.length > 0;
+}
+
+/**
  * Idempotent first-run seed. Each block runs once (tracked in settings.seed_version), so items
  * you delete/archive later are never re-added. Never overwrites user data.
  */

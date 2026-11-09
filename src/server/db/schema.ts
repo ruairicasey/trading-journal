@@ -105,6 +105,7 @@ export const wallets = sqliteTable(
     backfillCompletedAt: integer("backfill_completed_at"),
     lastSyncedAt: integer("last_synced_at"),
     lastSuccessAt: integer("last_success_at"),
+    lastFundingTime: integer("last_funding_time"), // funding sync cursor, saved after every page
     historyTruncated: integer("history_truncated", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [uniqueIndex("wallets_address_uq").on(t.address)],
