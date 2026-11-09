@@ -71,6 +71,20 @@ describe("17. idempotent ingest + rebuild", () => {
   });
 });
 
+describe("fee storage", () => {
+  test("builder_fee is stored on the fill but trade fees use fee only", async () => {
+    const db = getDb();
+    const f = sim("xyz:SPX").buy(1, 6000, 0, { fee: "3.5", builderFee: "1.0" }).sell(1, 6010, 5, { fee: "-0.5" }).fills;
+    await insertFills(db, walletId, f);
+    await rebuildTrades(db, { walletId, accountId });
+    const stored = await db.select().from(s.fills).where(eq(s.fills.walletId, walletId));
+    expect(stored.find((r) => r.tid === f[0].tid)?.builderFee).toBe("1.0");
+    const [t] = await trades();
+    expect(t.fees).toBe(3); // 3.5 + (−0.5): rebate counted, builder fee not double-counted
+    expect(t.netPnl).toBe(10 - 3);
+  });
+});
+
 describe("18. journal data survives rebuilds", () => {
   test("journal row is kept and untouched across rebuilds; open trade updates in place", async () => {
     const db = getDb();

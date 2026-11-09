@@ -229,6 +229,43 @@ describe("precision and special fills", () => {
   });
 });
 
+describe("fees", () => {
+  test("maker rebate (negative fee) reduces total fees; fees are summed signed", () => {
+    // entry as maker with a rebate, exit as taker
+    const s = sim("BTC").buy(1, 60000, 0, { fee: "-0.6" }).sell(1, 60100, 10, { fee: "27.045" });
+    const [t] = one("BTC", s.fills);
+    expect(t.legs[0].fee).toBe(-0.6);
+    expect(t.metrics.fees).toBeCloseTo(26.445, 9); // not 27.645 (abs) and not 27.045 (rebate dropped)
+    expect(t.metrics.netPnl).toBeCloseTo(100 - 26.445, 9);
+
+    // all-maker round trip: total fees negative, net exceeds gross
+    const m = sim("ETH").sell(2, 3000, 0, { fee: "-0.06" }).buy(2, 2990, 5, { fee: "-0.0598" });
+    const [mt] = one("ETH", m.fills);
+    expect(mt.metrics.fees).toBeCloseTo(-0.1198, 9);
+    expect(mt.metrics.netPnl).toBeGreaterThan(mt.metrics.grossPnl);
+  });
+
+  test("a rebate on a flip fill is split pro rata with its sign kept", () => {
+    const s = sim("SOL").buy(1, 100, 0).sell(4, 101, 5, { fee: "-0.08" });
+    const [long, short] = one("SOL", s.fills);
+    const closeFee = long.legs.find((l) => l.role === "exit")!.fee;
+    const openFee = short.legs.find((l) => l.role === "entry")!.fee;
+    expect(closeFee).toBeCloseTo(-0.02, 12);
+    expect(openFee).toBeCloseTo(-0.06, 12);
+    expect(closeFee + openFee).toBeCloseTo(-0.08, 12);
+  });
+
+  test("builderFee is not subtracted on top of fee (fee already includes it)", () => {
+    const s = sim("xyz:SPX")
+      .buy(1, 6000, 0, { fee: "3.5", builderFee: "1.0" })
+      .sell(1, 6010, 5, { fee: "3.5", builderFee: "1.0" });
+    const [t] = one("xyz:SPX", s.fills);
+    expect(t.metrics.fees).toBe(7); // 3.5 + 3.5, not 9
+    expect(t.metrics.netPnl).toBe(10 - 7);
+    expect(s.fills[0].builderFee).toBe("1.0"); // still carried through for storage
+  });
+});
+
 describe("determinism", () => {
   test("duplicates and order do not change the result", () => {
     const s = sim("BTC").buy(1, 60000, 0).buy(1, 59000, 5).sell(3, 61000, 10).buy(1, 60000, 20);

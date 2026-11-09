@@ -7,6 +7,10 @@ import type { Leg, TradeMetrics } from "./types";
  * - If history starts mid-position (no entry legs), entry is implied from HL's closedPnl:
  *   long: pnl = (exit − entry)·sz  ⇒ entry = (Σpx·sz − Σpnl)/Σsz;  short: + instead of −.
  * - returnPct = net / notional × 100 (notional = avg entry × max position size).
+ * - Fees are summed SIGNED: a negative fee is a maker rebate and reduces total fees. Never abs() a fee.
+ * - Only `fee` is used. HL also reports `builderFee` on builder-routed fills; we assume `fee` already
+ *   includes it, so it is stored on the fill but never subtracted again.
+ *   TODO(step 5): confirm the builderFee assumption against a real builder-routed fill (Verify panel).
  */
 export function computeMetrics(
   legs: Leg[],
