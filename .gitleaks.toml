@@ -1,0 +1,32 @@
+# gitleaks config — mirrors scripts/check-secrets.mjs
+title = "trading-journal privacy rules"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "wallet-address"
+description = "EVM / Hyperliquid wallet address (0x + 40 hex) outside test fixtures"
+regex = '''0x[0-9a-fA-F]{40}'''
+[[rules.allowlists]]
+regexTarget = "match"
+regexes = ['''^0x0{30}[0-9a-fA-F]{10}$''']
+[[rules.allowlists]]
+paths = ['''^tests/fixtures/''']
+
+[[rules]]
+id = "hex-64"
+description = "64-hex string (possible private key) outside test fixtures"
+regex = '''(?:^|[^0-9a-zA-Z])((?:0x)?[0-9a-fA-F]{64})(?:[^0-9a-fA-F]|$)'''
+secretGroup = 1
+[[rules.allowlists]]
+paths = ['''^tests/fixtures/''', '''package-lock\.json$''']
+
+[[rules]]
+id = "bcrypt-hash"
+description = "bcrypt password hash"
+regex = '''\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}'''
+
+[allowlist]
+description = "repo-wide allowlist"
+paths = ['''^scripts/check-secrets\.mjs$''', '''^\.gitleaks\.toml$''']

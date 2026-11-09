@@ -1,0 +1,61 @@
+# ─── PRIVATE DATA — never commit ────────────────────────────────
+# Everything personal lives under DATA_DIR (default ./data).
+/data/
+data/
+uploads/
+exports/
+backups/
+private-docs/
+*.db
+*.db-*
+*.db.*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.csv
+*.pdf
+!docs/**/*.pdf
+*.zip
+# raw API dumps / sync caches
+hl-dump*
+*.dump.json
+.cache/
+cache/
+
+# ─── secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ─── logs ───────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── build / tooling ────────────────────────────────────────────
+/node_modules
+/.pnp
+.pnp.*
+/.next/
+/out/
+/build
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+.turbo
+test-results/
+playwright-report/
+blob-report/
+
+# ─── misc ───────────────────────────────────────────────────────
+.DS_Store
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
