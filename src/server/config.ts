@@ -29,6 +29,7 @@ const EnvSchema = z.object({
   R2_ACCESS_KEY_ID: optional,
   R2_SECRET_ACCESS_KEY: optional,
   R2_BUCKET: optional,
+  TJ_DEMO: optional, // set by `npm run dev:demo`
 });
 
 export type AppConfig = ReturnType<typeof buildConfig>;
@@ -43,6 +44,8 @@ function buildConfig(env: NodeJS.ProcessEnv) {
     isDeployed,
     /** Preview deployments get no data access (secrets are scoped to Production only). */
     isVercelPreview,
+    /** Running against the synthetic demo database. */
+    isDemo: e.TJ_DEMO === "1",
     dataDir,
     uploadsDir: path.join(dataDir, "uploads"),
     db: {

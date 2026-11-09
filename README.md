@@ -30,11 +30,17 @@ There's no login locally unless you set `AUTH_PASSWORD_HASH`.
 | `npm run db:migrate` | Apply migrations and seed defaults (idempotent) |
 | `npm run db:generate` | Generate a migration after editing `src/server/db/schema.ts` |
 | `npm run db:studio` | Browse the database (Drizzle Studio) |
+| `npm run seed:demo` | Build a fake demo account (about 250 synthetic trades with journal entries) in `data/demo/` |
+| `npm run dev:demo` | Run the app against the demo account (seeds it first if missing) |
 | `npm test` | Unit tests (Vitest) |
 | `npm run lint` / `npm run typecheck` | Static checks |
 | `npm run check:secrets` | Scan all tracked files for personal data / secrets |
 
-More scripts arrive as the build continues: `seed:demo`, `sync:backfill`, `backup`, `hash-password`.
+More scripts arrive as the build continues: `sync:backfill`, `backup`, `hash-password`.
+
+## Demo data
+
+`npm run dev:demo` runs the app against a separate database in `data/demo/` filled with generated trades (random-walk prices, placeholder wallet). It never touches your real journal, ignores the personal values in `.env.local`, and shows a **Demo data** badge. Every screenshot in this README comes from it.
 
 ## Data model in one line
 

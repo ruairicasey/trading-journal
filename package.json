@@ -17,7 +17,9 @@
     "vercel-build": "tsx scripts/db-setup.ts && next build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/db-setup.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "dev:demo": "tsx scripts/with-demo.ts dev"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

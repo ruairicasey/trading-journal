@@ -1,6 +1,8 @@
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { getConfig } from "@/server/config";
 import { getActiveAccount } from "@/server/db/queries/settings";
 
 // Everything under (app) reads the private database per request.
@@ -18,6 +20,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
+          {getConfig().isDemo && (
+            <Badge variant="outline" className="border-amber-500/40 text-amber-400">
+              Demo data
+            </Badge>
+          )}
           <div className="flex-1" />
           {/* Sync status + balance arrive in step 5. */}
           <span className="text-muted-foreground text-xs">Not synced</span>
