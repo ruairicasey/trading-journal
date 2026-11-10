@@ -23,6 +23,10 @@ export function getDb(): DB {
   if (cfg.isVercelPreview) throw new DataUnavailableError();
   if (cache.db && cache.url === cfg.db.url) return cache.db;
 
+  if (cfg.isDeployed && cfg.db.url.startsWith("file:")) {
+    // Serverless hosts have no persistent disk: a file DB would silently lose data.
+    throw new Error("Deployed instances need DATABASE_URL set to a libsql:// (Turso) URL");
+  }
   if (cfg.db.url.startsWith("file:")) {
     fs.mkdirSync(path.dirname(cfg.db.url.slice("file:".length)), { recursive: true });
   }

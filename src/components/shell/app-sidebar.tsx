@@ -23,6 +23,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { AccountSwitcher, type AccountOption } from "./account-switcher";
+import { LogoutButton } from "./logout-button";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; soon?: string };
 
@@ -33,7 +34,15 @@ const NAV: NavItem[] = [
   { href: "/insights", label: "Insights", icon: Lightbulb, soon: "P3" },
 ];
 
-export function AppSidebar({ accounts, activeId }: { accounts: AccountOption[]; activeId: string | null }) {
+export function AppSidebar({
+  accounts,
+  activeId,
+  authEnabled = false,
+}: {
+  accounts: AccountOption[];
+  activeId: string | null;
+  authEnabled?: boolean;
+}) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -84,6 +93,11 @@ export function AppSidebar({ accounts, activeId }: { accounts: AccountOption[]; 
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {authEnabled && (
+            <SidebarMenuItem>
+              <LogoutButton />
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

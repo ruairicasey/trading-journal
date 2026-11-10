@@ -22,9 +22,12 @@
     "dev:demo": "tsx scripts/with-demo.ts dev -H 127.0.0.1",
     "sync:backfill": "tsx scripts/sync-backfill.ts",
     "verify:sync": "tsx scripts/verify-sync.ts",
-    "debug:ordering": "tsx scripts/debug-ordering.ts"
+    "debug:ordering": "tsx scripts/debug-ordering.ts",
+    "hash-password": "tsx scripts/hash-password.ts",
+    "gen-secret": "tsx scripts/gen-secret.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1165.0",
     "@libsql/client": "^0.18.0",
     "@next/env": "^16.4.5",
     "class-variance-authority": "^0.7.1",
@@ -33,6 +36,7 @@
     "decimal.js": "^10.6.0",
     "drizzle-orm": "^0.45.4",
     "geist": "^1.9.2",
+    "jose": "^6.2.17",
     "lucide-react": "^1.70.0",
     "nanoid": "^6.0.2",
     "next": "15.5.29",

@@ -6,6 +6,7 @@ import { getConfig } from "@/server/config";
 import { getActiveAccount } from "@/server/db/queries/settings";
 import { getSyncStatus } from "@/server/db/queries/sync";
 import { SyncStatus } from "@/components/sync/sync-status";
+import { readAuthEnv } from "@/server/auth/env";
 
 // Everything under (app) reads the private database per request.
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppSidebar
         accounts={accounts.map((a) => ({ id: a.id, name: a.name, type: a.type }))}
         activeId={active?.id ?? null}
+        authEnabled={readAuthEnv().authEnabled}
       />
       <SidebarInset>
         <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">

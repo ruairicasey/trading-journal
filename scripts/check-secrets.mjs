@@ -48,6 +48,7 @@ const CONTENT_RULES = [
     allowMatch: (m) => /^(0x)?0+[0-9a-f]{0,8}$/i.test(m),
   },
   { name: "bcrypt hash", re: /\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/g },
+  { name: "scrypt password hash", re: /scrypt:\d+:\d+:\d+:[A-Za-z0-9_-]{16,}:[A-Za-z0-9_-]{40,}/g },
   { name: "JWT / bearer token", re: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
   {
     // KEY=value (env files, shell, docs). Any non-placeholder value is a leak.
@@ -144,6 +145,9 @@ function selfTest() {
   a(checkContent("src/x.ts", 'const c = { CRON_SECRET: "abcdefgh12345" }').length === 1, "quoted object literal blocked"); // secret-check:allow (self-test fixture)
   a(checkContent("ci.yml", "  CRON_SECRET: ${{ secrets.CRON_SECRET }}").length === 0, "yaml secret ref allowed");
   a(checkContent("ci.yml", "  CRON_SECRET: abcdefgh12345").length === 1, "yaml literal blocked"); // secret-check:allow (self-test fixture)
+  const fakeScrypt = ["scrypt", 32768, 8, 1, "A".repeat(22), "B".repeat(86)].join(":");
+  a(checkContent("src/x.ts", `const h = "${fakeScrypt}"`).length === 1, "scrypt hash blocked");
+  a(checkContent("src/x.ts", 'if (!hash.startsWith("scrypt:")) fail()').length === 0, "scrypt prefix mention allowed");
   console.log("check-secrets self-test passed");
 }
 

@@ -38,7 +38,9 @@ There's no login locally unless you set `AUTH_PASSWORD_HASH`.
 | `npm run lint` / `npm run typecheck` | Static checks |
 | `npm run check:secrets` | Scan all tracked files for personal data / secrets |
 
-More scripts arrive as the build continues: `backup`, `hash-password`.
+| `npm run hash-password` / `npm run gen-secret` | Create your login hash and random secrets (output stays in your terminal) |
+
+More scripts arrive as the build continues: `backup`.
 
 `npm run dev` listens on `127.0.0.1` only until login is added.
 
@@ -58,6 +60,12 @@ More scripts arrive as the build continues: `backup`, `hash-password`.
 ## Data model in one line
 
 Exchange-derived data (raw fills, reconstructed trades) and your journal data (setup, notes, grades, screenshots) live in separate tables. A re-sync can never overwrite anything you've written. Journal lists (strategies, confluences, checklist, exit reasons, mistakes, emotions) are editable under **Settings → Journal lists**.
+
+## Deploying
+
+See [docs/deploy.md](docs/deploy.md): Vercel + Turso + a private Cloudflare R2 bucket. Every page and API route
+requires your password, the app refuses to start without one (503 on every route), and preview deployments get
+no data access.
 
 ## Contributing
 

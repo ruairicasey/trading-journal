@@ -444,3 +444,11 @@ export const savedFilters = sqliteTable("saved_filters", {
   builtin: integer("builtin", { mode: "boolean" }).notNull().default(false),
   sort: integer("sort").notNull().default(0),
 });
+
+// ─── [X] auth_attempts — login rate limiting (keyed by a keyed hash of the client IP, never the IP) ─
+export const authAttempts = sqliteTable("auth_attempts", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  windowStart: integer("window_start").notNull(),
+  lockedUntil: integer("locked_until"),
+});
