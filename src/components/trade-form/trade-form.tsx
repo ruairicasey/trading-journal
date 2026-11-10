@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { saveTradeBasicAction } from "@/app/(app)/trades/[id]/actions";
+import { AnalysisTab } from "./analysis-tab";
 import { BasicTab } from "./basic-tab";
-import { initialDraft, toPayload, type Draft, type FormProps } from "./types";
+import { NotesTab } from "./notes-tab";
+import { initialDraft, toPayload, type AnalysisDraft, type Draft, type FormProps, type NotesDraft } from "./types";
 
 type Status = { kind: "saved"; at: number | null } | { kind: "dirty" } | { kind: "saving" } | { kind: "error"; message: string };
 
@@ -84,18 +86,30 @@ export function TradeForm(props: FormProps) {
   }, [dirty]);
 
   const update = useCallback((patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch })), []);
+  const updateAnalysis = useCallback((patch: Partial<AnalysisDraft>) => setDraft((d) => ({ ...d, analysis: { ...d.analysis, ...patch } })), []);
+  const updateNotes = useCallback((patch: Partial<NotesDraft>) => setDraft((d) => ({ ...d, notes: { ...d.notes, ...patch } })), []);
+  const [tab, setTab] = useState("basic");
+  const account = props.accounts.find((a) => a.id === draft.accountId);
+  const a = draft.analysis;
+  const n = draft.notes;
+  const hasAnalysis = !!(a.entryTimeframe || a.timeframeClass || a.marketCondition || a.grade || a.confluences.length || a.slReasons.length || a.tpReasons.length);
+  const hasNotes = !!(n.rationale?.trim() || n.postNotes?.trim() || n.tags.length || n.rulesFollowed || n.exitReasonId || props.data.screenshots.length);
   const updateManual = useCallback(
     (patch: Partial<NonNullable<Draft["manual"]>>) => setDraft((d) => (d.manual ? { ...d, manual: { ...d.manual, ...patch } } : d)),
     [],
   );
 
   return (
-    <Tabs defaultValue="basic" className="gap-4">
+    <Tabs value={tab} onValueChange={setTab} className="gap-4">
       <div className="bg-background/95 sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-b px-4 py-2 backdrop-blur md:-mx-6 md:px-6">
         <TabsList>
           <TabsTrigger value="basic">Basic</TabsTrigger>
-          <TabsTrigger value="analysis">Analysis</TabsTrigger>
-          <TabsTrigger value="notes">Notes</TabsTrigger>
+          <TabsTrigger value="analysis">
+            Analysis {hasAnalysis && <span className="bg-primary size-1.5 rounded-full" aria-label="has content" />}
+          </TabsTrigger>
+          <TabsTrigger value="notes">
+            Notes {hasNotes && <span className="bg-primary size-1.5 rounded-full" aria-label="has content" />}
+          </TabsTrigger>
         </TabsList>
         <div className="flex-1" />
         <SaveStatus status={status} dirty={dirty} />
@@ -108,10 +122,10 @@ export function TradeForm(props: FormProps) {
         <BasicTab {...props} draft={draft} update={update} updateManual={updateManual} errors={errors} />
       </TabsContent>
       <TabsContent value="analysis">
-        <ComingSoon what="Context, confluences, SL/TP reasoning and review" />
+        <AnalysisTab data={props.data} value={draft.analysis} onChange={updateAnalysis} standardRiskPct={account?.standardRiskPct ?? null} />
       </TabsContent>
-      <TabsContent value="notes">
-        <ComingSoon what="Rationale, post-trade notes, tags, screenshots and review" />
+      <TabsContent value="notes" forceMount className="data-[state=inactive]:hidden">
+        <NotesTab data={props.data} value={draft.notes} onChange={updateNotes} active={tab === "notes"} />
       </TabsContent>
     </Tabs>
   );
@@ -142,13 +156,5 @@ function SaveStatus({ status, dirty }: { status: Status; dirty: boolean }) {
       <Check className="size-3.5" />{" "}
       {status.at ? `Saved ${new Date(status.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "No changes"}
     </span>
-  );
-}
-
-function ComingSoon({ what }: { what: string }) {
-  return (
-    <div className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-      {what} arrive in step 9.
-    </div>
   );
 }

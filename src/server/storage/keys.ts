@@ -7,7 +7,8 @@ export const CONTENT_TYPES: Record<string, string> = {
   gif: "image/gif",
 };
 
-const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*(\/[A-Za-z0-9][A-Za-z0-9_.-]*)*$/;
+// Segments may start with a letter, digit, "_" or "-" (nanoid ids can), but never "." (no hidden files or "..").
+const KEY_RE = /^[A-Za-z0-9_-][A-Za-z0-9_-]*(\/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*$/;
 
 /** Throws unless the key is a safe relative path with an allowed image extension. */
 export function assertSafeKey(key: string): string {

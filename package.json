@@ -25,7 +25,8 @@
     "debug:ordering": "tsx scripts/debug-ordering.ts",
     "hash-password": "tsx scripts/hash-password.ts",
     "gen-secret": "tsx scripts/gen-secret.ts",
-    "test:e2e": "playwright test --trace off"
+    "test:e2e": "playwright test --trace off",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1165.0",

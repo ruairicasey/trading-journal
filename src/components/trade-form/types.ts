@@ -3,9 +3,14 @@ import type { BasicInput, TradeEditData } from "@/server/trades/journal";
 /** Editable rows allow blanks while typing; they're validated before saving. */
 export type Row<T extends string> = Record<T, number | null>;
 
-export type Draft = Omit<BasicInput, "tpPartials" | "manual"> & {
+export type AnalysisDraft = NonNullable<BasicInput["analysis"]>;
+export type NotesDraft = NonNullable<BasicInput["notes"]>;
+
+export type Draft = Omit<BasicInput, "tpPartials" | "manual" | "analysis" | "notes"> & {
   tpPartials: Row<"price" | "pct">[];
   manual?: Omit<NonNullable<BasicInput["manual"]>, "dca"> & { dca: Row<"price" | "size">[] };
+  analysis: AnalysisDraft;
+  notes: NotesDraft;
 };
 
 export type AccountOpt = { id: string; name: string; startingBalance: number; standardRiskPct: number };
@@ -33,6 +38,31 @@ export function initialDraft(data: TradeEditData): Draft {
     feeOverride: journal?.feeOverride ?? null,
     checklist: data.checklistIds,
     tpPartials: data.tpPartials,
+    analysis: {
+      entryTimeframe: journal?.entryTimeframe ?? null,
+      timeframeClass: journal?.timeframeClass ?? null,
+      marketCondition: journal?.marketCondition ?? null,
+      htfTimeframes: (journal?.htfTimeframes ?? []) as AnalysisDraft["htfTimeframes"],
+      emotionBeforeId: journal?.emotionBeforeId ?? null,
+      grade: journal?.grade ?? null,
+      entryRetests: journal?.entryRetests ?? null,
+      maxRReached: journal?.maxRReached ?? null,
+      riskMultiplier: journal?.riskMultiplier ?? null,
+      confluences: data.selected.confluences,
+      slReasons: data.selected.slReasons,
+      tpReasons: data.selected.tpReasons,
+    },
+    notes: {
+      rationale: journal?.rationale ?? null,
+      postNotes: journal?.postNotes ?? null,
+      reflection: (journal?.reflection ?? {}) as NotesDraft["reflection"],
+      tags: data.tags,
+      rulesFollowed: journal?.rulesFollowed ?? null,
+      exitReasonId: journal?.exitReasonId ?? null,
+      emotionAfterId: journal?.emotionAfterId ?? null,
+      processCompliant: journal?.processCompliant ?? null,
+      mistakes: data.selected.mistakes,
+    },
     manual: manual
       ? {
           coin: trade.coin,

@@ -55,3 +55,26 @@ describe("sessionFor", () => {
     expect(sessionFor(Date.UTC(2026, 0, 5, 3), s)).toBeNull();
   });
 });
+
+describe("demo chart PNG encoder", () => {
+  test("produces a valid PNG (signature, IHDR size, chunk CRCs) that the screenshot sniffer accepts", async () => {
+    const { demoChartPng, crc32 } = await import("@/server/demo/chart-png");
+    const { createRng } = await import("@/server/demo/rng");
+    const { sniffImage } = await import("@/server/screenshots");
+    const png = demoChartPng(createRng(1), { entry: 100, stop: 95, target: 110, direction: "long", width: 320, height: 180 });
+    expect(sniffImage(png)?.mime).toBe("image/png");
+    const dv = new DataView(png.buffer, png.byteOffset);
+    expect(dv.getUint32(16)).toBe(320);
+    expect(dv.getUint32(20)).toBe(180);
+    let o = 8;
+    const types: string[] = [];
+    while (o < png.length) {
+      const len = dv.getUint32(o);
+      const type = new TextDecoder().decode(png.subarray(o + 4, o + 8));
+      expect(dv.getUint32(o + 8 + len)).toBe(crc32(png.subarray(o + 4, o + 8 + len)));
+      types.push(type);
+      o += 12 + len;
+    }
+    expect(types).toEqual(["IHDR", "IDAT", "IEND"]);
+  });
+});

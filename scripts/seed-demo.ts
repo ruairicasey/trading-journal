@@ -14,6 +14,8 @@ async function main() {
 
   fs.mkdirSync(DEMO_DATA_DIR, { recursive: true });
   for (const f of fs.readdirSync(DEMO_DATA_DIR)) if (f.startsWith("journal.db")) fs.rmSync(`${DEMO_DATA_DIR}/${f}`);
+  // demo screenshots live in data/demo/uploads (never the real uploads folder)
+  if (cfg.uploadsDir.startsWith(DEMO_DATA_DIR)) fs.rmSync(cfg.uploadsDir, { recursive: true, force: true });
 
   const { getDb } = await import("../src/server/db/client");
   const { runMigrations, seedDefaults } = await import("../src/server/db/bootstrap");
@@ -49,8 +51,25 @@ async function main() {
     sessions: DEFAULT_SESSIONS,
   });
 
+  // synthetic chart screenshots for ~30% of journaled trades
+  const { demoChartPng } = await import("../src/server/demo/chart-png");
+  const { addScreenshot } = await import("../src/server/screenshots");
+  const { LocalStorage } = await import("../src/server/storage/local");
+  const storage = new LocalStorage(cfg.uploadsDir);
+  const shotRng = createRng(DEMO_SEED + 2);
+  const journaled = new Set((await db.select({ id: s.tradeJournal.tradeId }).from(s.tradeJournal)).map((r) => r.id));
+  const byKey = new Map((await db.select().from(s.trades)).map((t) => [t.externalKey, t]));
+  let shots = 0;
+  for (const plan of history.plans) {
+    const t = byKey.get(`${wallet.id}:${plan.coin}:${plan.firstTid}${plan.keySuffix}`);
+    if (!t || !journaled.has(t.id) || !shotRng.chance(0.3)) continue;
+    const png = demoChartPng(shotRng, { entry: plan.entryPx, stop: plan.stopLoss, target: plan.takeProfit, direction: plan.direction });
+    await addScreenshot(db, storage, { accountId: account.id, tradeId: t.id, bytes: png, width: 960, height: 540, caption: "Entry (demo chart)" });
+    shots++;
+  }
+
   console.log(
-    `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank)`,
+    `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank), ${shots} screenshots`,
   );
 }
 

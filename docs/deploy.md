@@ -118,6 +118,20 @@ Then open `https://<app>`, sign in, go to **Settings → Wallets & sync**, add y
 - The workflow never prints the URL, the secret or the response (Actions logs on a public repo are public).
 - GitHub disables scheduled workflows after 60 days without repo activity. The app shows a **Stale** warning when no sync has succeeded for 3 hours (hourly runs plus GitHub's occasional delays); if the workflow was disabled, re-enable it under Actions.
 
+## Backups
+
+From your Mac, put the deployed values in `.env.production.local` (gitignored, never committed):
+`DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET`.
+A read-only R2 token is enough for backups. Then run:
+
+```bash
+npm run backup -- --remote
+```
+
+This writes `trading-journal-remote-<timestamp>.tar.gz` (owner-only permissions) to `BACKUP_DIR`, which defaults to
+`~/trading-journal-backups` and is never inside the repo. The archive holds `journal.db` (a normal SQLite file) and
+`uploads/screenshots/…`. `npm run backup` without `--remote` does the same for your local data.
+
 ## If a secret leaks
 
 Regenerate it (`npm run gen-secret`, `npm run hash-password`, `turso db tokens create …`, or a new R2 token), update it in Vercel (and GitHub for `CRON_SECRET`), and redeploy. Changing `AUTH_SECRET` signs out every existing session.

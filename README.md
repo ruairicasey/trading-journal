@@ -40,7 +40,8 @@ There's no login locally unless you set `AUTH_PASSWORD_HASH`.
 
 | `npm run hash-password` / `npm run gen-secret` | Create your login hash and random secrets (output stays in your terminal) |
 
-More scripts arrive as the build continues: `backup`.
+| `npm run backup` | Snapshot your local database and screenshots into a `.tar.gz` outside the repo (`BACKUP_DIR`, default `~/trading-journal-backups`) |
+| `npm run backup -- --remote` | Back up the deployed instance: a full copy of the Turso database plus every screenshot in the R2 bucket |
 
 `npm run dev` listens on `127.0.0.1` only until login is added.
 
