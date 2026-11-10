@@ -99,12 +99,12 @@ test.describe("Trades page (demo data)", () => {
     await expect(page.getByTestId("notes-list")).toContainText("Cut reactive Asia entries");
   });
 
-  test("trade page shows exchange fields read-only with fills", async ({ page }) => {
+  test("edit page opens from the row menu and lists the exchange fills", async ({ page }) => {
     await page.goto("/trades?tab=closed");
     await page.getByTestId("trade-row").first().getByRole("button", { name: "Trade actions" }).click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
     await expect(page).toHaveURL(/\/trades\/[\w-]+$/);
-    await expect(page.getByText("Synced from Hyperliquid")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Fills \(\d+\)/ })).toBeVisible();
+    await expect(page.getByText("Synced from Hyperliquid", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Exchange fills \(\d+\)/ })).toBeVisible();
   });
 });

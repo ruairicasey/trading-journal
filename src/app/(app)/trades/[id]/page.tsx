@@ -1,35 +1,35 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { TradeForm } from "@/components/trade-form/trade-form";
 import { cn } from "@/lib/utils";
-import { fmtDateTime, fmtDuration, fmtPct, fmtPrice, fmtR, fmtSignedUsd, fmtSize, fmtUsd, pnlClass } from "@/lib/format";
-import { rMultiple } from "@/lib/outcome";
+import { fmtDateTime, fmtPct, fmtPrice, fmtSignedUsd, fmtSize, fmtUsd, pnlClass } from "@/lib/format";
+import type { SessionDef } from "@/lib/sessions";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { getActiveAccount, getSetting } from "@/server/db/queries/settings";
 import * as s from "@/server/db/schema";
+import { DEFAULT_SESSIONS } from "@/server/db/seed-data";
+import { loadTradeForEdit } from "@/server/trades/journal";
 
 export default async function TradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { active } = await getActiveAccount();
+  const { active, accounts } = await getActiveAccount();
+  if (!active) notFound();
   const db = getDb();
-  const trade = active
-    ? await db.query.trades.findFirst({
-        where: and(eq(s.trades.id, id), eq(s.trades.accountId, active.id), isNull(s.trades.deletedAt)),
-      })
-    : undefined;
-  if (!trade) notFound();
-  const [journal, legs, tz] = await Promise.all([
-    db.query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, id) }),
-    db.select().from(s.tradeFills).where(eq(s.tradeFills.tradeId, id)).orderBy(asc(s.tradeFills.time)),
+  const data = await loadTradeForEdit(db, active.id, id);
+  if (!data) notFound();
+  const { trade } = data;
+  const [tz, sessions, legs] = await Promise.all([
     getSetting("timezone", getConfig().timezone),
+    getSetting<SessionDef[]>("sessions", DEFAULT_SESSIONS),
+    db.select().from(s.tradeFills).where(eq(s.tradeFills.tradeId, id)).orderBy(asc(s.tradeFills.time)),
   ]);
-  const r = rMultiple({ ...trade, stopLoss: journal?.stopLoss ?? null });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4">
       <Link href="/trades" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs">
         <ArrowLeft className="size-3.5" /> Trades
       </Link>
@@ -42,34 +42,24 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
           {trade.status}
         </Badge>
         <Badge variant="outline">{trade.source === "hyperliquid" ? "Synced from Hyperliquid" : "Manual"}</Badge>
-      </div>
-
-      <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-        The full Edit Trade form (setup, analysis, notes, screenshots) arrives in step 8. Exchange fields below are read-only.
-      </div>
-
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border p-4 text-sm sm:grid-cols-4">
-        <Item label="Entry">{fmtDateTime(trade.entryTime, tz)}</Item>
-        <Item label="Exit">{trade.status === "open" ? "Open" : fmtDateTime(trade.exitTime, tz)}</Item>
-        <Item label="Duration">{fmtDuration(trade.durationMs)}</Item>
-        <Item label="Size">{fmtSize(trade.sizeUnits)}</Item>
-        <Item label="Avg entry">{fmtPrice(trade.avgEntry ?? journal?.manualEntry)}</Item>
-        <Item label="Avg exit">{fmtPrice(trade.avgExit)}</Item>
-        <Item label="Gross P&L">{fmtSignedUsd(trade.grossPnl)}</Item>
-        <Item label="Fees">{fmtUsd(trade.fees)}</Item>
-        <Item label="Net P&L">
-          <span className={pnlClass(trade.netPnl)}>
-            {fmtSignedUsd(trade.netPnl)} ({fmtPct(trade.returnPct)})
+        <div className="flex-1" />
+        {trade.status !== "planned" && (
+          <span className={cn("text-sm font-medium tabular-nums", pnlClass(trade.netPnl))}>
+            {fmtSignedUsd(trade.netPnl)} <span className="text-xs">({fmtPct(trade.returnPct)})</span>
           </span>
-        </Item>
-        <Item label="Stop loss">{fmtPrice(journal?.stopLoss)}</Item>
-        <Item label="R multiple">{fmtR(r)}</Item>
-        <Item label="Leverage">{trade.leverage ? `${trade.leverage}×` : "—"}</Item>
-      </dl>
+        )}
+      </div>
+
+      <TradeForm
+        data={data}
+        tz={tz}
+        sessions={sessions}
+        accounts={accounts.map((a) => ({ id: a.id, name: a.name, startingBalance: a.startingBalance, standardRiskPct: a.standardRiskPct }))}
+      />
 
       {legs.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-medium">Fills ({legs.length})</h2>
+          <h2 className="text-sm font-medium">Exchange fills ({legs.length})</h2>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-xs">
               <thead className="bg-muted/40 text-muted-foreground text-left">
@@ -97,15 +87,6 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
           </div>
         </section>
       )}
-    </div>
-  );
-}
-
-function Item({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="tabular-nums">{children}</dd>
     </div>
   );
 }
