@@ -49,6 +49,9 @@ More scripts arrive as the build continues: `backup`.
 1. Put your wallet address in `.env.local` (`HL_WALLET_ADDRESS=0x…`) or add it under **Settings → Wallets & sync**.
 2. Run `npm run sync:backfill` once for the full history, then use **Sync now** or leave auto-sync on while the app is open.
 3. Re-syncing any range is safe: fills are keyed by trade id, so nothing is duplicated, and your journal fields are never touched.
+4. A deployed instance also syncs on a schedule: hourly via GitHub Actions, plus a daily Vercel Cron backstop. The header shows
+   a **Stale** warning if no sync has succeeded for 3 hours. GitHub disables scheduled workflows after 60 days without repository
+   activity, so if the warning persists, re-enable "Scheduled sync" under Actions.
 
 > **History limit:** Hyperliquid's API only serves your **10,000 most recent fills**. Sync regularly and back up
 > your data folder; fills already stored are never deleted. Details are in [docs/hyperliquid.md](docs/hyperliquid.md).

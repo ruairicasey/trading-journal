@@ -110,13 +110,13 @@ Then open `https://<app>`, sign in, go to **Settings → Wallets & sync**, add y
 ## 6. Scheduled sync
 
 - **Vercel Cron** (in `vercel.json`) calls `/api/sync/cron` once a day as a backstop. Vercel sends `CRON_SECRET` automatically.
-- **GitHub Actions** (`.github/workflows/sync-cron.yml`) calls it about every 10 minutes. In GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**, add:
+- **GitHub Actions** (`.github/workflows/sync-cron.yml`) calls it hourly (at minute :17). In GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**, add:
   - `SYNC_URL` = `https://<app>/api/sync/cron`
   - `CRON_SECRET` = the same value as in Vercel
   
   Then **Actions → Scheduled sync → Run workflow** once and check it goes green.
 - The workflow never prints the URL, the secret or the response (Actions logs on a public repo are public).
-- GitHub disables scheduled workflows after 60 days without repo activity. If that happens the app shows a **Stale** warning; re-enable the workflow under Actions.
+- GitHub disables scheduled workflows after 60 days without repo activity. The app shows a **Stale** warning when no sync has succeeded for 3 hours (hourly runs plus GitHub's occasional delays); if the workflow was disabled, re-enable it under Actions.
 
 ## If a secret leaks
 

@@ -2,7 +2,8 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "../client";
 import * as s from "../schema";
 
-export const STALE_AFTER_MS = 60 * 60_000;
+/** Scheduled sync runs hourly and GitHub can delay runs, so warn only after 3 hours without a success. */
+export const STALE_AFTER_MS = 3 * 60 * 60_000;
 
 export type SyncStatus = Awaited<ReturnType<typeof getSyncStatus>>;
 

@@ -1,5 +1,5 @@
 /**
- * Scheduled sync. Called by Vercel Cron (GET, daily backstop) and the GitHub Actions workflow (POST, ~10 min).
+ * Scheduled sync. Called by Vercel Cron (GET, daily backstop) and the GitHub Actions workflow (POST, hourly).
  * Not session-protected; requires `Authorization: Bearer <CRON_SECRET>` (constant-time compare).
  * Returns only a tiny status (no addresses, no counts beyond `done`).
  */
