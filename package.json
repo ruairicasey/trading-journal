@@ -21,7 +21,8 @@
     "seed:demo": "tsx scripts/seed-demo.ts",
     "dev:demo": "tsx scripts/with-demo.ts dev -H 127.0.0.1",
     "sync:backfill": "tsx scripts/sync-backfill.ts",
-    "verify:sync": "tsx scripts/verify-sync.ts"
+    "verify:sync": "tsx scripts/verify-sync.ts",
+    "debug:ordering": "tsx scripts/debug-ordering.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

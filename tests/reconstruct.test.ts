@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { displayPair, parseCoin } from "@/server/hyperliquid/markets";
-import { reconstructAll, reconstructCoin } from "@/server/reconstruct/reconstruct";
+import { orderByTimeTid, orderFills, reconstructAll, reconstructCoin } from "@/server/reconstruct/reconstruct";
 import type { FillInput } from "@/server/reconstruct/types";
-import { MIN, T0, feeSum, resetTids, sim } from "./fixtures/fills";
+import { DEMO_WALLET, MIN, T0, feeSum, resetTids, sim } from "./fixtures/fills";
 
 const W = "wallet-1";
-const one = (coin: string, fills: FillInput[]) => reconstructCoin(W, coin, fills);
+const one = (coin: string, fills: FillInput[]) => reconstructCoin(W, coin, fills, { ownAddress: DEMO_WALLET });
+
+/** Put fills on one timestamp and assign tids in the given order (tid order ≠ position order, like HL). */
+function sameMs(fills: FillInput[], time: number, tids: number[]) {
+  fills.forEach((f, i) => {
+    f.time = time;
+    f.tid = tids[i];
+  });
+  return fills;
+}
 
 beforeEach(() => resetTids());
 
@@ -215,12 +224,21 @@ describe("precision and special fills", () => {
     expect(trades[1].flags).toEqual({});
   });
 
-  test("16. liquidation close is an exit and is flagged", () => {
+  test("16. liquidation close is an exit and is flagged when WE were liquidated", () => {
     const s = sim("SOL").buy(50, 100, 0).sell(50, 80, 90, { liquidation: true });
     const [t] = one("SOL", s.fills);
     expect(t.status).toBe("closed");
     expect(t.flags.liquidated).toBe(true);
     expect(t.metrics.grossPnl).toBe(-1000);
+  });
+
+  test("being the counterparty of someone else's liquidation is not flagged as liquidated", () => {
+    const s = sim("ETH").buy(2, 3000, 0).sell(2, 3050, 30, { liquidation: true });
+    // the liquidation object names another account (realistic: our resting order filled their liquidation)
+    s.fills[1].liquidation = { liquidatedUser: "0x00000000000000000000000000000000000000ff", markPx: "3050", method: "market" };
+    const [t] = one("ETH", s.fills);
+    expect(t.flags.liquidated).toBeUndefined();
+    expect(t.flags.liquidationCounterparty).toBe(true);
   });
 
   test("non-USD fee token is flagged; USD stablecoins used by HIP-3 dexes are not", () => {
@@ -230,6 +248,63 @@ describe("precision and special fills", () => {
       const h = sim("vntl:X").buy(1, 100, 0, { feeToken: token }).sell(1, 101, 5, { feeToken: token });
       expect(one("vntl:X", h.fills)[0].flags.nonUsdcFee).toBeUndefined();
     }
+  });
+});
+
+describe("same-millisecond multi-fill orders (regression: trades split by tid ordering)", () => {
+  test("one taker order filling 3 makers in the same ms, with tids not in position order", () => {
+    // Open long 1.0 in one order hitting 3 makers; close 1.0 later hitting 2 makers. Exactly like a real
+    // HL order, all fills of an order share a timestamp; tids here run against the position chain.
+    const s = sim("BTC").buy("0.2", 60000).buy("0.5", 60005).buy("0.3", 60010).sell("0.6", 60500).sell("0.4", 60490);
+    sameMs(s.fills.slice(0, 3), T0, [503, 501, 502]);
+    sameMs(s.fills.slice(3), T0 + 45 * MIN, [702, 701]);
+
+    // Proof the old ordering was wrong for this input: (time, tid) breaks the startPosition chain.
+    const naive = orderByTimeTid(s.fills).map((f) => f.startPosition);
+    expect(naive.slice(0, 3)).toEqual(["0.2", "0.7", "0"]); // tid order: 501, 502, 503
+    expect(orderFills(s.fills).map((f) => f.startPosition)).toEqual(["0", "0.2", "0.7", "1", "0.4"]);
+
+    const trades = one("BTC", s.fills);
+    expect(trades).toHaveLength(1);
+    const [t] = trades;
+    expect(t.flags).toEqual({});
+    expect(t.status).toBe("closed");
+    expect(t.metrics.sizeUnits).toBe(1);
+    expect(t.metrics.avgEntry).toBeCloseTo(0.2 * 60000 + 0.5 * 60005 + 0.3 * 60010, 6);
+    expect(t.metrics.entryTime).toBe(T0);
+    expect(t.metrics.exitTime).toBe(T0 + 45 * MIN);
+    expect(t.externalKey).toBe(`${W}:BTC:503`); // key = first fill in position order
+  });
+
+  test("a flip spread over several same-ms fills with shuffled tids", () => {
+    // long 1 → one sell order of 3 filled by 3 makers: 1.2 (closes 1, opens 0.2 short), 0.8, 1.0
+    const s = sim("ETH").buy(1, 3000, 0).sell("1.2", 3100).sell("0.8", 3099).sell("1.0", 3098).buy(2, 3050);
+    sameMs(s.fills.slice(1, 4), T0 + 10 * MIN, [902, 903, 901]);
+    s.fills[4].time = T0 + 20 * MIN;
+    const trades = one("ETH", s.fills);
+    expect(trades.map((t) => [t.direction, t.status, t.metrics.sizeUnits])).toEqual([
+      ["long", "closed", 1],
+      ["short", "closed", 2],
+    ]);
+    expect(trades.every((t) => !t.flags.gap && !t.flags.partialHistory)).toBe(true);
+  });
+
+  test("same-ms group at the very start of history finds its chain head", () => {
+    const s = sim("SOL").buy(5, 100).buy(5, 100.1).sell(10, 101, 30);
+    sameMs(s.fills.slice(0, 2), T0, [11, 10]); // second fill has the lower tid
+    const trades = one("SOL", s.fills);
+    expect(trades).toHaveLength(1);
+    expect(trades[0].flags).toEqual({});
+  });
+
+  test("float dust in HL startPosition strings is not treated as a gap", () => {
+    const s = sim("kPEPE").buy(2059303.1, "0.012", 0).buy(100, "0.0121", 5).sell("2059403.1", "0.0125", 10);
+    s.fills[1].startPosition = "2059303.0999999999"; // HL-style dust
+    s.fills[2].startPosition = "2059403.1000000001";
+    const trades = one("kPEPE", s.fills);
+    expect(trades).toHaveLength(1);
+    expect(trades[0].flags).toEqual({});
+    expect(trades[0].status).toBe("closed");
   });
 });
 

@@ -11,15 +11,28 @@
  *                                 (all closedPnl to the close; fee split pro rata by size)
  * If the first fill we have starts mid-position, the trade is flagged `partialHistory`.
  * If a fill's startPosition disagrees with the tracked position, fills are missing → `gap`.
+ *
+ * ORDERING: one order often produces several fills in the same millisecond, and Hyperliquid's tids
+ * inside such a group do NOT follow the position sequence (verified on live fills 2026-11: about half
+ * the multi-fill groups run in descending tid order). Sorting by (time, tid) therefore produces false
+ * position jumps that split trades. Within a same-millisecond group we instead chain fills by
+ * startPosition: each next fill is the one whose startPosition equals the previous fill's end position.
+ *
+ * TOLERANCE: HL's startPosition strings carry float dust (e.g. "2059303.0999999999" following a fill
+ * that ends at "2059303.1000000001"), so positions are compared with a small tolerance, not exactly.
  */
 import Decimal from "decimal.js";
 import { displayPair, parseCoin } from "../hyperliquid/markets";
 import { computeMetrics } from "./metrics";
 import type { FillInput, Leg, ReconFlags, ReconstructedTrade } from "./types";
 
-// HL sizes have ≤ 8 decimals; Decimal arithmetic on the string inputs is exact, this only absorbs dust.
-const EPS = new Decimal("1e-12");
-const isZero = (d: Decimal) => d.abs().lte(EPS);
+// HL sizes have ≤ 8 decimals, but startPosition strings carry float dust. Two positions are "the same"
+// if they differ by ≤ 1e-8 units or ≤ 1e-12 relative (whichever is larger).
+const ABS_EPS = new Decimal("1e-8");
+const REL_EPS = new Decimal("1e-12");
+const isZero = (d: Decimal) => d.abs().lte(ABS_EPS);
+export const samePosition = (a: Decimal, b: Decimal) =>
+  a.minus(b).abs().lte(Decimal.max(ABS_EPS, Decimal.max(a.abs(), b.abs()).times(REL_EPS)));
 /**
  * Fee tokens treated as $1. Some HIP-3 dexes settle in other USD stablecoins (seen live 2026-11:
  * USDH on vntl/km/flx, USDT0 on cash, USDE on hyna). Anything else (e.g. HYPE) is flagged `nonUsdcFee`.
@@ -36,15 +49,64 @@ type Building = {
   closed: boolean;
 };
 
-/** Sort by (time, tid) and drop duplicate tids — makes reconstruction order- and duplicate-insensitive. */
+const startOf = (f: FillInput) => new Decimal(f.startPosition);
+const endOf = (f: FillInput) => startOf(f).plus(f.side === "B" ? f.sz : new Decimal(f.sz).neg());
+
+/** Naive order: by (time, tid). Kept for diagnostics (scripts/debug-ordering.ts). */
+export function orderByTimeTid(fills: FillInput[]): FillInput[] {
+  return [...fills].sort((a, b) => a.time - b.time || a.tid - b.tid);
+}
+
+/**
+ * Order one coin's fills: by time, and within a same-millisecond group by chaining startPosition
+ * (next fill starts where the previous one ended). Ties and unchainable fills fall back to tid.
+ */
+export function orderFills(fills: FillInput[]): FillInput[] {
+  const sorted = orderByTimeTid(fills);
+  const out: FillInput[] = [];
+  let pos: Decimal | null = null;
+  for (let i = 0; i < sorted.length; ) {
+    let j = i + 1;
+    while (j < sorted.length && sorted[j].time === sorted[i].time) j++;
+    const group = sorted.slice(i, j);
+    if (group.length === 1) {
+      out.push(group[0]);
+      pos = endOf(group[0]);
+    } else {
+      const rem = [...group];
+      while (rem.length) {
+        let k: number = pos ? rem.findIndex((f) => samePosition(startOf(f), pos!)) : -1;
+        if (k < 0) {
+          // chain head: a fill whose start isn't the end of any other remaining fill
+          const ends = rem.map(endOf);
+          k = rem.findIndex((f) => !ends.some((e) => samePosition(e, startOf(f))));
+          if (k < 0) k = 0;
+        }
+        const [f] = rem.splice(k, 1);
+        out.push(f);
+        pos = endOf(f);
+      }
+    }
+    i = j;
+  }
+  return out;
+}
+
+/** Drop duplicate tids, then order — makes reconstruction order- and duplicate-insensitive. */
 export function normalizeFills(fills: FillInput[]): FillInput[] {
   const byTid = new Map<number, FillInput>();
   for (const f of fills) if (!byTid.has(f.tid)) byTid.set(f.tid, f);
-  return [...byTid.values()].sort((a, b) => a.time - b.time || a.tid - b.tid);
+  return orderFills([...byTid.values()]);
 }
 
 /** Reconstruct trades for ONE coin of ONE wallet. */
-export function reconstructCoin(walletId: string, coin: string, input: FillInput[]): ReconstructedTrade[] {
+export function reconstructCoin(
+  walletId: string,
+  coin: string,
+  input: FillInput[],
+  opts: { ownAddress?: string } = {},
+): ReconstructedTrade[] {
+  const own = opts.ownAddress?.toLowerCase();
   const fills = normalizeFills(input.filter((f) => f.coin === coin));
   const out: Building[] = [];
   let cur: Building | null = null;
@@ -76,7 +138,14 @@ export function reconstructCoin(walletId: string, coin: string, input: FillInput
       closedPnl: pnl.toNumber(),
     });
     if (f.feeToken && !USD_FEE_TOKENS.has(f.feeToken.trim().toUpperCase())) b.flags.nonUsdcFee = true;
-    if (f.liquidation) b.flags.liquidated = true;
+    if (f.liquidation) {
+      // A `liquidation` object is attached to every fill that took part in a liquidation, including the
+      // counterparty's (verified live: a liquidator's fills carry it with someone else as liquidatedUser).
+      // Only liquidatedUser === this wallet means *we* were liquidated.
+      const who = (f.liquidation as { liquidatedUser?: string | null }).liquidatedUser?.toLowerCase();
+      if (own && who === own) b.flags.liquidated = true;
+      else b.flags.liquidationCounterparty = true;
+    }
   };
   const touch = (b: Building, ...positions: Decimal[]) => {
     for (const p of positions) if (p.abs().gt(b.maxSize)) b.maxSize = p.abs();
@@ -93,7 +162,7 @@ export function reconstructCoin(walletId: string, coin: string, input: FillInput
     // ── history / gap detection ──
     if (tracked === null) {
       if (!isZero(s0)) cur = open(f, sgn(s0), "", { partialHistory: true });
-    } else if (!s0.minus(tracked).abs().lte(EPS)) {
+    } else if (!samePosition(s0, tracked)) {
       if (cur) cur.flags.gap = true;
       if (cur && (isZero(s0) || sgn(s0) !== sgn(tracked))) {
         close(cur);
@@ -156,12 +225,12 @@ export function reconstructCoin(walletId: string, coin: string, input: FillInput
 export function reconstructAll(
   walletId: string,
   fills: FillInput[],
-  opts: { includeSpot?: boolean } = {},
+  opts: { includeSpot?: boolean; ownAddress?: string } = {},
 ): ReconstructedTrade[] {
   const coins = [...new Set(fills.map((f) => f.coin))].filter(
     (c) => opts.includeSpot || parseCoin(c).marketType !== "spot",
   );
   return coins
-    .flatMap((c) => reconstructCoin(walletId, c, fills))
+    .flatMap((c) => reconstructCoin(walletId, c, fills, { ownAddress: opts.ownAddress }))
     .sort((a, b) => a.metrics.entryTime - b.metrics.entryTime || a.externalKey.localeCompare(b.externalKey));
 }

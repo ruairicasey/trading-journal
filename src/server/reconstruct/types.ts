@@ -38,7 +38,10 @@ export type ReconFlags = {
   partialHistory?: boolean;
   gap?: boolean;
   nonUsdcFee?: boolean;
+  /** We were liquidated (liquidatedUser === this wallet). */
   liquidated?: boolean;
+  /** One of our fills was the other side of someone else's liquidation. Informational only. */
+  liquidationCounterparty?: boolean;
   entryImplied?: boolean;
 };
 

@@ -95,7 +95,11 @@ export async function rebuildTrades(
     ? and(eq(s.fills.walletId, walletId), inArray(s.fills.coin, opts.coins))
     : eq(s.fills.walletId, walletId);
   const rows = await db.select().from(s.fills).where(where);
-  const recon = reconstructAll(walletId, rows.map(rowToFill), { includeSpot: opts.includeSpot });
+  const wallet = await db.query.wallets.findFirst({ where: eq(s.wallets.id, walletId) });
+  const recon = reconstructAll(walletId, rows.map(rowToFill), {
+    includeSpot: opts.includeSpot,
+    ownAddress: wallet?.address,
+  });
   const now = Date.now();
 
   return db.transaction(async (tx) => {

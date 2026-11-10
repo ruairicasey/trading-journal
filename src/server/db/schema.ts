@@ -175,6 +175,7 @@ export const fills = sqliteTable(
 );
 
 // ─── [X] funding_events (raw; attributed to trades in Phase 2) ──────────────────────
+// `hash` is kept for reference only; it is the all-zero hash in practice.
 export const fundingEvents = sqliteTable(
   "funding_events",
   {
@@ -189,10 +190,9 @@ export const fundingEvents = sqliteTable(
     fundingRate: text("funding_rate").notNull(),
     tradeId: text("trade_id"),
   },
-  (t) => [
-    primaryKey({ columns: [t.walletId, t.hash, t.coin] }),
-    index("funding_wallet_coin_time_idx").on(t.walletId, t.coin, t.time),
-  ],
+  // Keyed by (wallet, coin, time): Hyperliquid returns the all-zero hash on every funding row (verified
+  // live 2026-11), so the hash cannot identify a payment. Funding is paid at most once per coin per time.
+  (t) => [primaryKey({ columns: [t.walletId, t.coin, t.time] })],
 );
 
 // ─── trades ([X] for source=hyperliquid; [U] for source=manual) ─────────────────────
@@ -202,6 +202,8 @@ export type TradeFlags = {
   superseded?: boolean;
   nonUsdcFee?: boolean;
   liquidated?: boolean;
+  liquidationCounterparty?: boolean;
+  entryImplied?: boolean;
 };
 
 export const trades = sqliteTable(

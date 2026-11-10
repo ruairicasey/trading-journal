@@ -49,9 +49,18 @@ async function main() {
       .from(s.fills)
       .where(and(eq(s.fills.walletId, w.id), sql`${s.fills.builderFee} is not null`));
     const nonUsdc = await db
-      .select({ n: sql<number>`count(*)` })
+      .select({ t: s.fills.marketType, token: s.fills.feeToken, n: sql<number>`count(*)` })
       .from(s.fills)
-      .where(and(eq(s.fills.walletId, w.id), sql`${s.fills.feeToken} not in ('USDC', 'USDH', 'USDT0', 'USDT', 'USDE')`));
+      .where(and(eq(s.fills.walletId, w.id), sql`${s.fills.feeToken} not in ('USDC', 'USDH', 'USDT0', 'USDT', 'USDE')`))
+      .groupBy(s.fills.marketType, s.fills.feeToken);
+    // Fills that took part in a liquidation: ours (we were liquidated) vs counterparty (someone else was).
+    const liqFills = await db
+      .select({ liquidation: s.fills.liquidation, marketType: s.fills.marketType })
+      .from(s.fills)
+      .where(and(eq(s.fills.walletId, w.id), sql`${s.fills.liquidation} is not null`));
+    const ownLiq = liqFills.filter(
+      (f) => ((f.liquidation as { liquidatedUser?: string } | null)?.liquidatedUser ?? "").toLowerCase() === w.address,
+    ).length;
     const tr = await db
       .select({ status: s.trades.status, n: sql<number>`count(*)`, net: sql<number>`sum(${s.trades.netPnl})` })
       .from(s.trades)
@@ -69,6 +78,8 @@ async function main() {
         partial: sql<number>`sum(coalesce(json_extract(${s.trades.flags}, '$.partialHistory'), 0))`,
         superseded: sql<number>`sum(coalesce(json_extract(${s.trades.flags}, '$.superseded'), 0))`,
         liq: sql<number>`sum(coalesce(json_extract(${s.trades.flags}, '$.liquidated'), 0))`,
+        liqCp: sql<number>`sum(coalesce(json_extract(${s.trades.flags}, '$.liquidationCounterparty'), 0))`,
+        nonUsd: sql<number>`sum(coalesce(json_extract(${s.trades.flags}, '$.nonUsdcFee'), 0))`,
       })
       .from(s.trades)
       .where(eq(s.trades.walletId, w.id));
@@ -81,9 +92,18 @@ async function main() {
     console.log(`  history truncated: ${w.historyTruncated ? "POSSIBLY (≥10,000 fills; HL serves only the most recent 10,000)" : "no"}`);
     for (const t of tr) console.log(`  trades ${pad(t.status, 7)}    ${t.n}  (net P&L sum ${usd(t.net)})`);
     console.log(
-      `  flags:             gap ${flags[0].gap ?? 0}, partial history ${flags[0].partial ?? 0}, superseded ${flags[0].superseded ?? 0}, liquidated ${flags[0].liq ?? 0}`,
+      `  trade flags:       gap ${flags[0].gap ?? 0}, partial history ${flags[0].partial ?? 0}, superseded ${flags[0].superseded ?? 0}, ` +
+        `liquidated ${flags[0].liq ?? 0}, liquidation counterparty ${flags[0].liqCp ?? 0}, non-USD fee ${flags[0].nonUsd ?? 0}`,
     );
-    console.log(`  builder-fee fills: ${builder[0].n};  non-USD fee fills: ${nonUsdc[0].n};  funding rows: ${fund.n}\n`);
+    console.log(`  builder-fee fills: ${builder[0].n};  funding rows: ${fund.n}`);
+    console.log(
+      `  non-USD fee fills: ${nonUsdc.reduce((a, r) => a + Number(r.n), 0)}` +
+        (nonUsdc.length ? `  (${nonUsdc.map((r) => `${r.t} fee in ${r.token}: ${r.n}`).join(", ")})` : ""),
+    );
+    console.log(
+      `  liquidation fills: ${liqFills.length}  (we were liquidated: ${ownLiq}, counterparty to someone else's: ${liqFills.length - ownLiq}; ` +
+        `spot ${liqFills.filter((f) => f.marketType === "spot").length})\n`,
+    );
   }
 
   const closed = await db

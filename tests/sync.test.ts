@@ -238,6 +238,18 @@ describe("funding sync", () => {
       delta: { type: "funding", coin: i % 2 ? "BTC" : "xyz:SPX", usdc: " -0.42", szi: "1.0", fundingRate: "0.0000125", nSamples: null },
     }));
 
+  test("real-world shape: every row has the all-zero hash; all rows are kept (keyed by coin + time)", async () => {
+    const zeroHash = "0x" + "0".repeat(64);
+    const rows = fundingRows(675).map((r) => ({ ...r, hash: zeroHash }));
+    const { client } = fakeHl({ funding: rows });
+    const r = await syncWallet(db(), client, wallet, { trigger: "manual" });
+    expect(r.fundingNew).toBe(675);
+    expect(await count(s.fundingEvents)).toBe(675);
+    const again = await syncWallet(db(), client, await freshWallet(), { trigger: "manual" });
+    expect(again.fundingNew).toBe(0);
+    expect(await count(s.fundingEvents)).toBe(675);
+  });
+
   test("paginates by 500, trims values, and is idempotent", async () => {
     const { st, client } = fakeHl({ funding: fundingRows(1200) });
     const r = await syncWallet(db(), client, wallet, { trigger: "manual" });

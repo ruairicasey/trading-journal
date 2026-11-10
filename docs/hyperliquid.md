@@ -31,6 +31,17 @@ key is ever used.
 - **`dir`** includes `Open Long`, `Close Long`, `Open Short`, `Close Short`, `Long > Short`, `Short > Long`, `Buy`/`Sell` (spot),
   and `Settlement` (delisting). Reconstruction uses `startPosition` + signed size, not `dir`.
 - Strings can carry stray whitespace in the official examples (`"feeToken": " USDC"`, `"usdc": " -3.625312"`), so all strings are trimmed.
+- **Same-millisecond fills are not in tid order.** One order usually produces several fills with the same `time`,
+  and their `tid`s do not follow the position sequence. On live market-maker fills, about half of the multi-fill groups ran in
+  descending tid order. Sorting by `(time, tid)` gave 2,338 false position jumps in 13,935 fills, which split trades.
+  Reconstruction therefore chains each same-ms group by `startPosition` (next fill starts where the previous ended); with that,
+  jumps dropped to 0. Found from a real-wallet check on 2026-11-10.
+- **`startPosition` carries float dust**, e.g. `2059303.0999999999` after a fill ending at `2059303.1000000001`.
+  Positions are compared with a tolerance of max(1e-8 units, 1e-12 relative).
+- **`liquidation` on a fill does not mean you were liquidated.** It is attached to every fill that took part in a liquidation,
+  including the counterparty's (a liquidator's fills carry it with someone else as `liquidatedUser`, and their `dir` still reads
+  `Liquidated Isolated Long` etc.). Only `liquidation.liquidatedUser == your address` marks your own liquidation; otherwise the
+  trade is flagged `liquidationCounterparty` for information. Object keys seen live: `liquidatedUser`, `markPx`, `method` (`market` / `backstop`).
 
 ## HIP-3 (builder-deployed perps)
 
@@ -53,6 +64,10 @@ plus `marginSummary`, `withdrawable` and `time`. Under unified-account or portfo
 `{"type":"userFunding","user","startTime","endTime?"}` returns
 `[{time, hash, delta{type:"funding", coin, usdc, szi, fundingRate, nSamples}}]`, including HIP-3 coins.
 Time-range responses return at most **500** items; paginate by last timestamp (cursor saved after every page).
+
+- **Every funding row has the all-zero `hash`** (verified live 2026-11-10: 500 rows, 1 distinct hash, 500 distinct
+  `(coin, time)`). Funding is therefore keyed by `(wallet, coin, time)`; the original `(wallet, hash, coin)` key kept only one row
+  per coin. Migration `0002` re-keys the table and resets the funding cursor so everything is re-fetched.
 
 ## Rate limits (per IP)
 
