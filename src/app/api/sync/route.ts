@@ -13,7 +13,8 @@ import { syncAll } from "@/server/hyperliquid/sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// Fluid compute on Vercel Hobby allows up to 300s. Sync work itself is bounded by a time budget.
+export const maxDuration = 300;
 
 const Body = z.object({
   trigger: z.enum(["manual", "auto", "range"]).default("manual"),

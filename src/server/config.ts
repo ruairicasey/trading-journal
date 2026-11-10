@@ -31,6 +31,7 @@ const EnvSchema = z.object({
   R2_BUCKET: optional,
   TJ_DEMO: optional, // set by `npm run dev:demo`
   SYNC_BUDGET_MS: z.coerce.number().int().positive().default(40_000),
+  CRON_SYNC_BUDGET_MS: z.coerce.number().int().positive().default(240_000),
 });
 
 export type AppConfig = ReturnType<typeof buildConfig>;
@@ -59,6 +60,8 @@ function buildConfig(env: NodeJS.ProcessEnv) {
       bootstrapWallet: e.HL_WALLET_ADDRESS?.toLowerCase(),
       /** Per-request time budget for /api/sync; keep under the host's function timeout. */
       syncBudgetMs: e.SYNC_BUDGET_MS,
+      /** Scheduled runs have no user waiting, so they get a longer budget (still under maxDuration 300s). */
+      cronSyncBudgetMs: e.CRON_SYNC_BUDGET_MS,
     },
     auth: { passwordHash: e.AUTH_PASSWORD_HASH, secret: e.AUTH_SECRET, cronSecret: e.CRON_SECRET },
     storage: {

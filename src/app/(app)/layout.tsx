@@ -7,12 +7,18 @@ import { getActiveAccount } from "@/server/db/queries/settings";
 import { getSyncStatus } from "@/server/db/queries/sync";
 import { SyncStatus } from "@/components/sync/sync-status";
 import { readAuthEnv } from "@/server/auth/env";
+import { CommandPalette } from "@/components/shell/command-palette";
+import { getSetting } from "@/server/db/queries/settings";
 
 // Everything under (app) reads the private database per request.
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [{ accounts, active }, syncStatus] = await Promise.all([getActiveAccount(), getSyncStatus()]);
+  const [{ accounts, active }, syncStatus, tz] = await Promise.all([
+    getActiveAccount(),
+    getSyncStatus(),
+    getSetting("timezone", getConfig().timezone),
+  ]);
   return (
     <SidebarProvider>
       <AppSidebar
@@ -29,6 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               Demo data
             </Badge>
           )}
+          <CommandPalette tz={tz} />
           <div className="flex-1" />
           <SyncStatus initial={syncStatus} isDemo={getConfig().isDemo} />
         </header>

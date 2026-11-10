@@ -13,7 +13,8 @@ import { syncAll } from "@/server/hyperliquid/sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// Fluid compute on Vercel Hobby allows up to 300s. Sync work itself is bounded by a time budget.
+export const maxDuration = 300;
 
 async function handle(req: Request) {
   const { cronSecret } = readAuthEnv();
@@ -22,7 +23,7 @@ async function handle(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (getConfig().isDemo) return NextResponse.json({ ok: true, done: true, skipped: "demo" });
-  const out = await syncAll(getDb(), getHlClient(), { trigger: "cron", budgetMs: getConfig().hyperliquid.syncBudgetMs });
+  const out = await syncAll(getDb(), getHlClient(), { trigger: "cron", budgetMs: getConfig().hyperliquid.cronSyncBudgetMs });
   const failed = out.results.some((r) => r.status === "error");
   return NextResponse.json({ ok: !failed, done: out.done }, { status: failed ? 502 : 200 });
 }
