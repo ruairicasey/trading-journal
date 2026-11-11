@@ -51,7 +51,7 @@ There's no login locally unless you set `AUTH_PASSWORD_HASH`.
 2. Run `npm run sync:backfill` once for the full history, then use **Sync now** or leave auto-sync on while the app is open.
 3. Re-syncing any range is safe: fills are keyed by trade id, so nothing is duplicated, and your journal fields are never touched.
 4. A deployed instance also syncs on a schedule: hourly via GitHub Actions, plus a daily Vercel Cron backstop. The header shows
-   a **Stale** warning if no sync has succeeded for 3 hours. GitHub disables scheduled workflows after 60 days without repository
+   a **Stale** warning if no sync has succeeded for 6 hours (GitHub skips many scheduled runs). GitHub disables scheduled workflows after 60 days without repository
    activity, so if the warning persists, re-enable "Scheduled sync" under Actions.
 
 > **History limit:** Hyperliquid's API only serves your **10,000 most recent fills**. Sync regularly and back up

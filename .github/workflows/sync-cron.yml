@@ -4,7 +4,8 @@
 # response body: curl writes the body to /dev/null and the step only fails on a non-2xx status.
 # Required repository secrets: SYNC_URL (https://<your-app>/api/sync/cron) and CRON_SECRET.
 # Runs hourly at :17 (off the top of the hour, when GitHub's scheduler is busiest). GitHub can delay
-# or occasionally skip scheduled runs under load; the app warns if no sync succeeded for 3 hours.
+# or skip scheduled runs (observed gaps of 3–4.5h); the app warns if no sync succeeded for 6 hours.
+# Phase 2: a Cloudflare Worker cron trigger becomes the primary scheduler (see docs/roadmap.md).
 # GitHub also disables scheduled workflows after 60 days without repository activity.
 # Vercel Cron runs a daily backstop.
 name: Scheduled sync

@@ -24,15 +24,15 @@ const wallet = (lastSuccessAt: number | null) =>
   getDb().insert(s.wallets).values({ accountId, address: DEMO_WALLET, lastSuccessAt, lastSyncedAt: lastSuccessAt });
 
 describe("stale-sync warning", () => {
-  test("threshold is 3 hours (hourly cron plus GitHub delays)", () => {
-    expect(STALE_AFTER_MS).toBe(3 * HOUR);
+  test("threshold is 6 hours (hourly cron, but GitHub skips runs)", () => {
+    expect(STALE_AFTER_MS).toBe(6 * HOUR);
   });
 
-  test("not stale 2h after the last success, stale after 3h, stale if never synced", async () => {
+  test("not stale 5h after the last success, stale after 6h, stale if never synced", async () => {
     const now = Date.now();
-    await wallet(now - 2 * HOUR);
+    await wallet(now - 5 * HOUR);
     expect((await getSyncStatus(now)).stale).toBe(false);
-    expect((await getSyncStatus(now + 61 * 60_000)).stale).toBe(true); // 3h01m
+    expect((await getSyncStatus(now + 61 * 60_000)).stale).toBe(true); // 6h01m
 
     await getDb().delete(s.wallets);
     await wallet(null);

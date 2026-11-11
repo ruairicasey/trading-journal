@@ -116,7 +116,7 @@ Then open `https://<app>`, sign in, go to **Settings → Wallets & sync**, add y
   
   Then **Actions → Scheduled sync → Run workflow** once and check it goes green.
 - The workflow never prints the URL, the secret or the response (Actions logs on a public repo are public).
-- GitHub disables scheduled workflows after 60 days without repo activity. The app shows a **Stale** warning when no sync has succeeded for 3 hours (hourly runs plus GitHub's occasional delays); if the workflow was disabled, re-enable it under Actions.
+- GitHub disables scheduled workflows after 60 days without repo activity. The app shows a **Stale** warning when no sync has succeeded for 6 hours (GitHub runs the hourly schedule unreliably, with gaps of several hours); if the workflow was disabled, re-enable it under Actions.
 
 ## Backups
 
