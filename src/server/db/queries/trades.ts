@@ -15,7 +15,7 @@ const j = s.tradeJournal;
 const strategy = alias(s.vocabItems, "strategy");
 
 /** R = net / (|entry − stop| × size); null without a stop. Mirrors rMultiple() in src/lib/outcome.ts. */
-const rExpr = sql<number | null>`case when ${j.stopLoss} is not null and ${t.avgEntry} is not null
+export const rExpr = sql<number | null>`case when ${j.stopLoss} is not null and ${t.avgEntry} is not null
   and abs(${t.avgEntry} - ${j.stopLoss}) * ${t.sizeUnits} > 0
   then ${t.netPnl} / (abs(${t.avgEntry} - ${j.stopLoss}) * ${t.sizeUnits}) end`;
 
@@ -49,13 +49,14 @@ function filterConditions(f: TradeFilters, tz: string, now: number): SQL[] {
     const r = periodRange(f.period, now, tz);
     if (r.from !== null) c.push(gte(t.entryTime, r.from));
   }
+  const dateCol = f.dateBy === "exit" ? t.exitTime : t.entryTime;
   if (f.from) {
     const b = dayBoundsLocal(f.from, tz);
-    if (b) c.push(gte(t.entryTime, b.start));
+    if (b) c.push(gte(dateCol, b.start));
   }
   if (f.to) {
     const b = dayBoundsLocal(f.to, tz);
-    if (b) c.push(lt(t.entryTime, b.end));
+    if (b) c.push(lt(dateCol, b.end));
   }
   if (f.outcome) {
     c.push(eq(t.status, "closed"));

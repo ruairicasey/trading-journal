@@ -8,16 +8,18 @@ import { getSyncStatus } from "@/server/db/queries/sync";
 import { SyncStatus } from "@/components/sync/sync-status";
 import { readAuthEnv } from "@/server/auth/env";
 import { CommandPalette } from "@/components/shell/command-palette";
+import { PrivacyToggle } from "@/components/shell/privacy-toggle";
 import { getSetting } from "@/server/db/queries/settings";
 
 // Everything under (app) reads the private database per request.
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [{ accounts, active }, syncStatus, tz] = await Promise.all([
+  const [{ accounts, active }, syncStatus, tz, privacyDefault] = await Promise.all([
     getActiveAccount(),
     getSyncStatus(),
     getSetting("timezone", getConfig().timezone),
+    getSetting("privacy_default", false),
   ]);
   return (
     <SidebarProvider>
@@ -36,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Badge>
           )}
           <CommandPalette tz={tz} />
+          <PrivacyToggle defaultOn={privacyDefault} />
           <div className="flex-1" />
           <SyncStatus initial={syncStatus} isDemo={getConfig().isDemo} />
         </header>

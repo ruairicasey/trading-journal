@@ -141,3 +141,11 @@
     @apply font-sans;
   }
 }
+/* Privacy mode: blur every element tagged as money (toggle in the header, remembered per browser). */
+html[data-privacy="on"] .money {
+  filter: blur(7px);
+  user-select: none;
+}
+html[data-privacy="on"] .money-axis .recharts-yAxis .recharts-cartesian-axis-tick-value {
+  filter: blur(6px);
+}

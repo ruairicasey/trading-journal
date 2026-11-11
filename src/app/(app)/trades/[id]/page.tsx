@@ -44,7 +44,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
         <Badge variant="outline">{trade.source === "hyperliquid" ? "Synced from Hyperliquid" : "Manual"}</Badge>
         <div className="flex-1" />
         {trade.status !== "planned" && (
-          <span className={cn("text-sm font-medium tabular-nums", pnlClass(trade.netPnl))}>
+          <span className={cn("money text-sm font-medium tabular-nums", pnlClass(trade.netPnl))}>
             {fmtSignedUsd(trade.netPnl)} <span className="text-xs">({fmtPct(trade.returnPct)})</span>
           </span>
         )}
@@ -78,8 +78,8 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
                     <td className="px-3 py-1.5 capitalize">{l.role}</td>
                     <td className="px-3 py-1.5">{fmtPrice(l.px)}</td>
                     <td className="px-3 py-1.5">{fmtSize(l.sz)}</td>
-                    <td className={cn("px-3 py-1.5", pnlClass(l.closedPnl))}>{l.closedPnl ? fmtSignedUsd(l.closedPnl) : "—"}</td>
-                    <td className="px-3 py-1.5">{fmtUsd(l.fee, 4)}</td>
+                    <td className={cn("money px-3 py-1.5", pnlClass(l.closedPnl))}>{l.closedPnl ? fmtSignedUsd(l.closedPnl) : "—"}</td>
+                    <td className="money px-3 py-1.5">{fmtUsd(l.fee, 4)}</td>
                   </tr>
                 ))}
               </tbody>

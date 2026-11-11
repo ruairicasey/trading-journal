@@ -62,8 +62,8 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
     if (k === "period") return PERIOD_LABELS[v as keyof typeof PERIOD_LABELS];
     if (k === "minR") return `R ≥ ${v}`;
     if (k === "maxR") return `R ≤ ${v}`;
-    if (k === "from") return `From ${v}`;
-    if (k === "to") return `To ${v}`;
+    if (k === "from") return `${filters.dateBy === "exit" ? "Exited from" : "From"} ${v}`;
+    if (k === "to") return `${filters.dateBy === "exit" ? "Exited to" : "To"} ${v}`;
     if (k === "outcome") return { win: "Wins", loss: "Losses", be: "Breakeven" }[v as string];
     if (k === "dir") return v === "long" ? "Longs" : "Shorts";
     if (k === "grade") return `Grade ${v}`;

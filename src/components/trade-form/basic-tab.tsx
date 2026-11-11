@@ -227,7 +227,7 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
         {(realizedR !== null || (!manual && status === "closed")) && (
           <div className="mt-3 flex items-baseline gap-4 border-t pt-3 text-sm">
             <span className="text-muted-foreground text-xs">Result</span>
-            <span className={cn("tabular-nums", pnlClass(net))}>{fmtSignedUsd(net)}</span>
+            <span className={cn("money tabular-nums", pnlClass(net))}>{fmtSignedUsd(net)}</span>
             <span className={cn("font-medium tabular-nums", pnlClass(realizedR))} data-testid="realized-r">
               {realizedR === null ? "add a stop for R" : fmtR(realizedR)}
             </span>

@@ -36,6 +36,8 @@ const FilterSchema = z.object({
   period: z.enum(PERIODS).optional().catch(undefined),
   from: date.optional().catch(undefined),
   to: date.optional().catch(undefined),
+  /** Which timestamp from/to apply to. Default entry; the P&L calendar links use exit (realised day). */
+  dateBy: z.enum(["entry", "exit"]).optional().catch(undefined),
   minR: num.optional().catch(undefined),
   maxR: num.optional().catch(undefined),
   page: z.coerce.number().int().min(1).max(10_000).catch(1),

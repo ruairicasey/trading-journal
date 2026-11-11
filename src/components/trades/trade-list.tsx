@@ -149,7 +149,7 @@ function TradeItem({
 
         <div className="flex shrink-0 items-center gap-3">
           <div className="text-right tabular-nums">
-            <div className={cn("text-sm font-medium", pnlClass(r.netPnl))}>{r.status === "planned" ? "—" : fmtSignedUsd(r.netPnl)}</div>
+            <div className={cn("money text-sm font-medium", pnlClass(r.netPnl))}>{r.status === "planned" ? "—" : fmtSignedUsd(r.netPnl)}</div>
             <div className={cn("text-[11px]", pnlClass(r.netPnl))}>{r.status === "planned" ? "" : fmtPct(r.returnPct)}</div>
           </div>
           <Tooltip>
@@ -212,14 +212,16 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
           {fmtPrice(entry)} / {fmtPrice(r.avgExit)}
         </Field>
         <Field label="Size">
-          {fmtSize(r.sizeUnits)} {r.notionalUsd ? <span className="text-muted-foreground">({fmtUsd(r.notionalUsd, 0)})</span> : null}
+          {fmtSize(r.sizeUnits)} {r.notionalUsd ? <span className="money text-muted-foreground">({fmtUsd(r.notionalUsd, 0)})</span> : null}
         </Field>
         <Field label="Net P&L">
-          <span className={pnlClass(r.netPnl)}>
+          <span className={cn("money", pnlClass(r.netPnl))}>
             {fmtSignedUsd(r.netPnl)} ({fmtPct(r.returnPct)})
           </span>
         </Field>
-        <Field label="Fees">{fmtUsd(r.fees)}</Field>
+        <Field label="Fees">
+          <span className="money">{fmtUsd(r.fees)}</span>
+        </Field>
         <Field label="R multiple">{r.stopLoss === null ? <span className="text-muted-foreground">add a stop to see R</span> : fmtR(r.r)}</Field>
         <Field label="Setup">
           {[r.strategyLabel, r.grade && `Grade ${r.grade}`, r.session].filter(Boolean).join(" · ") || "—"}

@@ -122,6 +122,10 @@ describe("filters", () => {
     expect(ids.sort()).toEqual([early, late].sort());
     expect(ids).not.toContain(next);
     expect(ids).not.toContain(before);
+    // dateBy=exit filters on the exit day instead (P&L calendar links)
+    await db.update(s.trades).set({ exitTime: Date.parse("2026-10-05T01:00:00Z") }).where(eq(s.trades.id, early)); // exits 5 Oct
+    const byExit = (await allRows({ pair: "DSTTEST", from: "2026-10-05", to: "2026-10-05", dateBy: "exit" })).rows.map((r) => r.id);
+    expect(byExit).toEqual([early]);
     for (const id of [early, late, next, before]) await softDeleteTrade(db, accountId, id);
   });
 
