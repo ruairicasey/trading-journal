@@ -1,6 +1,6 @@
 # Roadmap
 
-Phase 1 (MVP) is the sync, the trades list, the Edit Trade form, screenshots, backups and the dashboard, with a
+Phase 1 (MVP, **done**) is the sync, the trades list, the Edit Trade form, screenshots, backups and the dashboard, with a
 Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phase 2 because GitHub's schedule kept missing runs).
 
 ## Phase 2: analytics and quality

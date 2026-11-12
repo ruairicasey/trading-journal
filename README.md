@@ -1,79 +1,146 @@
 # Trading Journal
 
-A self-hosted trading journal for **Hyperliquid** perps traders. It auto-imports your fills, rebuilds them into round-trip trades (scale-ins, partial closes and position flips are all handled), and lets you journal each trade: setup, confluences, stops, grades, notes and screenshots. Analytics sit on top.
+A self-hosted trading journal for **Hyperliquid** perps traders.
 
-> **Status:** early development (Phase 1 MVP in progress).
+It imports your fills automatically and rebuilds them into round-trip trades, including scale-ins, partial closes,
+position flips and HIP-3 markets. You then journal each trade (setup, confluences, stops, grades, notes and
+screenshots), and the dashboard shows how you're actually doing.
+
+**Public code, private data.** Your trades, notes and screenshots never live in this repository.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+<sub>All screenshots show the built-in **demo account** (`npm run dev:demo`), synthetic trades on random-walk prices, never real data.</sub>
+
+## Features
+
+**Sync from Hyperliquid** (read-only: just a wallet address, never a key)
+- Full backfill plus incremental sync. It's idempotent: re-syncing any range never duplicates a trade or touches your journal.
+- Reconstruction from `startPosition`, handling same-millisecond multi-fill orders, flips, partial history and float dust. Tested against real fills.
+- Open positions on every perp dex (including HIP-3 dexes like `xyz`), funding history, and a sync status with stale and gap warnings.
+- Scheduled sync when deployed: a Cloudflare Worker cron (primary), with GitHub Actions and Vercel Cron as backups.
+
+**Trades**
+- All / Planned / Open / Closed / Notes tabs, search (`/` or ⌘K), a filters panel, quick chips, expandable rows, duplicate and delete with undo.
+
+![Trades](docs/screenshots/trades.png)
+
+**Edit Trade**, with three tabs and autosave (⌘S):
+- **Basic**
+  - Exchange fields are locked on synced trades.
+  - Stop and target with R:R; position-size or risk-amount sizing; leverage.
+  - Partial entries and take profits, session, planned vs reactive, and your pre-trade checklist.
+- **Analysis:** timeframes, market condition, grouped confluence and SL/TP-reasoning pickers, grade, entry retests, max R reached, risk multiplier.
+- **Notes:** rationale, post-trade notes, reflection prompts, tags, the review, mistakes, and **screenshots**. Paste, drop or click to add up to 20 per trade. They're compressed in the browser and stored privately.
+
+| Basic | Analysis | Notes |
+|---|---|---|
+| ![Basic tab](docs/screenshots/edit-basic.png) | ![Analysis tab](docs/screenshots/edit-analysis.png) | ![Notes tab](docs/screenshots/edit-notes.png) |
+
+**Dashboard**
+- Period selector, with a **$ / R** toggle and **privacy mode**, which blurs every $ amount.
+- Open positions with live unrealised P&L.
+- KPIs: win rate, profit factor, avg R and avg trade, and fees.
+- Equity curve, and a P&L calendar with weekly totals.
+
+**Your own vocabulary.** Strategies, confluences (seeded with a VWAP / volume-profile set), SL/TP reasons, the checklist,
+exit reasons, mistakes and emotions are all editable under **Settings → Journal lists**.
+
+![Journal lists](docs/screenshots/settings-journal-lists.png)
 
 ## Privacy model
 
-- **Your data never lives in this repo.** Everything personal (database, screenshots, exports, logs) goes in one gitignored folder, `DATA_DIR` (default `./data`). Secrets go in `.env.local`.
-- **A Hyperliquid wallet address gives read-only access.** The app only calls Hyperliquid's public `info` API. It never asks for a private key or API key and can't place trades.
-- Hyperliquid activity is public on-chain. Anyone who knows an address can see its fills. The journal keeps *your* notes, grades and screenshots private and never ties an address to a person in code.
-- A pre-commit hook (`scripts/check-secrets.mjs`) and CI (the same script plus gitleaks) block commits that contain env files, DB files or wallet addresses.
-- Deployed instances require a login on every page and API route.
+- **No personal data in the repo.** Everything personal (database, screenshots, exports, logs) lives in one gitignored folder, `DATA_DIR` (default `./data`).
+  Secrets live in `.env.local`, or in your host's settings when deployed.
+- **A wallet address is read-only.** The app only calls Hyperliquid's public `info` API. It never asks for a private key and can't trade.
+  Hyperliquid activity is public on-chain, so the goal is to keep your journal (notes, grades, screenshots, rule breaks) private
+  and never to tie an address to a person in this repo.
+- **Guard rails.** A pre-commit hook (`scripts/check-secrets.mjs`) and CI (the same script plus gitleaks) block env files, databases,
+  wallet addresses, keys and password hashes. Fixtures and demo data are synthetic.
+- **Deployed instances fail closed.**
+  - Every page and API route needs your password, and the app returns 503 everywhere if that isn't configured.
+  - Preview deployments get no data.
+  - Screenshots sit in a private bucket and are served only to a logged-in session.
 
 ## Quick start (local)
 
+You need Node 22 or newer.
+
 ```bash
 npm install
-cp .env.example .env.local     # optional: set HL_WALLET_ADDRESS, or add the wallet later in Settings
-npm run dev                    # http://localhost:3000
 ```
+Try it with fake data first. It runs on its own database and ignores your `.env.local`:
+```bash
+npm run dev:demo
+```
+Then, with your own wallet:
+```bash
+cp .env.example .env.local
+```
+Set `HL_WALLET_ADDRESS=0x…` in `.env.local` (or add the wallet later under **Settings → Wallets & sync**), then do the
+first full import and start the app:
+```bash
+npm run sync:backfill
+```
+```bash
+npm run dev
+```
+The app is at http://127.0.0.1:3000. It listens on localhost only; there's no login locally unless you set `AUTH_PASSWORD_HASH`.
 
-There's no login locally unless you set `AUTH_PASSWORD_HASH`.
+> **History limit:** Hyperliquid's API only serves your **10,000 most recent fills**. Sync regularly and back up;
+> fills already stored are never deleted. Details are in [docs/hyperliquid.md](docs/hyperliquid.md).
+
+## Deploying
+
+See **[docs/deploy.md](docs/deploy.md)**. You'll need:
+- Vercel for the app
+- Turso for the database
+- a private Cloudflare R2 bucket for screenshots
+- a Cloudflare Worker for hourly sync
+
+Every key goes into those dashboards, never into the repo.
 
 ## Scripts
 
 | Script | What it does |
 |---|---|
-| `npm run dev` | Apply migrations + seed defaults, then start the app |
-| `npm run db:migrate` | Apply migrations and seed defaults (idempotent) |
-| `npm run db:generate` | Generate a migration after editing `src/server/db/schema.ts` |
-| `npm run db:studio` | Browse the database (Drizzle Studio) |
-| `npm run seed:demo` | Build a fake demo account (about 250 synthetic trades with journal entries) in `data/demo/` |
-| `npm run dev:demo` | Run the app against the demo account (seeds it first if missing) |
-| `npm run sync:backfill` | Import all available fills for your wallet(s) from your machine, with no time limit (use it for the first big import) |
-| `npm run verify:sync` | Print an address-free report (counts, last 10 trades, per-fill detail with `-- --trade N`) to compare against Hyperliquid's UI |
-| `npm test` | Unit tests (Vitest) |
-| `npm run lint` / `npm run typecheck` | Static checks |
-| `npm run check:secrets` | Scan all tracked files for personal data / secrets |
-
+| `npm run dev` | Apply migrations and seed defaults, then start the app (127.0.0.1) |
+| `npm run dev:demo` | Run against the synthetic demo account (seeds it first if missing) |
+| `npm run seed:demo` | Rebuild the demo account in `data/demo/` |
+| `npm run sync:backfill` | Import all available fills from your machine, with no time limit |
+| `npm run verify:sync` | Address-free report to compare with Hyperliquid's UI (`-- --trade N` for per-fill detail) |
+| `npm run debug:ordering` | Read-only check of fill ordering and position continuity |
+| `npm run backup` | Snapshot the local DB and screenshots to `BACKUP_DIR` (default `~/trading-journal-backups`) |
+| `npm run backup -- --remote` | Back up the deployed instance: full Turso copy plus every R2 screenshot |
 | `npm run hash-password` / `npm run gen-secret` | Create your login hash and random secrets (output stays in your terminal) |
+| `npm run screenshots` | Regenerate the README screenshots from the demo account |
+| `npm run db:migrate` / `db:generate` / `db:studio` | Apply migrations / create one after editing the schema / browse the DB |
+| `npm test` / `npm run test:e2e` | Unit tests (Vitest) / end-to-end tests on demo data (Playwright) |
+| `npm run lint` / `npm run typecheck` / `npm run check:secrets` | Static checks and the privacy scan |
 
-| `npm run backup` | Snapshot your local database and screenshots into a `.tar.gz` outside the repo (`BACKUP_DIR`, default `~/trading-journal-backups`) |
-| `npm run backup -- --remote` | Back up the deployed instance: a full copy of the Turso database plus every screenshot in the R2 bucket |
+## How it's built
 
-`npm run dev` listens on `127.0.0.1` only until login is added.
+- **Stack:** Next.js 15 (App Router) + TypeScript, Tailwind v4 + shadcn/ui, Drizzle ORM on libSQL (a local SQLite file, or Turso when deployed), Recharts.
+- **Ownership rule:** exchange-derived data (raw fills, reconstructed trades) and your journal data (setup, notes, grades,
+  screenshots) live in separate columns and tables. Sync writes only the former, and the server ignores any attempt to edit
+  exchange fields on a synced trade.
+- **Layout:**
+  - `src/server/hyperliquid`: API client, sync
+  - `src/server/reconstruct`: fills to trades
+  - `src/server/trades`: journal saves
+  - `src/lib`: shared maths and stats
+  - `workers/sync-cron`: the Cloudflare cron Worker
 
-## Syncing from Hyperliquid
+## Roadmap
 
-1. Put your wallet address in `.env.local` (`HL_WALLET_ADDRESS=0x…`) or add it under **Settings → Wallets & sync**.
-2. Run `npm run sync:backfill` once for the full history, then use **Sync now** or leave auto-sync on while the app is open.
-3. Re-syncing any range is safe: fills are keyed by trade id, so nothing is duplicated, and your journal fields are never touched.
-4. A deployed instance also syncs on a schedule: hourly via GitHub Actions, plus a daily Vercel Cron backstop. The header shows
-   a **Stale** warning if no sync has succeeded for 6 hours (GitHub skips many scheduled runs). GitHub disables scheduled workflows after 60 days without repository
-   activity, so if the warning persists, re-enable "Scheduled sync" under Actions.
-
-> **History limit:** Hyperliquid's API only serves your **10,000 most recent fills**. Sync regularly and back up
-> your data folder; fills already stored are never deleted. Details are in [docs/hyperliquid.md](docs/hyperliquid.md).
-
-## Demo data
-
-`npm run dev:demo` runs the app against a separate database in `data/demo/` filled with generated trades (random-walk prices, placeholder wallet). It never touches your real journal, ignores the personal values in `.env.local`, and shows a **Demo data** badge. Every screenshot in this README comes from it.
-
-## Data model in one line
-
-Exchange-derived data (raw fills, reconstructed trades) and your journal data (setup, notes, grades, screenshots) live in separate tables. A re-sync can never overwrite anything you've written. Journal lists (strategies, confluences, checklist, exit reasons, mistakes, emotions) are editable under **Settings → Journal lists**.
-
-## Deploying
-
-See [docs/deploy.md](docs/deploy.md): Vercel + Turso + a private Cloudflare R2 bucket. Every page and API route
-requires your password, the app refuses to start without one (503 on every route), and preview deployments get
-no data access.
+Phase 1 (this) is complete. Next up are an analytics page, a drawdown tracker, weekly reflection, deposits and withdrawals
+in the equity curve, funding attribution, SL/TP auto-detection, then rule-based insights. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 
-Test fixtures and demo data must be **synthetic**. Use placeholder addresses such as `0x0000000000000000000000000000000000000001`, and never paste real fills.
+Issues and PRs are welcome. Test fixtures and demo data must be **synthetic**: use placeholder addresses such as
+`0x0000000000000000000000000000000000000001`, and never paste real fills. Run `npm test`, `npm run test:e2e` and
+`npm run check:secrets` before opening a PR.
 
 ## License
 
