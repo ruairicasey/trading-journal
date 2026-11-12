@@ -2,7 +2,7 @@
 
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
-import { fmtR, fmtSignedUsd, fmtUsd } from "@/lib/format";
+import { axisDateFormat, fmtR, fmtSignedUsd, fmtUsd } from "@/lib/format";
 import type { EquityPoint } from "@/lib/stats";
 
 const LINE = "oklch(0.72 0.14 250)"; // single series: one calm accent; P&L sign is shown as text
@@ -10,7 +10,7 @@ const LINE = "oklch(0.72 0.14 250)"; // single series: one calm accent; P&L sign
 export function EquityChart({ points, unit, baseline, tz }: { points: EquityPoint[]; unit: "usd" | "r"; baseline: number; tz: string }) {
   const r = unit === "r";
   const data = points.map((p) => ({ t: p.t, v: r ? p.cumR : p.equity, trade: p.trade }));
-  const dateFmt = new Intl.DateTimeFormat("en-AU", { timeZone: tz, day: "2-digit", month: "short" });
+  const dateFmt = axisDateFormat(data.length ? data[data.length - 1].t - data[0].t : 0, tz);
   const fullFmt = new Intl.DateTimeFormat("en-AU", { timeZone: tz, day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
   const yFmt = (v: number) => (r ? `${v.toFixed(1)}R` : Math.abs(v) >= 10_000 ? `$${(v / 1000).toFixed(1)}k` : fmtUsd(v, 0));
 

@@ -109,14 +109,71 @@ Then open `https://<app>`, sign in, go to **Settings → Wallets & sync**, add y
 
 ## 6. Scheduled sync
 
-- **Vercel Cron** (in `vercel.json`) calls `/api/sync/cron` once a day as a backstop. Vercel sends `CRON_SECRET` automatically.
-- **GitHub Actions** (`.github/workflows/sync-cron.yml`) calls it hourly (at minute :17). In GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**, add:
-  - `SYNC_URL` = `https://<app>/api/sync/cron`
-  - `CRON_SECRET` = the same value as in Vercel
-  
-  Then **Actions → Scheduled sync → Run workflow** once and check it goes green.
+Three schedulers call the same protected endpoint, `POST /api/sync/cron` with `Authorization: Bearer <CRON_SECRET>`.
+Syncs are idempotent and a per-wallet lock skips overlapping runs, so having several schedulers is safe.
+
+| Scheduler | Role | Where |
+|---|---|---|
+| **Cloudflare Worker cron** | **primary**, hourly at :17 | `workers/sync-cron/` |
+| GitHub Actions | backup, hourly (GitHub often skips runs) | `.github/workflows/sync-cron.yml` |
+| Vercel Cron | daily backstop | `vercel.json` |
+
+The app shows a **Stale** warning when no sync has succeeded for 6 hours.
+
+### 6a. Cloudflare Worker (primary), one-time setup on your Mac
+
+Use the same Cloudflare account as your R2 bucket. Run these from the repo:
+
+```bash
+cd workers/sync-cron
+```
+```bash
+npm install
+```
+```bash
+npx wrangler login
+```
+A browser tab opens; sign in to Cloudflare and click **Allow**. Then check you're on the right account:
+```bash
+npx wrangler whoami
+```
+Store the two secrets on the Worker. Each command prompts for the value: paste it there, never on the command line.
+If wrangler asks whether to create the Worker first, answer **yes**.
+```bash
+npx wrangler secret put SYNC_URL
+```
+Paste `https://<app>/api/sync/cron`.
+```bash
+npx wrangler secret put CRON_SECRET
+```
+Paste the **same** value as `CRON_SECRET` in Vercel.
+```bash
+npm run deploy
+```
+The output should list `schedule: 17 * * * *`.
+
+**Check it works:** run `npm run tail` and wait for the next :17. You should see `sync round 1: 200, done`, and the
+app's **Settings → Wallets & sync → Recent syncs** shows a `cron` run. You can also open Cloudflare → **Workers & Pages →
+trading-journal-sync → Logs**, or its **Settings → Trigger events** for past cron runs and failures.
+
+- The Worker has no public URL that does anything (it answers 404), and it logs only the HTTP status, never the URL or secret.
+- If a sync round fails (e.g. a rotated `CRON_SECRET`), the cron run is marked failed in Cloudflare. Fix the secret with
+  `npx wrangler secret put CRON_SECRET`.
+- To change the cadence, edit `crons` in `workers/sync-cron/wrangler.toml` and run `npm run deploy` again.
+
+### 6b. GitHub Actions (backup)
+
+In GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**, add:
+- `SYNC_URL` = `https://<app>/api/sync/cron`
+- `CRON_SECRET` = the same value as in Vercel
+
+Then **Actions → Scheduled sync → Run workflow** once and check it goes green.
 - The workflow never prints the URL, the secret or the response (Actions logs on a public repo are public).
-- GitHub disables scheduled workflows after 60 days without repo activity. The app shows a **Stale** warning when no sync has succeeded for 6 hours (GitHub runs the hourly schedule unreliably, with gaps of several hours); if the workflow was disabled, re-enable it under Actions.
+- GitHub skips many scheduled runs and disables schedules after 60 days without repo activity, which is why it's only a backup.
+
+### 6c. Vercel Cron (backstop)
+
+Nothing to do: `vercel.json` calls the endpoint once a day, and Vercel sends `CRON_SECRET` automatically.
 
 ## Backups
 

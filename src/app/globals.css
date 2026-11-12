@@ -146,6 +146,9 @@ html[data-privacy="on"] .money {
   filter: blur(7px);
   user-select: none;
 }
+/* Equity-curve $ axis: Recharts 3 renders tick labels in their own "recharts-yAxis-tick-labels" layer
+   (not inside .recharts-yAxis). Hide the values in privacy mode; SVG text blur isn't reliable. */
+html[data-privacy="on"] .money-axis .recharts-yAxis-tick-labels text,
 html[data-privacy="on"] .money-axis .recharts-yAxis .recharts-cartesian-axis-tick-value {
-  filter: blur(6px);
+  visibility: hidden;
 }

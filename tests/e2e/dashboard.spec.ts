@@ -29,9 +29,12 @@ test.describe("Dashboard (demo data)", () => {
     await page.waitForLoadState("networkidle");
     const money = page.getByTestId("kpi-net").locator(".money");
     await expect(money).toHaveCSS("filter", "none");
+    const yTick = page.getByTestId("equity-chart").locator(".recharts-yAxis-tick-labels text").first();
+    await expect(yTick).toBeVisible();
     await page.getByRole("button", { name: "Hide amounts" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-privacy", "on");
     await expect(money).toHaveCSS("filter", /blur/);
+    await expect(yTick).toHaveCSS("visibility", "hidden"); // equity-curve $ axis values hidden
     await page.goto("/trades");
     await expect(page.getByTestId("trade-row").first().locator(".money").first()).toHaveCSS("filter", /blur/);
     await page.reload();

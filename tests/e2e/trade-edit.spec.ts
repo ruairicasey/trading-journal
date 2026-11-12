@@ -31,7 +31,8 @@ test.describe("Edit trade, Basic tab (demo data)", () => {
     await expect(page.getByText(/Risk \$/)).toBeVisible();
     await saved(page);
 
-    await page.getByRole("button", { name: /More details/ }).click().catch(() => {});
+    const more = page.getByRole("button", { name: /More details/ });
+    if ((await more.getAttribute("aria-expanded")) !== "true") await more.click(); // opens by default when it has content
     const box = page.getByRole("checkbox", { name: "Risk calculated" });
     const wasChecked = await box.isChecked();
     await box.click();

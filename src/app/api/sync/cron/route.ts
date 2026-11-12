@@ -1,5 +1,6 @@
 /**
- * Scheduled sync. Called by Vercel Cron (GET, daily backstop) and the GitHub Actions workflow (POST, hourly).
+ * Scheduled sync. Called by the Cloudflare Worker cron (POST, hourly, primary), the GitHub Actions workflow
+ * (POST, hourly, backup) and Vercel Cron (GET, daily backstop).
  * Not session-protected; requires `Authorization: Bearer <CRON_SECRET>` (constant-time compare).
  * Returns only a tiny status (no addresses, no counts beyond `done`).
  */

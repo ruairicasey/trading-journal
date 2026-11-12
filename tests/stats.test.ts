@@ -83,3 +83,12 @@ describe("P&L calendar", () => {
     expect(cal.r).toBeCloseTo(1.5, 12);
   });
 });
+
+describe("equity axis dates", () => {
+  test("adds the year once the range spans more than a year", async () => {
+    const { axisDateFormat } = await import("@/lib/format");
+    const t = Date.parse("2026-03-05T03:00:00Z");
+    expect(axisDateFormat(200 * 86_400_000, "Australia/Melbourne").format(t)).toBe("05 Mar");
+    expect(axisDateFormat(400 * 86_400_000, "Australia/Melbourne").format(t)).toBe("Mar 2026");
+  });
+});

@@ -1,0 +1,13 @@
+{
+  "name": "trading-journal-sync-worker",
+  "private": true,
+  "description": "Cloudflare Worker cron trigger for the trading journal's scheduled Hyperliquid sync",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --test-scheduled",
+    "tail": "wrangler tail --format pretty"
+  },
+  "devDependencies": {
+    "wrangler": "4.156.0"
+  }
+}

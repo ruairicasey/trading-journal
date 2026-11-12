@@ -39,6 +39,10 @@ pnpm-debug.log*
 
 # ─── build / tooling ────────────────────────────────────────────
 /node_modules
+node_modules/
+.wrangler/
+.dev.vars
+.dev.vars.*
 /.pnp
 .pnp.*
 /.next/

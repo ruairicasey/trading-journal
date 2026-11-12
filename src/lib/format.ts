@@ -78,3 +78,9 @@ export function pnlClass(n: number | null | undefined) {
   if (!n) return "text-muted-foreground";
   return n > 0 ? "text-profit" : "text-loss";
 }
+
+/** X-axis date labels: day + month, or month + year once the visible range spans more than a year. */
+export function axisDateFormat(spanMs: number, timeZone: string) {
+  const multiYear = spanMs > 365 * 86_400_000;
+  return new Intl.DateTimeFormat("en-AU", multiYear ? { timeZone, month: "short", year: "numeric" } : { timeZone, day: "2-digit", month: "short" });
+}

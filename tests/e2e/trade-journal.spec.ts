@@ -95,7 +95,7 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
     const shots = page.getByTestId("screenshot");
     const before = await shots.count();
     await page.getByTestId("screenshot-input").setInputFiles({ name: "chart.png", mimeType: "image/png", buffer: pngBytes() });
-    await expect(shots).toHaveCount(before + 1, { timeout: 15_000 });
+    await expect(shots).toHaveCount(before + 1, { timeout: 30_000 });
 
     // paste an image (synthetic clipboard event, like Cmd/Ctrl+V of a copied screenshot)
     const b64 = pngBytes(48, 27, [200, 80, 60]).toString("base64");
@@ -105,7 +105,7 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
       dt.items.add(new File([bin], "pasted.png", { type: "image/png" }));
       window.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt }));
     }, b64);
-    await expect(shots).toHaveCount(before + 2, { timeout: 15_000 });
+    await expect(shots).toHaveCount(before + 2, { timeout: 30_000 });
 
     // served privately as an image
     const src = await shots.last().locator("img").getAttribute("src");

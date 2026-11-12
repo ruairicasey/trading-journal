@@ -1,0 +1,13 @@
+# Cloudflare Worker that triggers the journal's scheduled sync (primary scheduler).
+# No account id or URLs here: `wrangler login` picks your account, and SYNC_URL / CRON_SECRET are
+# Worker secrets (`wrangler secret put …`), never committed.
+name = "trading-journal-sync"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+
+[triggers]
+# Hourly at :17. Cloudflare cron is reliable, unlike GitHub's schedule. Change here, then `npm run deploy`.
+crons = ["17 * * * *"]
+
+[observability]
+enabled = true
