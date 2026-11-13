@@ -27,7 +27,8 @@
     "gen-secret": "tsx scripts/gen-secret.ts",
     "test:e2e": "playwright test --trace off",
     "backup": "tsx scripts/backup.ts",
-    "screenshots": "tsx scripts/screenshots.ts"
+    "screenshots": "tsx scripts/screenshots.ts",
+    "debug:orders": "tsx scripts/debug-orders.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1165.0",

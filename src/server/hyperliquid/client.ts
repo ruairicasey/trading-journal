@@ -10,10 +10,14 @@ import {
   ClearinghouseStateSchema,
   FillsSchema,
   FundingSchema,
+  HistoricalOrdersSchema,
+  OpenOrdersSchema,
   PerpDexsSchema,
   type HlClearinghouseState,
   type HlFill,
   type HlFunding,
+  type HlHistoricalOrder,
+  type HlOrder,
 } from "./schemas";
 
 export class HlApiError extends Error {
@@ -155,6 +159,14 @@ export function createHlClient(opts: HlClientOptions) {
     },
     clearinghouseState(user: string, dex = ""): Promise<HlClearinghouseState> {
       return post({ type: "clearinghouseState", user, ...(dex ? { dex } : {}) }, ClearinghouseStateSchema, { base: 2 });
+    },
+    /** The 2000 most recent orders (any status), each with nested TP/SL children. */
+    historicalOrders(user: string): Promise<HlHistoricalOrder[]> {
+      return post({ type: "historicalOrders", user }, HistoricalOrdersSchema, { base: 20, perItems: 20 });
+    },
+    /** Live open orders (incl. trigger orders) on one perp dex ("" = main dex). */
+    frontendOpenOrders(user: string, dex = ""): Promise<HlOrder[]> {
+      return post({ type: "frontendOpenOrders", user, ...(dex ? { dex } : {}) }, OpenOrdersSchema, { base: 20 });
     },
     /** Names of builder-deployed perp dexes (the first, unnamed dex is ""), cached for 24h. */
     async perpDexNames(): Promise<string[]> {

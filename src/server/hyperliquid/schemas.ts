@@ -81,7 +81,55 @@ export const FundingEntrySchema = z
 export type HlFunding = z.infer<typeof FundingEntrySchema>;
 export const FundingSchema = z.array(FundingEntrySchema);
 
+/** An order as returned by historicalOrders / frontendOpenOrders (TP/SL children nest recursively). */
+export type HlOrder = {
+  coin: string;
+  side: "B" | "A";
+  limitPx: string;
+  sz: string;
+  oid: number;
+  timestamp: number;
+  triggerCondition: string;
+  isTrigger: boolean;
+  triggerPx: string;
+  isPositionTpsl: boolean;
+  reduceOnly: boolean;
+  orderType: string;
+  origSz: string;
+  tif?: string | null;
+  cloid?: string | null;
+  children?: HlOrder[];
+};
+export const OrderSchema: z.ZodType<HlOrder> = z.lazy(() =>
+  z
+    .object({
+      coin: str,
+      side: z.enum(["B", "A"]),
+      limitPx: num,
+      sz: num,
+      oid: z.number().int(),
+      timestamp: z.number().int(),
+      triggerCondition: str,
+      isTrigger: z.boolean(),
+      triggerPx: num,
+      isPositionTpsl: z.boolean(),
+      reduceOnly: z.boolean(),
+      orderType: str,
+      origSz: num,
+      tif: str.nullable().optional(),
+      cloid: str.nullable().optional(),
+      children: z.array(OrderSchema).optional(),
+    })
+    .passthrough(),
+) as z.ZodType<HlOrder>;
+export const HistoricalOrdersSchema = z.array(
+  z.object({ order: OrderSchema, status: str, statusTimestamp: z.number().int() }).passthrough(),
+);
+export type HlHistoricalOrder = z.infer<typeof HistoricalOrdersSchema>[number];
+export const OpenOrdersSchema = z.array(OrderSchema);
+
 /** Page sizes documented by Hyperliquid. */
 export const FILLS_PAGE_LIMIT = 2000;
 export const FILLS_HISTORY_LIMIT = 10_000;
 export const TIME_RANGE_PAGE_LIMIT = 500;
+export const HISTORICAL_ORDERS_LIMIT = 2000;

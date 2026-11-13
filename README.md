@@ -110,6 +110,7 @@ Every key goes into those dashboards, never into the repo.
 | `npm run sync:backfill` | Import all available fills from your machine, with no time limit |
 | `npm run verify:sync` | Address-free report to compare with Hyperliquid's UI (`-- --trade N` for per-fill detail) |
 | `npm run debug:ordering` | Read-only check of fill ordering and position continuity |
+| `npm run debug:orders` | Read-only, address- and price-free summary of your trigger (SL/TP) orders |
 | `npm run backup` | Snapshot the local DB and screenshots to `BACKUP_DIR` (default `~/trading-journal-backups`) |
 | `npm run backup -- --remote` | Back up the deployed instance: full Turso copy plus every R2 screenshot |
 | `npm run hash-password` / `npm run gen-secret` | Create your login hash and random secrets (output stays in your terminal) |
