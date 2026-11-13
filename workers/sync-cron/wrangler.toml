@@ -4,6 +4,9 @@
 name = "trading-journal-sync"
 main = "src/index.ts"
 compatibility_date = "2025-10-01"
+# No public URLs: the Worker is cron-only (its fetch handler is a 404 anyway).
+workers_dev = false
+preview_urls = false
 
 [triggers]
 # Hourly at :17. Cloudflare cron is reliable, unlike GitHub's schedule. Change here, then `npm run deploy`.
