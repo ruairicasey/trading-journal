@@ -44,6 +44,10 @@ screenshots), and the dashboard shows how you're actually doing.
 - Open positions with live unrealised P&L.
 - KPIs: win rate, profit factor, avg R and avg trade, and fees.
 - Equity curve, and a P&L calendar with weekly totals.
+- **Drawdown tracker**: current and max drawdown ($, % and R), days and trades since the peak, % needed to recover, and an
+  underwater chart. It uses trading P&L only, so deposits never look like gains or drawdowns.
+- **Weekly reflection** (Monday-first, your timezone): scorecard, best/worst day and trade, review coverage, and
+  missing-context counts that link straight to the trades needing attention, plus a "Write weekly note" template.
 
 **Your own vocabulary.** Strategies, confluences (seeded with a VWAP / volume-profile set), SL/TP reasons, the checklist,
 exit reasons, mistakes and emotions are all editable under **Settings → Journal lists**.
@@ -137,8 +141,8 @@ Every key goes into those dashboards, never into the repo.
 
 ## Roadmap
 
-Phase 1 (this) is complete. Next up are an analytics page, a drawdown tracker, weekly reflection, deposits and withdrawals
-in the equity curve, funding attribution, then rule-based insights (SL/TP auto-detection is done). See [docs/roadmap.md](docs/roadmap.md).
+Phase 1 is complete; in Phase 2, SL/TP auto-detection, the drawdown tracker and the weekly reflection are done. Next up are an
+analytics page, funding attribution and deposits/withdrawals in the equity curve, then rule-based insights. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 

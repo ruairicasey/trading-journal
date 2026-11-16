@@ -8,7 +8,7 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
 - **Deposits and withdrawals from Hyperliquid** (`userNonFundingLedgerUpdates`), so the equity curve tracks the real account
   balance instead of starting balance + realised P&L.
 - Analytics page: setup, timing, risk and execution, and behaviour sections, with show/hide widgets.
-- Drawdown tracker and weekly reflection card on the dashboard.
+- ~~Drawdown tracker and weekly reflection card on the dashboard~~ **done**.
 - ~~Auto-detect SL/TP from trigger orders~~ **done**: stop loss, take profit, TP ladders and stop moves from `historicalOrders`,
   never overwriting values you entered.
 - Funding attribution to trades (raw funding is already stored).

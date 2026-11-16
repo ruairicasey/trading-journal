@@ -5,6 +5,7 @@
 import { and, asc, desc, eq, gte, isNull, lt, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { BE_MIN_USD, BE_NOTIONAL_FRACTION } from "../../../lib/outcome";
+import { MISSING_KINDS, type MissingKind } from "../../../lib/missing";
 import { dayBoundsLocal, periodRange } from "../../../lib/periods";
 import { PAGE_SIZE, type TradeFilters } from "../../trades/filters";
 import type { DB } from "../client";
@@ -27,6 +28,38 @@ const like = (col: SQLWrapper, p: string) => sql`lower(coalesce(${col}, '')) lik
 
 const tagNames = sql<string | null>`(select group_concat(g.name, ',') from ${s.tradeTags} tt
   join ${s.tags} g on g.id = tt.tag_id where tt.trade_id = ${t.id})`;
+
+/** Journal gaps on a closed trade (LEFT JOINed journal: no journal row = everything missing). */
+export function missingCondition(kind: MissingKind): SQL {
+  switch (kind) {
+    case "review":
+      return sql`${j.reviewedAt} is null`;
+    case "stop":
+      return sql`${j.stopLoss} is null`;
+    case "process":
+      return sql`${j.processCompliant} is null`;
+    case "exit":
+      return sql`${j.exitReasonId} is null`;
+    case "mistakes":
+      return sql`${j.rulesFollowed} in ('partial', 'no') and not exists (select 1 from ${s.tradeVocab} tv
+        where tv.trade_id = ${t.id} and tv.kind = 'mistake')`;
+    case "emotions":
+      return sql`(${j.emotionBeforeId} is null or ${j.emotionAfterId} is null)`;
+  }
+}
+
+/** Per-kind missing-context counts over closed trades that EXITED in [start, end). */
+export async function missingCounts(db: DB, accountId: string, start: number, end: number) {
+  const cols = Object.fromEntries(
+    MISSING_KINDS.map((k) => [k, sql<number>`coalesce(sum(case when ${missingCondition(k)} then 1 else 0 end), 0)`]),
+  ) as Record<MissingKind, SQL<number>>;
+  const [row] = await db
+    .select({ total: sql<number>`count(*)`, ...cols })
+    .from(t)
+    .leftJoin(j, eq(j.tradeId, t.id))
+    .where(and(...baseConditions(accountId), eq(t.status, "closed"), gte(t.exitTime, start), lt(t.exitTime, end)));
+  return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, Number(v ?? 0)])) as Record<MissingKind | "total", number>;
+}
 
 function baseConditions(accountId: string): SQL[] {
   return [
@@ -64,6 +97,7 @@ function filterConditions(f: TradeFilters, tz: string, now: number): SQL[] {
     if (f.outcome === "loss") c.push(sql`${t.netPnl} < -${band}`);
     if (f.outcome === "be") c.push(sql`abs(${t.netPnl}) <= ${band}`);
   }
+  if (f.missing) c.push(eq(t.status, "closed"), missingCondition(f.missing));
   if (f.minR !== undefined) c.push(sql`${rExpr} >= ${f.minR}`);
   if (f.maxR !== undefined) c.push(sql`${rExpr} <= ${f.maxR}`);
   if (f.q) {

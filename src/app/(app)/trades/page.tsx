@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ListOrdered, SearchX } from "lucide-react";
 import { X } from "lucide-react";
+import { MISSING_LABELS, type MissingKind } from "@/lib/missing";
 import { EmptyState } from "@/components/shell/empty-state";
 import { NotesList, AddNoteButton } from "@/components/trades/notes-list";
 import { TradeList } from "@/components/trades/trade-list";
@@ -68,6 +69,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
     if (k === "dir") return v === "long" ? "Longs" : "Shorts";
     if (k === "grade") return `Grade ${v}`;
     if (k === "type") return v === "planned" ? "Planned setups" : "Reactive";
+    if (k === "missing") return MISSING_LABELS[v as MissingKind]?.short ?? String(v);
     return String(v);
   };
   const pills = FILTER_KEYS.filter((k) => filters[k] !== undefined);

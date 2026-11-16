@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MISSING_KINDS, MISSING_LABELS } from "@/lib/missing";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { tradesHref, type TradeFilters } from "@/server/trades/filters";
@@ -147,6 +148,7 @@ function FilterSheet({
             { value: "planned", label: "Planned" },
             { value: "reactive", label: "Reactive" },
           ])}
+          {sel("missing", "Missing context (closed trades)", MISSING_KINDS.map((k) => ({ value: k, label: MISSING_LABELS[k].short })))}
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
               <Label className="text-muted-foreground text-xs">From</Label>

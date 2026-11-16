@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import { GRADES, TRADE_TYPES } from "../../lib/enums";
+import { MISSING_KINDS } from "../../lib/missing";
 import { PERIODS } from "../../lib/periods";
 
 export const TABS = ["all", "planned", "open", "closed", "notes"] as const;
@@ -38,6 +39,8 @@ const FilterSchema = z.object({
   to: date.optional().catch(undefined),
   /** Which timestamp from/to apply to. Default entry; the P&L calendar links use exit (realised day). */
   dateBy: z.enum(["entry", "exit"]).optional().catch(undefined),
+  /** journal gap on closed trades (see src/lib/missing.ts); the weekly reflection links here */
+  missing: z.enum(MISSING_KINDS).optional().catch(undefined),
   minR: num.optional().catch(undefined),
   maxR: num.optional().catch(undefined),
   page: z.coerce.number().int().min(1).max(10_000).catch(1),
@@ -56,7 +59,7 @@ export function parseFilters(params: RawParams): TradeFilters {
 }
 
 /** The filter keys shown as removable pills and counted on the Filters button. */
-export const FILTER_KEYS = ["pair", "dir", "outcome", "strategy", "grade", "session", "type", "period", "from", "to", "minR", "maxR"] as const;
+export const FILTER_KEYS = ["pair", "dir", "outcome", "strategy", "grade", "session", "type", "period", "from", "to", "missing", "minR", "maxR"] as const;
 
 export function activeFilterCount(f: TradeFilters) {
   return FILTER_KEYS.filter((k) => f[k] !== undefined).length;

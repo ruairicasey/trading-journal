@@ -77,11 +77,22 @@ function toLocalInput(ts: number) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function NoteDialog({ open, onOpenChange, note }: { open: boolean; onOpenChange: (o: boolean) => void; note?: Note }) {
+/** `draft` pre-fills a NEW note (e.g. the weekly reflection template). */
+export function NoteDialog({
+  open,
+  onOpenChange,
+  note,
+  draft,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  note?: Note;
+  draft?: Omit<Note, "id">;
+}) {
   const [pending, start] = useTransition();
-  const [title, setTitle] = useState(note?.title ?? "");
-  const [body, setBody] = useState(note?.body ?? "");
-  const [when, setWhen] = useState(toLocalInput(note?.date ?? Date.now()));
+  const [title, setTitle] = useState(note?.title ?? draft?.title ?? "");
+  const [body, setBody] = useState(note?.body ?? draft?.body ?? "");
+  const [when, setWhen] = useState(toLocalInput(note?.date ?? draft?.date ?? Date.now()));
   const [lastNote, setLastNote] = useState(note);
   if (note !== lastNote) {
     setLastNote(note);
@@ -122,7 +133,7 @@ function NoteDialog({ open, onOpenChange, note }: { open: boolean; onOpenChange:
           </div>
           <div className="grid gap-1.5">
             <Label className="text-muted-foreground text-xs">Note</Label>
-            <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} required />
+            <Textarea aria-label="Note" value={body} onChange={(e) => setBody(e.target.value)} rows={draft ? 14 : 8} required />
           </div>
         </form>
         <DialogFooter>

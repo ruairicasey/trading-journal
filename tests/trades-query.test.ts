@@ -9,7 +9,9 @@ import { DEMO_ADDRESS, generateDemoHistory } from "@/server/demo/generate";
 import { seedDemoJournal } from "@/server/demo/journal";
 import { createRng } from "@/server/demo/rng";
 import { insertFills, rebuildTrades } from "@/server/reconstruct/persist";
-import { listNotes, listTrades, filterOptions } from "@/server/db/queries/trades";
+import { listNotes, listTrades, filterOptions, missingCounts } from "@/server/db/queries/trades";
+import { MISSING_KINDS } from "@/lib/missing";
+import { weekOf } from "@/lib/weekly";
 import { parseFilters, tradesHref, toggleChipHref, CHIPS, type TradeFilters } from "@/server/trades/filters";
 import { createNote, duplicateAsPlanned, restoreTrade, softDeleteTrade } from "@/server/trades/mutations";
 import { outcomeOf, rMultiple } from "@/lib/outcome";
@@ -154,6 +156,37 @@ describe("filters", () => {
     const on = toggleChipHref(f({}), winners);
     expect(on).toBe("/trades?outcome=win&period=30d");
     expect(toggleChipHref(f({ outcome: "win", period: "30d" }), winners)).toBe("/trades");
+  });
+});
+
+describe("missing context (weekly reflection)", () => {
+  test("each weekly count equals the number of trades its link shows, for several weeks", async () => {
+    const db = getDb();
+    let checked = 0;
+    for (const day of ["2026-11-02", "2026-10-05", "2026-09-14", "2026-08-03"]) {
+      const w = weekOf(day, END, TZ);
+      const counts = await missingCounts(db, accountId, w.start, w.end);
+      const closedInWeek = await allRows({ tab: "closed", from: w.monday, to: w.sunday, dateBy: "exit" });
+      expect(counts.total).toBe(closedInWeek.total);
+      for (const kind of MISSING_KINDS) {
+        const r = await allRows({ tab: "closed", from: w.monday, to: w.sunday, dateBy: "exit", missing: kind });
+        expect({ kind, n: r.total }).toEqual({ kind, n: counts[kind] });
+        checked += counts[kind];
+      }
+    }
+    expect(checked).toBeGreaterThan(0); // the demo journal leaves gaps on purpose
+  });
+
+  test("definitions: unjournaled trades miss everything except the rules-based mistakes check", async () => {
+    const db = getDb();
+    const all = await missingCounts(db, accountId, 0, Number.MAX_SAFE_INTEGER);
+    const closed = await db.select().from(s.trades).where(eq(s.trades.status, "closed"));
+    const journaled = new Set((await db.select().from(s.tradeJournal)).map((j) => j.tradeId));
+    const blank = closed.filter((t) => !journaled.has(t.id) && !t.deletedAt && !t.flags?.superseded).length;
+    expect(all.review).toBeGreaterThanOrEqual(blank);
+    expect(all.stop).toBeGreaterThanOrEqual(blank);
+    const mistakes = await allRows({ missing: "mistakes" });
+    for (const row of mistakes.rows) expect(row.status).toBe("closed");
   });
 });
 

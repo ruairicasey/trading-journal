@@ -2,7 +2,7 @@
  * Trade and note mutations (plain functions so they're unit-testable; wrapped by server actions).
  * Synced trades are only ever SOFT-deleted, so a re-sync never brings them back and journal data survives.
  */
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, like, lt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { DB } from "../db/client";
 import * as s from "../db/schema";
@@ -99,4 +99,13 @@ export async function deleteNote(db: DB, accountId: string, id: string) {
     .where(and(eq(s.notes.id, id), eq(s.notes.accountId, accountId)))
     .returning({ id: s.notes.id });
   return res.length === 1;
+}
+
+/** The weekly reflection note for [start, end): the newest note dated in the week whose title starts "Week of". */
+export async function weeklyNote(db: DB, accountId: string, start: number, end: number) {
+  const row = await db.query.notes.findFirst({
+    where: and(eq(s.notes.accountId, accountId), gte(s.notes.date, start), lt(s.notes.date, end), like(s.notes.title, "Week of%")),
+    orderBy: desc(s.notes.updatedAt),
+  });
+  return row ? { id: row.id, title: row.title, body: row.body, date: row.date } : null;
 }
