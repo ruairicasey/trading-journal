@@ -8,6 +8,9 @@ import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params"
 import { setupBreakdowns, SETUP_WIDGETS } from "@/lib/analytics/setup";
 import { TIMING_WIDGETS, timingBreakdowns } from "@/lib/analytics/timing";
 import { RISK_WIDGETS, riskBreakdowns } from "@/lib/analytics/risk";
+import { BEHAVIOUR_WIDGETS, behaviourBreakdowns, dailySeries, rolling, streaks } from "@/lib/analytics/behaviour";
+import { DailyWidget, RollingWidget, StreaksWidget } from "@/components/analytics/behaviour-widgets";
+import { localDateKey } from "@/lib/periods";
 import { fmtUsd } from "@/lib/format";
 import type { Breakdown } from "@/lib/analytics/types";
 import { describeSession, sessionHoursIn } from "@/lib/sessions";
@@ -26,7 +29,7 @@ const SECTIONS = [
   { id: "setup", label: "Setup" },
   { id: "timing", label: "Timing" },
   { id: "risk", label: "Risk & execution" },
-  { id: "behaviour", label: "Behaviour", soon: true },
+  { id: "behaviour", label: "Behaviour" },
 ] as const;
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -44,7 +47,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const period = custom ? "custom" : (PERIODS as readonly string[]).includes(rawPeriod) ? rawPeriod : "all";
   const unit = one(sp.unit) === "r" ? "r" : "usd";
   const rawSection = one(sp.section);
-  const section = rawSection === "timing" || rawSection === "risk" ? rawSection : "setup";
+  const section = rawSection === "timing" || rawSection === "risk" || rawSection === "behaviour" ? rawSection : "setup";
   const params: DashParams = {
     period,
     from: custom ? from : undefined,
@@ -69,6 +72,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   let widgets: { id: string; title: string; description: string }[];
   let data: Record<string, Breakdown>;
   const footers: Record<string, React.ReactNode> = {};
+  const customWidgets: Record<string, React.ReactNode> = {};
   if (section === "timing") {
     const tb = timingBreakdowns(trades, { tz, sessions, context: all });
     widgets = TIMING_WIDGETS;
@@ -94,6 +98,30 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <span className="text-foreground tabular-nums">{hours(tb.holdLoss)}</span>
       </span>
     );
+  } else if (section === "behaviour") {
+    widgets = BEHAVIOUR_WIDGETS;
+    const inPeriod = (t: (typeof all)[number]) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end);
+    const st = streaks(all, inPeriod);
+    data = behaviourBreakdowns(trades, { tz, context: all });
+    const DAY = 86_400_000;
+    const lastTs = Math.min(end === null ? now : end - 1, now);
+    const toDate = localDateKey(lastTs, tz);
+    const firstExit = trades[0]?.exitTime ?? lastTs;
+    const periodFrom = localDateKey(start ?? firstExit, tz);
+    // rolling windows need up to 30 days of history before the period starts
+    const days = dailySeries(all, tz, localDateKey((start ?? firstExit) - 31 * DAY, tz), toDate);
+    const keep = <T extends { date: string }>(xs: T[]) => xs.filter((x) => x.date >= periodFrom);
+    const dailyFrom = [localDateKey(lastTs - 29 * DAY, tz), localDateKey(start ?? firstExit, tz)].sort().at(-1)!;
+    const common = (id: string) => {
+      const w = BEHAVIOUR_WIDGETS.find((x) => x.id === id)!;
+      return { id, title: w.title, description: w.description, hidden, unit, tz } as const;
+    };
+    const pick = (t: (typeof all)[number] | null) => (t ? { id: t.id, displayPair: t.displayPair, netPnl: t.netPnl, r: t.r } : null);
+    customWidgets.streaks = <StreaksWidget {...common("streaks")} current={st.current} longestWin={st.longestWin} longestLoss={st.longestLoss} best={pick(st.best)} worst={pick(st.worst)} />;
+    customWidgets.rolling = <RollingWidget {...common("rolling")} series7={keep(rolling(days, 7))} series30={keep(rolling(days, 30))} />;
+    customWidgets.daily = <DailyWidget {...common("daily")} days={dailySeries(trades, tz, dailyFrom, toDate)} />;
+    footers["after-streak"] = <span>The run is counted in exit order across all your trades, so it can start before this period. Breakevens don&apos;t break a run.</span>;
+    footers.stacking = <span>Counts any other trade (any pair) still open at the moment you entered.</span>;
   } else if (section === "risk") {
     const rb = riskBreakdowns(trades);
     widgets = RISK_WIDGETS;
@@ -165,9 +193,13 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <EmptyState icon={BarChart3} title="No closed trades in this period" body="Pick a longer period, or sync your wallet." />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {visible.map((w) => (
-            <BreakdownWidget key={w.id} id={w.id} title={w.title} description={w.description} data={data[w.id]} unit={unit} hidden={hidden} footer={footers[w.id]} />
-          ))}
+          {visible.map((w) =>
+            customWidgets[w.id] ? (
+              <div key={w.id}>{customWidgets[w.id]}</div>
+            ) : (
+              <BreakdownWidget key={w.id} id={w.id} title={w.title} description={w.description} data={data[w.id]} unit={unit} hidden={hidden} footer={footers[w.id]} />
+            ),
+          )}
           {visible.length === 0 && <p className="text-muted-foreground text-sm">All widgets are hidden. Use “Widgets” to show them again.</p>}
         </div>
       )}

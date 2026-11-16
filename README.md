@@ -57,7 +57,9 @@ screenshots), and the dashboard shows how you're actually doing.
   average hold, nth trade of the day, and time since your last exit (sessions follow daylight saving).
 - **Risk & execution:** risk size against your typical risk, risk multiplier, stop and target placement reasons, how trades
   ended (take-profit order, stop order or by hand), losers by max R reached first, winners' R captured of max R, entry
-  retests, rules followed and process compliance. Behaviour is next.
+  retests, rules followed and process compliance.
+- **Behaviour:** current and longest win/loss runs, largest win and loss, how the next trade does after 1–3+ wins or
+  losses, rolling 7- and 30-day P&L, daily P&L for the last 30 days, trades per day (overtrading) and position stacking.
 
 **Your own vocabulary.** Strategies, confluences (seeded with a VWAP / volume-profile set), SL/TP reasons, the checklist,
 exit reasons, mistakes and emotions are all editable under **Settings → Journal lists**.

@@ -60,4 +60,25 @@ test.describe("Analytics: Setup (demo data)", () => {
     // privacy mode blurs the typical-risk amount like every other $ figure
     await expect(page.getByTestId("typical-risk").locator(".money")).toHaveCount(1);
   });
+
+  test("Behaviour tab: streaks, after-a-run, rolling (7D/30D), daily bars, overtrading, stacking", async ({ page }) => {
+    await page.goto("/analytics?section=behaviour");
+    for (const id of ["streaks", "after-streak", "rolling", "daily", "per-day", "stacking"]) await expect(page.getByTestId(`widget-${id}`)).toBeVisible();
+    await expect(page.getByTestId("streak-win")).toContainText(/\d+ wins?/);
+    await expect(page.getByTestId("streak-loss")).toContainText(/\d+ loss(es)?/);
+    await expect(page.getByTestId("widget-after-streak").getByText(/^After 1 loss$/)).toBeVisible();
+    const rollingWidget = page.getByTestId("widget-rolling");
+    await expect(page.getByTestId("rolling-now")).toContainText("Trailing 30 days");
+    await rollingWidget.getByRole("button", { name: "7D" }).click();
+    await expect(page.getByTestId("rolling-now")).toContainText("Trailing 7 days");
+    await expect(rollingWidget.locator(".recharts-line-curve")).toBeVisible();
+    await expect(page.getByTestId("widget-daily").locator(".recharts-bar-rectangle").first()).toBeVisible();
+    await expect(page.getByTestId("daily-summary")).toContainText("trading days");
+    // custom widgets hide like the others
+    await page.getByTestId("widget-rolling").getByRole("button", { name: "Hide Rolling P&L" }).click();
+    await expect(page.getByTestId("widget-rolling")).toHaveCount(0);
+    await page.getByRole("button", { name: /Widgets \(1 hidden\)/ }).click();
+    await page.getByRole("checkbox").nth(2).click();
+    await expect(page.getByTestId("widget-rolling")).toBeVisible();
+  });
 });
