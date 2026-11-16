@@ -9,7 +9,8 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   balance instead of starting balance + realised P&L.
 - Analytics page: setup, timing, risk and execution, and behaviour sections, with show/hide widgets.
 - Drawdown tracker and weekly reflection card on the dashboard.
-- R-multiples everywhere; auto-detect SL/TP from trigger orders (`historicalOrders` / `frontendOpenOrders`).
+- ~~Auto-detect SL/TP from trigger orders~~ **done**: stop loss, take profit, TP ladders and stop moves from `historicalOrders`,
+  never overwriting values you entered.
 - Funding attribution to trades (raw funding is already stored).
 - Multiple wallets per account in the UI; manual trades for non-Hyperliquid accounts; stop-move history.
 - Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import.

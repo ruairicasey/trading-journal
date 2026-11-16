@@ -8,6 +8,7 @@ import { createHlClient, WeightLimiter } from "@/server/hyperliquid/client";
 import { syncAll, syncWallet } from "@/server/hyperliquid/sync";
 import type { FillInput } from "@/server/reconstruct/types";
 import { DEMO_WALLET, MIN, T0, resetTids, sim } from "./fixtures/fills";
+import { historyRows } from "@/server/demo/hl-orders";
 
 // ─── fake Hyperliquid info API (documented semantics, verified 2026-11-09) ─────────────
 type Fake = {
@@ -15,12 +16,13 @@ type Fake = {
   funding: { time: number; hash: string; delta: Record<string, unknown> }[];
   positions: Record<string, unknown[]>; // by dex
   dexes: (null | { name: string })[];
+  orders: unknown[] | "broken"; // historicalOrders rows
   calls: { type: string; body: Record<string, unknown> }[];
   failNext: number[]; // status codes to return before succeeding
 };
 
 function fakeHl(init: Partial<Fake> = {}) {
-  const st: Fake = { fills: [], funding: [], positions: {}, dexes: [null, { name: "xyz" }], calls: [], failNext: [], ...init };
+  const st: Fake = { fills: [], funding: [], positions: {}, dexes: [null, { name: "xyz" }], orders: [], calls: [], failNext: [], ...init };
   const fetchImpl = (async (_url: string, req: { body: string }) => {
     const body = JSON.parse(req.body);
     st.calls.push({ type: body.type, body });
@@ -42,6 +44,9 @@ function fakeHl(init: Partial<Fake> = {}) {
         break;
       case "userFunding":
         json = st.funding.filter((f) => inRange(f.time)).sort((a, b) => a.time - b.time).slice(0, 500);
+        break;
+      case "historicalOrders":
+        json = st.orders === "broken" ? [{ unexpected: true }] : st.orders;
         break;
       case "perpDexs":
         json = st.dexes;
@@ -91,7 +96,8 @@ beforeAll(async () => {
 beforeEach(async () => {
   resetTids();
   const d = db();
-  for (const t of [s.tradeFills, s.tradeJournal, s.trades, s.fills, s.fundingEvents, s.syncRuns, s.wallets]) await d.delete(t);
+  for (const t of [s.stopMoves, s.tradePartials, s.tradeFills, s.tradeJournal, s.trades, s.fills, s.fundingEvents, s.orders, s.syncRuns, s.wallets])
+    await d.delete(t);
   [wallet] = await d.insert(s.wallets).values({ accountId, address: DEMO_WALLET }).returning();
 });
 
@@ -227,6 +233,40 @@ describe("positions, HIP-3 and data quirks", () => {
     expect(t.flags.nonUsdcFee).toBeUndefined();
     const stored = await db().select().from(s.fills).where(and(eq(s.fills.walletId, wallet.id), eq(s.fills.tid, f[0].tid)));
     expect(stored[0].feeToken).toBe("USDC");
+  });
+});
+
+describe("orders → SL/TP auto-detection", () => {
+  const trade = () => sim("BTC").buy(1, 60000, 0).sell(1, 61000, 90).fills;
+  const stop = historyRows([
+    { oid: 7, coin: "BTC", side: "A", orderType: "Stop Market", triggerPx: 59000, placedAt: T0 + MIN, end: { status: "reduceOnlyCanceled", at: T0 + 90 * MIN } },
+  ]);
+
+  test("each sync stores order history and fills an empty stop loss; a user value survives re-syncs", async () => {
+    const { st, client } = fakeHl({ fills: trade(), orders: stop });
+    const r = await syncWallet(db(), client, wallet, { trigger: "manual" });
+    expect(r).toMatchObject({ status: "success", ordersStored: 1, protectionUpdated: 1 });
+    expect(st.calls.filter((c) => c.type === "historicalOrders")).toHaveLength(1);
+    const [t] = await db().select().from(s.trades);
+    expect(await db().query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, t.id) })).toMatchObject({ stopLoss: 59000, stopLossSource: "auto" });
+
+    await db().update(s.tradeJournal).set({ stopLoss: 58000, stopLossSource: "user" }).where(eq(s.tradeJournal.tradeId, t.id));
+    await syncWallet(db(), client, await freshWallet(), { trigger: "manual" });
+    expect((await db().query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, t.id) }))?.stopLoss).toBe(58000);
+  });
+
+  test("a bad order-history response never blocks fills or funding", async () => {
+    const { client } = fakeHl({ fills: trade(), orders: "broken" });
+    const r = await syncWallet(db(), client, wallet, { trigger: "manual" });
+    expect(r.status).toBe("success");
+    expect(r.error).toMatch(/^orders: historicalOrders: unexpected response shape/);
+    expect(await count(s.trades)).toBe(1);
+  });
+
+  test("a custom-range resync doesn't fetch orders", async () => {
+    const { st, client } = fakeHl({ fills: trade(), orders: stop });
+    await syncAll(db(), client, { trigger: "range", range: { start: 0, end: T0 + 100 * MIN } });
+    expect(st.calls.some((c) => c.type === "historicalOrders")).toBe(false);
   });
 });
 

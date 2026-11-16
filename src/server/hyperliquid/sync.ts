@@ -8,7 +8,9 @@ import { and, desc, eq, gt, inArray, isNull, max, min, sql } from "drizzle-orm";
 import { maskAddress } from "../config";
 import type { DB } from "../db/client";
 import * as s from "../db/schema";
+import { applyProtection } from "../protection/apply";
 import { insertFills, rebuildTrades } from "../reconstruct/persist";
+import { storeOrders } from "./orders";
 import type { FillInput } from "../reconstruct/types";
 import type { HlClient } from "./client";
 import { FILLS_HISTORY_LIMIT, FILLS_PAGE_LIMIT, TIME_RANGE_PAGE_LIMIT, type HlFill, type HlPosition } from "./schemas";
@@ -16,7 +18,7 @@ import { FILLS_HISTORY_LIMIT, FILLS_PAGE_LIMIT, TIME_RANGE_PAGE_LIMIT, type HlFi
 export const INCREMENTAL_OVERLAP_MS = 10 * 60_000;
 export const LOCK_TTL_MS = 5 * 60_000;
 
-export type SyncProgress = { phase: "fills" | "rebuild" | "positions" | "funding"; page?: number; fetched?: number; inserted?: number; detail?: string };
+export type SyncProgress = { phase: "fills" | "rebuild" | "orders" | "positions" | "funding"; page?: number; fetched?: number; inserted?: number; detail?: string };
 
 export type SyncTrigger = "manual" | "auto" | "cron" | "range" | "backfill";
 type Wallet = typeof s.wallets.$inferSelect;
@@ -33,6 +35,8 @@ export type WalletSyncResult = {
   gapsDetected: number;
   fundingNew: number;
   openPositions: number;
+  ordersStored: number;
+  protectionUpdated: number;
   error?: string;
 };
 
@@ -79,6 +83,8 @@ export async function syncWallet(
     gapsDetected: 0,
     fundingNew: 0,
     openPositions: 0,
+    ordersStored: 0,
+    protectionUpdated: 0,
   };
 
   // ── lock: one sync per wallet at a time (stale locks expire) ──
@@ -168,6 +174,20 @@ export async function syncWallet(
       opts.onProgress?.({ phase: "rebuild", detail: `${r.created} new, ${r.updated} updated, ${r.superseded} superseded` });
     }
 
+    // ── 2b. order history → SL/TP auto-detection. Every run stores the latest ~2000 order rows, so history
+    // accumulates beyond Hyperliquid's window. Non-fatal: a problem here never blocks fills or funding.
+    if (!opts.range) {
+      try {
+        const hist = await client.historicalOrders(user);
+        result.ordersStored = (await storeOrders(db, wallet.id, hist)).orders;
+        const p = await applyProtection(db, wallet.id, { now: now() });
+        result.protectionUpdated = p.trades;
+        opts.onProgress?.({ phase: "orders", detail: `${result.ordersStored} orders, ${p.trades} trade(s) updated` });
+      } catch (e) {
+        result.error = `orders: ${sanitizeError(e)}`;
+      }
+    }
+
     // ── 3. open positions (only once fills are caught up; positions are "now") ──
     if (fillsDone && !opts.range) {
       const positions = await fetchPositions(client, user);
@@ -190,7 +210,7 @@ export async function syncWallet(
   } catch (e) {
     result.status = "error";
     result.done = false;
-    result.error = sanitizeError(e);
+    result.error = [sanitizeError(e), result.error].filter(Boolean).join("; ");
   }
 
   // ── bookkeeping ──

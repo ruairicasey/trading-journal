@@ -207,6 +207,39 @@ export const fundingEvents = sqliteTable(
   (t) => [primaryKey({ columns: [t.walletId, t.coin, t.time] })],
 );
 
+// ─── [X] orders (Hyperliquid order history, one row per order id; never deleted) ─────
+// historicalOrders returns one row per status change (an "open" snapshot when placed, then e.g. "canceled"
+// or "triggered"), so rows are merged per oid: placed_at = first placement, status = latest change.
+export const ORDER_PROTECTION_SOURCES = ["auto", "user"] as const;
+export type ProtectionSource = (typeof ORDER_PROTECTION_SOURCES)[number];
+
+export const orders = sqliteTable(
+  "orders",
+  {
+    walletId: text("wallet_id")
+      .notNull()
+      .references(() => wallets.id),
+    oid: integer("oid").notNull(),
+    coin: text("coin").notNull(),
+    side: text("side", { enum: ["B", "A"] }).notNull(),
+    orderType: text("order_type").notNull(), // "Market", "Limit", "Stop Market", "Take Profit Limit", …
+    isTrigger: integer("is_trigger", { mode: "boolean" }).notNull(),
+    triggerPx: real("trigger_px"),
+    triggerCondition: text("trigger_condition"),
+    limitPx: real("limit_px"),
+    reduceOnly: integer("reduce_only", { mode: "boolean" }).notNull(),
+    isPositionTpsl: integer("is_position_tpsl", { mode: "boolean" }).notNull(),
+    origSz: real("orig_sz"), // 0 for position TP/SL (whole position)
+    placedAt: integer("placed_at").notNull(),
+    status: text("status").notNull(),
+    statusAt: integer("status_at").notNull(),
+    /** when the order stopped being live (cancelled, triggered, filled, …); null while open */
+    endedAt: integer("ended_at"),
+    raw: text("raw", { mode: "json" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.walletId, t.oid] }), index("orders_wallet_coin_placed_idx").on(t.walletId, t.coin, t.placedAt)],
+);
+
 // ─── trades ([X] for source=hyperliquid; [U] for source=manual) ─────────────────────
 export type TradeFlags = {
   partialHistory?: boolean;
@@ -324,6 +357,11 @@ export const tradeJournal = sqliteTable("trade_journal", {
   strategyId: text("strategy_id").references(() => vocabItems.id),
   stopLoss: real("stop_loss"),
   takeProfit: real("take_profit"),
+  // Who set stop_loss / take_profit / the TP partials: "auto" (detected from your exchange orders; sync may
+  // update it) or "user" (typed or cleared by you; sync never touches it). null = never set.
+  stopLossSource: text("stop_loss_source", { enum: ORDER_PROTECTION_SOURCES }),
+  takeProfitSource: text("take_profit_source", { enum: ORDER_PROTECTION_SOURCES }),
+  tpPartialsSource: text("tp_partials_source", { enum: ORDER_PROTECTION_SOURCES }),
   sizeMode: text("size_mode", { enum: SIZE_MODES }).notNull().default("position"),
   plannedRiskUsd: real("planned_risk_usd"),
   leverageOverride: real("leverage_override"),
@@ -393,6 +431,9 @@ export const stopMoves = sqliteTable("stop_moves", {
   time: integer("time").notNull(),
   price: real("price").notNull(),
   note: text("note"),
+  /** "auto" rows mirror your exchange stop orders and are rebuilt by sync; "user" rows are yours */
+  source: text("source", { enum: ORDER_PROTECTION_SOURCES }).notNull().default("user"),
+  oid: integer("oid"),
 });
 
 export const notes = sqliteTable(

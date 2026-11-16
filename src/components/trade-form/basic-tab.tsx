@@ -26,7 +26,8 @@ import {
 import { displayPair } from "@/server/hyperliquid/markets";
 import { createStrategyAction } from "@/app/(app)/trades/[id]/actions";
 import { Field, Locked, NumberInput, Section, Segmented } from "./fields";
-import type { Draft, FormProps, Row } from "./types";
+import { PartialsHint, ProtectionHint, StopMoves } from "./protection";
+import type { Draft, FormProps, ProtectionField, ProtectionState, Row } from "./types";
 
 const NONE = "__none";
 
@@ -35,9 +36,11 @@ type Props = FormProps & {
   update: (p: Partial<Draft>) => void;
   updateManual: (p: Partial<NonNullable<Draft["manual"]>>) => void;
   errors: Record<string, string>;
+  protection: ProtectionState;
+  onRevert: (f: ProtectionField) => Promise<void>;
 };
 
-export function BasicTab({ data, accounts, sessions, tz, draft, update, updateManual, errors }: Props) {
+export function BasicTab({ data, accounts, sessions, tz, draft, update, updateManual, errors, protection, onRevert }: Props) {
   const t = data.trade;
   const m = draft.manual;
   const manual = !!m;
@@ -215,6 +218,7 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
             hint={risk !== null ? `Risk ${fmtUsd(risk)}${balance > 0 ? ` (${fmtPct((risk / balance) * 100).replace("+", "")} of account)` : ""}` : undefined}
           >
             <NumberInput aria-label="Stop loss" value={draft.stopLoss} onChange={(v) => update({ stopLoss: v })} min={0} />
+            <ProtectionHint field="stopLoss" value={draft.stopLoss} state={protection} tz={tz} onRevert={onRevert} />
           </Field>
           <Field
             label="Take profit"
@@ -222,6 +226,7 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
             hint={rr !== null ? `${rr.toFixed(2)}R target` : undefined}
           >
             <NumberInput aria-label="Take profit" value={draft.takeProfit} onChange={(v) => update({ takeProfit: v })} min={0} />
+            <ProtectionHint field="takeProfit" value={draft.takeProfit} state={protection} tz={tz} onRevert={onRevert} />
           </Field>
         </div>
         {(realizedR !== null || (!manual && status === "closed")) && (
@@ -233,6 +238,7 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
             </span>
           </div>
         )}
+        <StopMoves state={protection} initial={draft.stopLoss} tz={tz} />
       </Section>
 
       {/* ── Size ── */}
@@ -269,7 +275,7 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
       </Section>
 
       {/* ── More details ── */}
-      <MoreDetails defaultOpen={draft.tpPartials.length > 0 || (m?.dca.length ?? 0) > 0 || draft.checklist.length > 0 || !!draft.session}>
+      <MoreDetails defaultOpen={draft.tpPartials.length > 0 || (protection.detected?.tpPartials.length ?? 0) > 0 || (m?.dca.length ?? 0) > 0 || draft.checklist.length > 0 || !!draft.session}>
         <div className="grid gap-5">
           <PartialEntries
             manual={manual}
@@ -278,7 +284,10 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
             tz={tz}
             onChange={(dca) => updateManual({ dca })}
           />
-          <PartialTps rows={draft.tpPartials} onChange={(tpPartials) => update({ tpPartials })} total={tp.total} error={errors.tpPartials} />
+          <div className="grid gap-1">
+            <PartialTps rows={draft.tpPartials} onChange={(tpPartials) => update({ tpPartials })} total={tp.total} error={errors.tpPartials} />
+            <PartialsHint rows={draft.tpPartials} state={protection} onRevert={onRevert} />
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Fees" hint={manual ? "Total fees for this trade" : "From your fills (maker rebates reduce it)"}>

@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { getDb } from "@/server/db/client";
 import { getActiveAccount } from "@/server/db/queries/settings";
 import { createStrategy, saveTradeBasic, type SaveResult } from "@/server/trades/journal";
+import { revertToAuto } from "@/server/protection/apply";
 import { deleteScreenshot, moveScreenshot, updateCaption } from "@/server/screenshots";
 import { getStorage } from "@/server/storage";
 
-export async function saveTradeBasicAction(tradeId: string, input: unknown): Promise<SaveResult> {
+export async function saveTradeBasicAction(tradeId: string, input: unknown, base?: unknown): Promise<SaveResult> {
   const { active } = await getActiveAccount();
   if (!active) return { ok: false, errors: { form: "No account" } };
-  const res = await saveTradeBasic(getDb(), active.id, String(tradeId), input);
+  const res = await saveTradeBasic(getDb(), active.id, String(tradeId), input, base);
   // Refresh lists/stats; the edit page keeps its own client state, so it isn't revalidated here.
   if (res.ok) {
     revalidatePath("/trades");
@@ -41,4 +42,14 @@ export async function moveScreenshotAction(id: string, direction: "left" | "righ
 
 export async function deleteScreenshotAction(id: string) {
   await deleteScreenshot(getDb(), getStorage(), await accountId(), String(id));
+}
+
+export async function revertToAutoAction(tradeId: string, field: "stopLoss" | "takeProfit" | "tpPartials") {
+  const f = field === "takeProfit" || field === "tpPartials" ? field : "stopLoss";
+  const res = await revertToAuto(getDb(), await accountId(), String(tradeId), f);
+  if (res.ok) {
+    revalidatePath("/trades");
+    revalidatePath("/dashboard");
+  }
+  return res;
 }

@@ -13,6 +13,7 @@ import type { DB } from "../db/client";
 import * as s from "../db/schema";
 import { manualMetrics, sizeFromRisk, totalSize, tpAllocation, weightedAvg } from "../../lib/trade-math";
 import { MAX_TAGS, REFLECTION_PROMPTS } from "../../lib/journal-options";
+import { detectForTrade } from "../protection/apply";
 
 const num = z.number().finite();
 const price = num.positive().max(1e12);
@@ -75,6 +76,18 @@ export const BasicInputSchema = z.object({
     .optional(),
 });
 export type BasicInput = z.infer<typeof BasicInputSchema>;
+
+/**
+ * What the form last loaded/saved for the auto-detectable fields. A field counts as edited by the user
+ * (and becomes theirs: source "user", never touched by sync again) only when the payload differs from this
+ * baseline, so a page left open can't clobber a value that sync updated in the meantime.
+ */
+export const ProtectionBaseSchema = z.object({
+  stopLoss: num.nullable(),
+  takeProfit: num.nullable(),
+  tpPartials: z.array(z.object({ price: num, pct: num })).max(20),
+});
+export type ProtectionBase = z.infer<typeof ProtectionBaseSchema>;
 export const TradeInputSchema = BasicInputSchema;
 export type TradeInput = BasicInput;
 
@@ -150,6 +163,10 @@ export async function loadTradeForEdit(db: DB, accountId: string, tradeId: strin
       .limit(200),
     db.select().from(s.screenshots).where(eq(s.screenshots.tradeId, tradeId)).orderBy(asc(s.screenshots.sort), asc(s.screenshots.createdAt)),
   ]);
+  const [detected, moves] = await Promise.all([
+    detectForTrade(db, trade),
+    db.select().from(s.stopMoves).where(eq(s.stopMoves.tradeId, tradeId)).orderBy(asc(s.stopMoves.time)),
+  ]);
   const used = new Set(vocab.map((v) => v.itemId));
   for (const k of ["emotionBeforeId", "emotionAfterId", "exitReasonId"] as const) if (journal?.[k]) used.add(journal[k]!);
   const vocabByKind = (kind: s.VocabKind) => allVocab.filter((v) => v.kind === kind && (!v.archived || used.has(v.id)));
@@ -182,13 +199,35 @@ export async function loadTradeForEdit(db: DB, accountId: string, tradeId: strin
     strategies: strategies.filter((x) => !x.archived || x.id === journal?.strategyId),
     checklistItems: checklistItems.filter((x) => !x.archived || checked.has(x.id)),
     recentPairs: recent.map((r) => r.coin),
+    protection: {
+      sources: {
+        stopLoss: journal?.stopLossSource ?? null,
+        takeProfit: journal?.takeProfitSource ?? null,
+        tpPartials: journal?.tpPartialsSource ?? null,
+      },
+      detected: detected
+        ? {
+            stopLoss: detected.stopLoss,
+            takeProfit: detected.takeProfit,
+            tpPartials: detected.tpPartials.map((p) => ({ price: p.price, pct: p.pct })),
+          }
+        : null,
+      stopMoves: moves.map((m) => ({ id: m.id, time: m.time, price: m.price, source: m.source, note: m.note })),
+    },
   };
 }
 
 export type TradeEditData = NonNullable<Awaited<ReturnType<typeof loadTradeForEdit>>>;
 
-export async function saveTradeBasic(db: DB, currentAccountId: string, tradeId: string, raw: unknown): Promise<SaveResult> {
+export async function saveTradeBasic(
+  db: DB,
+  currentAccountId: string,
+  tradeId: string,
+  raw: unknown,
+  rawBase?: unknown,
+): Promise<SaveResult> {
   const parsed = BasicInputSchema.safeParse(raw);
+  const baseParsed = rawBase === undefined ? null : ProtectionBaseSchema.safeParse(rawBase);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     return { ok: false, errors: { form: `${issue.path.join(".") || "input"}: ${issue.message}` } };
@@ -247,6 +286,22 @@ export async function saveTradeBasic(db: DB, currentAccountId: string, tradeId: 
 
   const existingJournal = await db.query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, tradeId) });
   const now = Date.now();
+
+  // ── which auto-detectable fields did the user actually change? ──
+  const existingTp = (
+    await db
+      .select()
+      .from(s.tradePartials)
+      .where(and(eq(s.tradePartials.tradeId, tradeId), eq(s.tradePartials.kind, "tp")))
+      .orderBy(asc(s.tradePartials.sort))
+  ).map((p) => ({ price: p.price, pct: p.pct ?? 0 }));
+  const base: ProtectionBase =
+    baseParsed?.success
+      ? baseParsed.data
+      : { stopLoss: existingJournal?.stopLoss ?? null, takeProfit: existingJournal?.takeProfit ?? null, tpPartials: existingTp };
+  const slChanged = (input.stopLoss ?? null) !== (base.stopLoss ?? null);
+  const tpChanged = (input.takeProfit ?? null) !== (base.takeProfit ?? null);
+  const partialsChanged = JSON.stringify(input.tpPartials.map((p) => [p.price, p.pct])) !== JSON.stringify(base.tpPartials.map((p) => [p.price, p.pct]));
   const n = input.notes;
   const reviewFilled =
     !!n && (!!n.postNotes?.trim() || n.rulesFollowed !== null || n.exitReasonId !== null || n.processCompliant !== null || n.mistakes.length > 0);
@@ -299,8 +354,9 @@ export async function saveTradeBasic(db: DB, currentAccountId: string, tradeId: 
 
     const journalSet = {
       strategyId: input.strategyId,
-      stopLoss: input.stopLoss,
-      takeProfit: input.takeProfit,
+      ...(slChanged ? { stopLoss: input.stopLoss, stopLossSource: "user" as const } : {}),
+      ...(tpChanged ? { takeProfit: input.takeProfit, takeProfitSource: "user" as const } : {}),
+      ...(partialsChanged ? { tpPartialsSource: "user" as const } : {}),
       sizeMode: input.sizeMode,
       plannedRiskUsd: input.plannedRiskUsd,
       leverageOverride: input.leverageOverride,
@@ -339,7 +395,7 @@ export async function saveTradeBasic(db: DB, currentAccountId: string, tradeId: 
     };
     await tx
       .insert(s.tradeJournal)
-      .values({ tradeId, ...journalSet })
+      .values({ tradeId, stopLoss: input.stopLoss, takeProfit: input.takeProfit, ...journalSet })
       .onConflictDoUpdate({ target: s.tradeJournal.tradeId, set: journalSet });
 
     await tx.delete(s.tradeVocab).where(and(eq(s.tradeVocab.tradeId, tradeId), eq(s.tradeVocab.kind, "checklist")));
@@ -368,10 +424,10 @@ export async function saveTradeBasic(db: DB, currentAccountId: string, tradeId: 
       if (tagIds.length) await tx.insert(s.tradeTags).values(tagIds.map((tagId) => ({ tradeId, tagId })));
     }
 
-    const kinds: ("tp" | "entry")[] = manual ? ["tp", "entry"] : ["tp"];
-    await tx.delete(s.tradePartials).where(and(eq(s.tradePartials.tradeId, tradeId), inArray(s.tradePartials.kind, kinds)));
+    const kinds: ("tp" | "entry")[] = [...(partialsChanged ? (["tp"] as const) : []), ...(manual ? (["entry"] as const) : [])];
+    if (kinds.length) await tx.delete(s.tradePartials).where(and(eq(s.tradePartials.tradeId, tradeId), inArray(s.tradePartials.kind, kinds)));
     const partialRows = [
-      ...input.tpPartials.map((p, i) => ({ tradeId, kind: "tp" as const, price: p.price, pct: p.pct, sort: i })),
+      ...(partialsChanged ? input.tpPartials : []).map((p, i) => ({ tradeId, kind: "tp" as const, price: p.price, pct: p.pct, sort: i })),
       ...(manual && input.manual ? input.manual.dca.map((d, i) => ({ tradeId, kind: "entry" as const, price: d.price, sizeUnits: d.size, sort: i })) : []),
     ];
     if (partialRows.length) await tx.insert(s.tradePartials).values(partialRows);

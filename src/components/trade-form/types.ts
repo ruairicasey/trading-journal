@@ -97,3 +97,15 @@ export function toPayload(d: Draft): { input: BasicInput | null; error: string |
   }
   return { input: { ...d, tpPartials: tp.rows, manual }, error: null };
 }
+
+export type ProtectionState = TradeEditData["protection"];
+export type ProtectionField = "stopLoss" | "takeProfit" | "tpPartials";
+
+/** Baseline of the auto-detectable fields as last loaded/saved (see ProtectionBaseSchema). */
+export function protectionBase(d: Pick<Draft, "stopLoss" | "takeProfit" | "tpPartials">) {
+  return {
+    stopLoss: d.stopLoss,
+    takeProfit: d.takeProfit,
+    tpPartials: d.tpPartials.filter((r) => r.price !== null && r.pct !== null) as { price: number; pct: number }[],
+  };
+}

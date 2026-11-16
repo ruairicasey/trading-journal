@@ -68,8 +68,17 @@ async function main() {
     shots++;
   }
 
+  // synthetic trigger orders (stops, moves, targets) → SL/TP auto-detection, exactly as a real sync would
+  const { demoOrders } = await import("../src/server/demo/orders");
+  const { historyRows } = await import("../src/server/demo/hl-orders");
+  const { storeOrders } = await import("../src/server/hyperliquid/orders");
+  const { applyProtection } = await import("../src/server/protection/apply");
+  const synth = demoOrders(createRng(DEMO_SEED + 3), history.plans, (plan) => byKey.get(`${wallet.id}:${plan.coin}:${plan.firstTid}${plan.keySuffix}`), journaled);
+  await storeOrders(db, wallet.id, historyRows(synth) as Parameters<typeof storeOrders>[2]);
+  const prot = await applyProtection(db, wallet.id);
+
   console.log(
-    `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank), ${shots} screenshots`,
+    `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank), ${shots} screenshots\n  ${synth.length} trigger orders → auto SL/TP on ${prot.trades} trades`,
   );
 }
 

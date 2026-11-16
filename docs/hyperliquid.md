@@ -76,8 +76,24 @@ Time-range responses return at most **500** items; paginate by last timestamp (c
 - `userFills`, `userFillsByTime`, `userFunding` and `historicalOrders` add **+1 per 20 items returned** (a full 2000-fill page ≈ 120).
 - The client keeps a token bucket at 900/min and retries 429/5xx with backoff (1, 2, 4, 8s).
 
+## Orders (SL/TP auto-detection)
+
+Verified 2026-11 against live public accounts and an address-free probe (`npm run debug:orders`) of a real account.
+
+- `historicalOrders` returns about **2000 rows**, newest first, with no dex parameter; HIP-3 orders (`xyz:…`) are included.
+- **An order appears once per status change**: an `open` snapshot when placed (`statusTimestamp` = `timestamp`), then its
+  terminal row (`canceled`, `reduceOnlyCanceled`, `siblingFilledCanceled`, `liquidatedCanceled`, `triggered`, `filled`, …).
+  So a row saying `open` does not mean the order is live. Sync merges rows per `oid`: placement time from the first row,
+  status from the latest (a terminal status wins a timestamp tie).
+- A trigger that fires: `Stop Market` (trigger) `open` → `Stop Market` `filled` (isTrigger false, `triggerPx` 0, later
+  timestamp) → `Stop Market` (trigger) `triggered`. Its fills carry the same `oid`.
+- Order types seen: `Stop Market`, `Take Profit Market`, `Take Profit Limit` (and presumably `Stop Limit`), plus `Market`/`Limit`.
+- Position TP/SL orders (`isPositionTpsl: true`) have `sz` = `origSz` = 0: they cover the whole position.
+- **Nested `children`** (TP/SL attached to an entry order) carry the **parent's oid**, not their own. When the parent fills,
+  they become real orders with their own oid and rows, so children are not stored separately.
+- Sync stores the history on every run (accumulating beyond the 2000-row window) and never deletes it. `frontendOpenOrders`
+  isn't needed: a live order is simply one whose latest row is still `open`.
+
 ## Not used yet (Phase 2)
 
-- `historicalOrders` (2000 most recent) and `frontendOpenOrders` (`isTrigger`, `triggerPx`, `orderType`, `reduceOnly`, `isPositionTpsl`)
-  for SL/TP auto-detection.
 - `userNonFundingLedgerUpdates` (deposits, transfers, withdrawals) for equity curves.

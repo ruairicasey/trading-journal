@@ -29,6 +29,8 @@ screenshots), and the dashboard shows how you're actually doing.
 - **Basic**
   - Exchange fields are locked on synced trades.
   - Stop and target with R:R; position-size or risk-amount sizing; leverage.
+- **Stop loss and take profit filled in from your Hyperliquid trigger orders**, with stop moves and TP ladders. A value you
+  type (or clear) is yours and is never overwritten; "Revert to auto" hands it back.
   - Partial entries and take profits, session, planned vs reactive, and your pre-trade checklist.
 - **Analysis:** timeframes, market condition, grouped confluence and SL/TP-reasoning pickers, grade, entry retests, max R reached, risk multiplier.
 - **Notes:** rationale, post-trade notes, reflection prompts, tags, the review, mistakes, and **screenshots**. Paste, drop or click to add up to 20 per trade. They're compressed in the browser and stored privately.
@@ -135,7 +137,7 @@ Every key goes into those dashboards, never into the repo.
 ## Roadmap
 
 Phase 1 (this) is complete. Next up are an analytics page, a drawdown tracker, weekly reflection, deposits and withdrawals
-in the equity curve, funding attribution, SL/TP auto-detection, then rule-based insights. See [docs/roadmap.md](docs/roadmap.md).
+in the equity curve, funding attribution, then rule-based insights (SL/TP auto-detection is done). See [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 

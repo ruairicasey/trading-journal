@@ -3,7 +3,7 @@
  * to confirm their exact shape before SL/TP auto-detection is built.
  *
  * Prints counts and patterns only: no addresses, no prices, no sizes. Safe to paste back.
- * Writes nothing to the database.
+ * Writes no data (it only applies pending schema migrations, like every other script).
  */
 import { loadEnvConfig } from "@next/env";
 
@@ -35,11 +35,16 @@ const shape = (s: string) => s.replace(/-?\d+(\.\d+)?(e-?\d+)?/gi, "<px>");
 async function main() {
   const { getDb } = await import("../src/server/db/client");
   const s = await import("../src/server/db/schema");
-  const { eq, inArray, and } = await import("drizzle-orm");
+  const { eq, inArray, and, isNull } = await import("drizzle-orm");
+  const { mergeOrderRows } = await import("../src/server/hyperliquid/orders");
+  const { detectProtection } = await import("../src/server/protection/detect");
+  type ProtectionOrder = import("../src/server/protection/detect").ProtectionOrder;
   const { getHlClient } = await import("../src/server/hyperliquid");
   const { parseCoin } = await import("../src/server/hyperliquid/markets");
 
   const db = getDb();
+  const { runMigrations } = await import("../src/server/db/bootstrap");
+  await runMigrations(db);
   const wallets = await db.select().from(s.wallets).where(eq(s.wallets.enabled, true));
   if (!wallets.length) throw new Error("No wallets. Run npm run sync:backfill first.");
   const client = getHlClient();
@@ -86,17 +91,52 @@ async function main() {
     table("Parent → children nesting", nesting);
     table("Trigger orders by market type (perp / hip3 / spot)", markets);
 
-    // Do executed trigger orders show up as the oid on our stored fills?
-    const uniq = [...new Set(triggerOids)];
+    // Rows → one record per order id (what sync stores). Nested children carry the parent's oid, so they
+    // are not counted as orders of their own.
+    const merged = mergeOrderRows(w.id, hist);
+    const mTrig = merged.filter((o) => o.isTrigger);
+    const finals = new Map<string, number>();
+    for (const o of mTrig) inc(finals, `${o.orderType} | final status ${o.status}`);
+    console.log(`\nAfter merging rows per order id: ${merged.length} orders, ${mTrig.length} trigger orders (${triggerOids.length} trigger rows incl. children)`);
+    table("Trigger orders by final status", finals);
+    const oids = mTrig.map((o) => o.oid);
     let matched = 0;
-    for (let i = 0; i < uniq.length; i += 200) {
+    for (let i = 0; i < oids.length; i += 200) {
       const rows = await db
         .select({ oid: s.fills.oid })
         .from(s.fills)
-        .where(and(eq(s.fills.walletId, w.id), inArray(s.fills.oid, uniq.slice(i, i + 200))));
+        .where(and(eq(s.fills.walletId, w.id), inArray(s.fills.oid, oids.slice(i, i + 200))));
       matched += new Set(rows.map((r) => r.oid)).size;
     }
-    console.log(`\nTrigger orders whose oid appears on a stored fill: ${matched} of ${uniq.length}`);
+    const fired = mTrig.filter((o) => o.status === "triggered").length;
+    console.log(`Trigger orders with fills: ${matched} (orders that fired: ${fired})`);
+
+    // Preview of auto-detection on your stored trades (read-only: nothing is written).
+    const trades = (
+      await db
+        .select()
+        .from(s.trades)
+        .where(and(eq(s.trades.walletId, w.id), eq(s.trades.source, "hyperliquid"), isNull(s.trades.deletedAt)))
+    ).filter((t) => !t.flags?.superseded);
+    const journals = new Map((await db.select().from(s.tradeJournal)).map((j) => [j.tradeId, j]));
+    const orders = merged as unknown as ProtectionOrder[];
+    const now = Date.now();
+    let sl = 0, tp = 0, ladders = 0, moved = 0, yours = 0, differs = 0;
+    for (const t of trades) {
+      const d = detectProtection(t, orders, now);
+      if (d.stopLoss) sl++;
+      if (d.takeProfit) tp++;
+      if (d.tpPartials.length) ladders++;
+      if (d.stopMoves.length) moved++;
+      const j = journals.get(t.id);
+      if (d.stopLoss && j?.stopLoss != null && j.stopLossSource !== "auto") {
+        yours++;
+        if (Math.abs(j.stopLoss - d.stopLoss.price) > Math.abs(d.stopLoss.price) * 1e-9) differs++;
+      }
+    }
+    console.log(`\nAuto-detection preview over ${trades.length} trades (nothing written):`);
+    console.log(`  stop loss found: ${sl}   take profit found: ${tp}   TP ladders: ${ladders}   trades with stop moves: ${moved}`);
+    console.log(`  your own stop losses kept as-is: ${yours} (${differs} differ from the order)`);
 
     // Live trigger orders on each dex (main + HIP-3)
     const dexes = await client.perpDexNames();

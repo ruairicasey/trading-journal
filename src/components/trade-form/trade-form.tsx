@@ -5,11 +5,22 @@ import { AlertCircle, Check, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { saveTradeBasicAction } from "@/app/(app)/trades/[id]/actions";
+import { revertToAutoAction, saveTradeBasicAction } from "@/app/(app)/trades/[id]/actions";
 import { AnalysisTab } from "./analysis-tab";
 import { BasicTab } from "./basic-tab";
 import { NotesTab } from "./notes-tab";
-import { initialDraft, toPayload, type AnalysisDraft, type Draft, type FormProps, type NotesDraft } from "./types";
+import { toast } from "sonner";
+import {
+  initialDraft,
+  protectionBase,
+  toPayload,
+  type AnalysisDraft,
+  type Draft,
+  type FormProps,
+  type NotesDraft,
+  type ProtectionField,
+  type ProtectionState,
+} from "./types";
 
 type Status = { kind: "saved"; at: number | null } | { kind: "dirty" } | { kind: "saving" } | { kind: "error"; message: string };
 
@@ -24,19 +35,35 @@ export function TradeForm(props: FormProps) {
   const [status, setStatus] = useState<Status>({ kind: "saved", at: props.data.journal?.updatedAt ?? null });
   const [, start] = useTransition();
   const inFlight = useRef(false);
+  // auto-detected SL/TP: who owns each field, and the values last loaded/saved (sent with every save)
+  const [protection, setProtection] = useState<ProtectionState>(props.data.protection);
+  const base = useRef(protectionBase(initialDraft(props.data)));
 
   const dirty = json !== savedJson.current;
 
   const save = useCallback(() => {
     if (!payload.input || inFlight.current) return;
     const body = json;
+    const input = payload.input;
+    const sentBase = base.current;
     inFlight.current = true;
     setStatus({ kind: "saving" });
     start(async () => {
       try {
-        const res = await saveTradeBasicAction(props.data.trade.id, payload.input);
+        const res = await saveTradeBasicAction(props.data.trade.id, input, sentBase);
         if (res.ok) {
           savedJson.current = body;
+          const next = protectionBase(input);
+          const changed = (k: "stopLoss" | "takeProfit" | "tpPartials") => JSON.stringify(next[k]) !== JSON.stringify(sentBase[k]);
+          setProtection((p) => ({
+            ...p,
+            sources: {
+              stopLoss: changed("stopLoss") ? "user" : p.sources.stopLoss,
+              takeProfit: changed("takeProfit") ? "user" : p.sources.takeProfit,
+              tpPartials: changed("tpPartials") ? "user" : p.sources.tpPartials,
+            },
+          }));
+          base.current = next;
           setErrors({});
           setStatus({ kind: "saved", at: res.savedAt });
         } else {
@@ -88,6 +115,27 @@ export function TradeForm(props: FormProps) {
   const update = useCallback((patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch })), []);
   const updateAnalysis = useCallback((patch: Partial<AnalysisDraft>) => setDraft((d) => ({ ...d, analysis: { ...d.analysis, ...patch } })), []);
   const updateNotes = useCallback((patch: Partial<NotesDraft>) => setDraft((d) => ({ ...d, notes: { ...d.notes, ...patch } })), []);
+  const revert = useCallback(
+    async (field: ProtectionField) => {
+      const res = await revertToAutoAction(props.data.trade.id, field);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      const patch: Partial<Draft> =
+        field === "stopLoss" ? { stopLoss: res.stopLoss } : field === "takeProfit" ? { takeProfit: res.takeProfit } : { tpPartials: res.tpPartials };
+      setDraft((d) => {
+        const next = { ...d, ...patch };
+        // the server already holds these values: don't autosave them back as a user edit
+        base.current = { ...base.current, [field]: protectionBase(next)[field] };
+        if (JSON.stringify(toPayload(d).input) === savedJson.current) savedJson.current = JSON.stringify(toPayload(next).input);
+        return next;
+      });
+      setProtection((p) => ({ ...p, sources: { ...p.sources, [field]: "auto" } }));
+      toast.success("Reverted to your exchange order");
+    },
+    [props.data.trade.id],
+  );
   const [tab, setTab] = useState("basic");
   const account = props.accounts.find((a) => a.id === draft.accountId);
   const a = draft.analysis;
@@ -119,7 +167,7 @@ export function TradeForm(props: FormProps) {
         </Button>
       </div>
       <TabsContent value="basic">
-        <BasicTab {...props} draft={draft} update={update} updateManual={updateManual} errors={errors} />
+        <BasicTab {...props} draft={draft} update={update} updateManual={updateManual} errors={errors} protection={protection} onRevert={revert} />
       </TabsContent>
       <TabsContent value="analysis">
         <AnalysisTab data={props.data} value={draft.analysis} onChange={updateAnalysis} standardRiskPct={account?.standardRiskPct ?? null} />
