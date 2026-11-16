@@ -11,6 +11,7 @@ import { createRng } from "@/server/demo/rng";
 import { insertFills, rebuildTrades } from "@/server/reconstruct/persist";
 import { listNotes, listTrades, filterOptions, missingCounts } from "@/server/db/queries/trades";
 import { MISSING_KINDS } from "@/lib/missing";
+import { analyticsTrades } from "@/server/db/queries/analytics";
 import { weekOf } from "@/lib/weekly";
 import { parseFilters, tradesHref, toggleChipHref, CHIPS, type TradeFilters } from "@/server/trades/filters";
 import { createNote, duplicateAsPlanned, restoreTrade, softDeleteTrade } from "@/server/trades/mutations";
@@ -187,6 +188,20 @@ describe("missing context (weekly reflection)", () => {
     expect(all.stop).toBeGreaterThanOrEqual(blank);
     const mistakes = await allRows({ missing: "mistakes" });
     for (const row of mistakes.rows) expect(row.status).toBe("closed");
+  });
+});
+
+describe("analytics query", () => {
+  test("closed live trades only, with confluences, grade, strategy and HTFs from the journal", async () => {
+    const db = getDb();
+    const rows = await analyticsTrades(db, accountId);
+    const closed = await allRows({ tab: "closed" });
+    expect(rows.length).toBe(closed.total);
+    const links = await db.select().from(s.tradeVocab).where(eq(s.tradeVocab.kind, "confluence"));
+    const live = new Set(rows.map((r) => r.id));
+    expect(rows.reduce((a, r) => a + r.confluences.length, 0)).toBe(links.filter((l) => live.has(l.tradeId)).length);
+    expect(rows.some((r) => r.grade && r.strategy && r.htf.length)).toBe(true);
+    expect(rows.every((r, i) => i === 0 || r.exitTime >= rows[i - 1].exitTime)).toBe(true);
   });
 });
 

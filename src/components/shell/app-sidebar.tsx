@@ -30,7 +30,7 @@ type NavItem = { href: string; label: string; icon: LucideIcon; soon?: string };
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/trades", label: "Trades", icon: ListOrdered },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, soon: "P2" },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/insights", label: "Insights", icon: Lightbulb, soon: "P3" },
 ];
 

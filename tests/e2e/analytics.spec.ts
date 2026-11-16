@@ -1,0 +1,32 @@
+import { expect, test } from "@playwright/test";
+
+test.describe("Analytics: Setup (demo data)", () => {
+  test("widgets render with sample sizes; table view; R mode; periods stay on /analytics", async ({ page }) => {
+    await page.goto("/analytics");
+    await expect(page.getByTestId("analytics-summary")).toContainText("closed trades · All");
+    const grade = page.getByTestId("widget-grade");
+    await expect(grade.getByText("A+", { exact: true })).toBeVisible();
+    await grade.getByRole("button", { name: "Table view" }).click();
+    await expect(grade.getByRole("columnheader", { name: "Win rate" })).toBeVisible();
+    await expect(grade.getByRole("row")).not.toHaveCount(1);
+
+    await page.getByRole("link", { name: "R", exact: true }).click();
+    await expect(page).toHaveURL(/\/analytics\?.*unit=r/);
+    await expect(page.getByTestId("widget-pair")).toContainText("avg R");
+
+    await page.getByRole("link", { name: "30D" }).click();
+    await expect(page).toHaveURL(/\/analytics\?.*period=30d/);
+    await expect(page.getByTestId("analytics-summary")).toContainText("30D");
+  });
+
+  test("hiding a widget persists; the Widgets menu brings it back", async ({ page }) => {
+    await page.goto("/analytics");
+    await page.getByTestId("widget-direction").getByRole("button", { name: "Hide Long vs short" }).click();
+    await expect(page.getByTestId("widget-direction")).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByTestId("widget-direction")).toHaveCount(0);
+    await page.getByRole("button", { name: /Widgets \(1 hidden\)/ }).click();
+    await page.getByRole("checkbox").nth(1).click();
+    await expect(page.getByTestId("widget-direction")).toBeVisible();
+  });
+});

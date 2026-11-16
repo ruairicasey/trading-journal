@@ -49,6 +49,11 @@ screenshots), and the dashboard shows how you're actually doing.
 - **Weekly reflection** (Monday-first, your timezone): scorecard, best/worst day and trade, review coverage, and
   missing-context counts that link straight to the trades needing attention, plus a "Write weekly note" template.
 
+**Analytics** (`/analytics`, same period and $ / R controls as the dashboard)
+- **Setup:** by pair, long vs short, planned vs reactive, grade, strategy, number of confluences, each confluence, number of
+  HTF confluences, each HTF, and HTF combinations. Every bucket shows its sample size and win rate; buckets under 5 trades are
+  greyed. Each widget has a table view and can be hidden. Timing, Risk & execution and Behaviour sections are next.
+
 **Your own vocabulary.** Strategies, confluences (seeded with a VWAP / volume-profile set), SL/TP reasons, the checklist,
 exit reasons, mistakes and emotions are all editable under **Settings → Journal lists**.
 
@@ -141,8 +146,9 @@ Every key goes into those dashboards, never into the repo.
 
 ## Roadmap
 
-Phase 1 is complete; in Phase 2, SL/TP auto-detection, the drawdown tracker and the weekly reflection are done. Next up are an
-analytics page, funding attribution and deposits/withdrawals in the equity curve, then rule-based insights. See [docs/roadmap.md](docs/roadmap.md).
+Phase 1 is complete; in Phase 2, SL/TP auto-detection, the drawdown tracker, the weekly reflection and the analytics Setup
+section are done. Next up are the rest of the analytics page, funding attribution and deposits/withdrawals in the equity curve,
+then rule-based insights. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 
