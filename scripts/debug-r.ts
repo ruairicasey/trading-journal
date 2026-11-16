@@ -14,10 +14,6 @@ loadEnvConfig(process.cwd(), !remote);
 const topArg = process.argv.indexOf("--top");
 const TOP = topArg > -1 ? Math.max(1, Number(process.argv[topArg + 1]) || 5) : 5;
 
-// thresholds for the flags (adjust here; the output says which were used)
-const TIGHT_PCT = 0.2; // stop closer than this % of entry
-const BE_PCT = 0.05; // effectively breakeven
-const LATE_MIN = 10; // stop first placed this many minutes after entry
 
 const pad = (v: unknown, n: number) => String(v ?? "—").padEnd(n).slice(0, n);
 const padL = (v: unknown, n: number) => String(v ?? "—").padStart(n).slice(-n);
@@ -39,6 +35,10 @@ async function main() {
   const s = await import("../src/server/db/schema");
   const { and, eq, inArray, isNull } = await import("drizzle-orm");
   const { detectProtection } = await import("../src/server/protection/detect");
+  const { AUDIT, auditTrade, summarize, mean, median } = await import("../src/server/protection/audit");
+  const TIGHT_PCT = AUDIT.TIGHT_PCT;
+  const BE_PCT = AUDIT.BE_PCT;
+  const LATE_MIN = AUDIT.LATE_MS / 60_000;
   type ProtectionOrder = import("../src/server/protection/detect").ProtectionOrder;
   const { fmtDateTime } = await import("../src/lib/format");
   const db = getDb();
@@ -75,17 +75,13 @@ async function main() {
     moves: number;
     addedAfterStop: number; // entry units added after the initial stop was placed
     exitBy: string;
-    flags: string[];
+    flags: import("../src/server/protection/audit").AuditFlag[];
   };
   const rows: Row[] = [];
   const now = Date.now();
   for (const t of trades) {
     const j = journals.get(t.id);
-    if (j?.stopLoss == null || t.avgEntry == null || !t.sizeUnits || t.netPnl == null || t.entryTime == null) continue;
-    const risk = Math.abs(t.avgEntry - j.stopLoss) * t.sizeUnits;
-    if (!(risk > 0)) continue;
-    const r = t.netPnl / risk;
-    const distPct = (Math.abs(t.avgEntry - j.stopLoss) / t.avgEntry) * 100;
+    if (j?.stopLoss == null || t.entryTime == null) continue;
     const det = t.walletId ? detectProtection(t, ordersByWalletCoin.get(`${t.walletId}|${t.coin}`) ?? [], now) : null;
     const stopPlaced = det?.stopLoss?.placedAt ?? null;
 
@@ -106,23 +102,14 @@ async function main() {
         ? "liquidated"
         : "manual/limit";
 
-    const flags: string[] = [];
-    const wrongSide = t.direction === "long" ? j.stopLoss >= t.avgEntry : j.stopLoss <= t.avgEntry;
-    if (wrongSide) flags.push("profit-side");
-    else if (distPct < BE_PCT) flags.push("breakeven");
-    else if (distPct < TIGHT_PCT) flags.push("tight");
-    if (stopPlaced !== null && j.stopLossSource === "auto" && stopPlaced - t.entryTime > LATE_MIN * 60_000) flags.push("late");
-    if (addedAfterStop > 0 && j.stopLossSource === "auto") flags.push("added-after");
-    if (r < -1.5 && !flags.length) flags.push("beyond-stop");
+    const a = auditTrade({ ...t, stopLoss: j.stopLoss, stopLossSource: j.stopLossSource, stopPlaced, addedAfterStop });
+    if (!a) continue;
+    const { r, risk, distPct, flags } = a;
     rows.push({ t, sl: j.stopLoss, source: j.stopLossSource ?? "user (pre-auto)", r, risk, distPct, stopPlaced, moves: det?.stopMoves.length ?? 0, addedAfterStop, exitBy, flags });
   }
 
-  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
-  const median = (xs: number[]) => {
-    if (!xs.length) return null;
-    const v = [...xs].sort((a, b) => a - b);
-    return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
-  };
+  const avg = mean;
+  const sum = summarize(rows);
 
   console.log(`\n=== R audit (${remote ? "deployed database" : "local database"}) ===`);
   console.log(`closed trades: ${trades.length}, with a stop loss (R computable): ${rows.length}`);
@@ -151,12 +138,10 @@ async function main() {
     ["beyond-stop", "R < −1.5 with none of the above (slippage, or a stop that wasn't the real exit)"],
   ];
   for (const [flag, what] of groups) {
-    const hit = rows.filter((x) => x.flags.includes(flag));
-    const rest = rows.filter((x) => !x.flags.includes(flag)).map((x) => x.r);
-    console.log(`  ${pad(flag, 12)} n=${padL(hit.length, 4)}  their avg R ${padL(r2(avg(hit.map((x) => x.r))), 8)}  avg R without them ${padL(r2(avg(rest)), 6)}  ${what}`);
+    const g = sum.byFlag[flag as keyof typeof sum.byFlag];
+    console.log(`  ${pad(flag, 12)} n=${padL(g.n, 4)}  their avg R ${padL(r2(g.avg), 8)}  avg R without them ${padL(r2(g.avgWithout), 6)}  ${what}`);
   }
-  const clean = rows.filter((x) => !x.flags.length).map((x) => x.r);
-  console.log(`  unflagged    n=${padL(clean.length, 4)}  avg R ${r2(avg(clean))}  median ${r2(median(clean))}`);
+  console.log(`  unflagged    n=${padL(sum.unflagged.n, 4)}  avg R ${r2(sum.unflagged.avg)}  median ${r2(sum.unflagged.median)}`);
 
   console.log(`\n${TOP} most negative R`);
   console.log(

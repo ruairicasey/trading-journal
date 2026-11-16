@@ -31,7 +31,20 @@ describe("KPIs", () => {
     expect(k.avgTrade).toBeCloseTo(60.4, 12);
     expect(k.totalR).toBe(2.5);
     expect(k.avgR).toBeCloseTo(2.5 / 3, 12);
+    expect(k.medianR).toBe(1.5); // of −1, 1.5, 2
     expect(k.since).toBe(Date.parse("2026-11-02T01:00:00Z"));
+  });
+
+  test("median R resists one extreme R that drags the average", () => {
+    const k = computeKpis([
+      T(-100, "2026-11-02T01:00:00Z", { r: -1 }),
+      T(-100, "2026-11-03T01:00:00Z", { r: -1 }),
+      T(100, "2026-11-04T01:00:00Z", { r: 1 }),
+      T(-2000, "2026-11-05T01:00:00Z", { r: -160 }),
+    ]);
+    expect(k.avgR).toBeCloseTo(-40.25, 10);
+    expect(k.medianR).toBe(-1);
+    expect(computeKpis([]).medianR).toBeNull();
   });
 
   test("edge cases: empty, all wins", () => {

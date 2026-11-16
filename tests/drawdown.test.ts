@@ -25,6 +25,22 @@ describe("underwater series", () => {
     expect(s.at(-1)!.dd).toBe(-150);
   });
 
+  test("with a $0 starting balance % is always null, even after profits (a % of profit isn't a drawdown)", () => {
+    const s = underwaterSeries([tr(1, 150), tr(2, -2_000), tr(3, 100)], 0);
+    expect(s.map((p) => p.ddPct)).toEqual([null, null, null, null]);
+    expect(s.map((p) => p.dd)).toEqual([0, 0, -2_000, -1_900]);
+    const st = drawdownStats(s, { now: T + 5 * DAY })!;
+    expect(st.current.ddPct).toBeNull();
+    expect(st.max!.ddPct).toBeNull();
+    expect(st.maxPct).toBeNull();
+    expect(st.current.recoverPct).toBeNull();
+  });
+
+  test("below zero equity the % stops (no −1300%); at exactly zero it is −100%", () => {
+    const s = underwaterSeries([tr(1, -1_000), tr(2, -500)], 1_000);
+    expect(s.map((p) => p.ddPct)).toEqual([0, -100, null]);
+  });
+
   test("R drawdown uses cumulative R; trades without a stop count as 0R", () => {
     const s = underwaterSeries([tr(1, 10, 2), tr(2, -10, -1), tr(3, -5, null), tr(4, -10, -1.5)], 1000);
     expect(s.map((p) => p.ddR)).toEqual([0, 0, -1, -1, -2.5]);

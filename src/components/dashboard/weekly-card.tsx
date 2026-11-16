@@ -92,7 +92,7 @@ export function WeeklyCard({
               {k.count}
             </Item>
             <Item label="Win rate">{k.winRate === null ? "—" : `${(k.winRate * 100).toFixed(0)}%`}</Item>
-            <Item label="Avg R" sub={k.rCount ? `${k.rCount} with a stop` : "no stops"}>
+            <Item label="Avg R" sub={k.rCount ? `median ${fmtR(k.medianR)} · ${k.rCount} with a stop` : "no stops"}>
               <span className={pnlClass(k.avgR)}>{fmtR(k.avgR)}</span>
             </Item>
             <Item label="Best day" sub={score.bestDay ? dayName(score.bestDay.date) : undefined}>

@@ -13,7 +13,7 @@ export type UnderwaterPoint = {
   peak: number;
   /** ≤ 0, in $ */
   dd: number;
-  /** ≤ 0, as % of the peak; null when the peak equity is ≤ 0 (a % of nothing is meaningless) */
+  /** ≤ 0, as % of the peak; null with no starting balance or with equity below zero (see underwaterSeries) */
   ddPct: number | null;
   cumR: number;
   peakR: number;
@@ -33,7 +33,9 @@ export function underwaterSeries(trades: Pick<ClosedTrade, "exitTime" | "netPnl"
     equity,
     peak,
     dd: equity - peak,
-    ddPct: peak > 0 ? ((equity - peak) / peak) * 100 : null,
+    // % only means something against a real balance: not with a $0 (unset) starting balance, where the
+    // "peak" is just realised profit, and not once equity is below zero (a drawdown past −100%).
+    ddPct: startingBalance > 0 && peak > 0 && equity >= 0 ? ((equity - peak) / peak) * 100 : null,
     cumR,
     peakR,
     ddR: cumR - peakR,

@@ -39,7 +39,15 @@ export type Kpis = {
   rCount: number;
   totalR: number | null;
   avgR: number | null;
+  /** median R: robust to a few extreme R values (e.g. a very tight stop) that drag the average */
+  medianR: number | null;
 };
+
+export function median(xs: number[]): number | null {
+  if (!xs.length) return null;
+  const v = [...xs].sort((a, b) => a - b);
+  return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+}
 
 export function computeKpis(trades: ClosedTrade[]): Kpis {
   const n = trades.length;
@@ -52,6 +60,7 @@ export function computeKpis(trades: ClosedTrade[]): Kpis {
   let grossLoss = 0;
   let rSum = 0;
   let rCount = 0;
+  const rs: number[] = [];
   for (const t of trades) {
     net += t.netPnl;
     fees += t.fees;
@@ -66,6 +75,7 @@ export function computeKpis(trades: ClosedTrade[]): Kpis {
     if (t.r !== null && Number.isFinite(t.r)) {
       rSum += t.r;
       rCount++;
+      rs.push(t.r);
     }
   }
   const decided = wins + losses;
@@ -87,6 +97,7 @@ export function computeKpis(trades: ClosedTrade[]): Kpis {
     rCount,
     totalR: rCount ? rSum : null,
     avgR: rCount ? rSum / rCount : null,
+    medianR: median(rs),
   };
 }
 

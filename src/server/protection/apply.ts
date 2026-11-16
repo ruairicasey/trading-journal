@@ -1,7 +1,8 @@
 /**
  * Write detected SL/TP/stop moves into the journal WITHOUT ever overwriting the user's values.
  *
- * A field is written only when its *_source is "auto", or it is empty and has no source. A "user" source
+ * A field is written only when its *_source is "auto", or it is empty and has no source. An "auto" value that the
+ * current rules no longer detect is cleared (source back to null), so a rule change re-applies cleanly. A "user" source
  * (typed, or deliberately cleared, in the Edit form) is never touched. Auto stop moves (stop_moves.source =
  * "auto") mirror the exchange and are replaced; the user's own stop moves are never touched.
  */
@@ -87,18 +88,25 @@ export async function applyProtection(db: DB, walletId: string, opts: { now?: nu
     if (d.stopLoss && writable(j?.stopLossSource, j?.stopLoss) && !(j?.stopLossSource === "auto" && sameNum(j.stopLoss, d.stopLoss.price))) {
       Object.assign(set, { stopLoss: d.stopLoss.price, stopLossSource: "auto" as const });
       res.stopLoss++;
+    } else if (!d.stopLoss && j?.stopLossSource === "auto") {
+      // an auto value the current rules no longer detect (e.g. a profit-side stop): clear it. Never a user value.
+      Object.assign(set, { stopLoss: null, stopLossSource: null });
+      res.stopLoss++;
     }
     if (d.takeProfit && writable(j?.takeProfitSource, j?.takeProfit) && !(j?.takeProfitSource === "auto" && sameNum(j.takeProfit, d.takeProfit.price))) {
       Object.assign(set, { takeProfit: d.takeProfit.price, takeProfitSource: "auto" as const });
+      res.takeProfit++;
+    } else if (!d.takeProfit && j?.takeProfitSource === "auto") {
+      Object.assign(set, { takeProfit: null, takeProfitSource: null });
       res.takeProfit++;
     }
     const currentTp = tpRows.get(t.id) ?? [];
     const partialsWritable = j?.tpPartialsSource === "auto" || (!j?.tpPartialsSource && currentTp.length === 0);
     const tpChanged =
       currentTp.length !== d.tpPartials.length || currentTp.some((p, i) => !sameNum(p.price, d.tpPartials[i].price) || !sameNum(p.pct, d.tpPartials[i].pct));
-    const writePartials = d.tpPartials.length > 0 && partialsWritable && tpChanged;
+    const writePartials = j?.tpPartialsSource === "auto" ? tpChanged : d.tpPartials.length > 0 && partialsWritable && tpChanged;
     if (writePartials) {
-      set.tpPartialsSource = "auto";
+      set.tpPartialsSource = d.tpPartials.length ? "auto" : null;
       res.tpPartials++;
     }
 
@@ -118,9 +126,11 @@ export async function applyProtection(db: DB, walletId: string, opts: { now?: nu
       }
       if (writePartials) {
         await tx.delete(s.tradePartials).where(and(eq(s.tradePartials.tradeId, t.id), eq(s.tradePartials.kind, "tp")));
-        await tx
-          .insert(s.tradePartials)
-          .values(d.tpPartials.map((p, i) => ({ tradeId: t.id, kind: "tp" as const, price: p.price, pct: p.pct, sort: i })));
+        if (d.tpPartials.length) {
+          await tx
+            .insert(s.tradePartials)
+            .values(d.tpPartials.map((p, i) => ({ tradeId: t.id, kind: "tp" as const, price: p.price, pct: p.pct, sort: i })));
+        }
       }
       if (movesChanged) {
         await tx.delete(s.stopMoves).where(and(eq(s.stopMoves.tradeId, t.id), eq(s.stopMoves.source, "auto")));

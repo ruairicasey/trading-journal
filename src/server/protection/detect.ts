@@ -4,8 +4,11 @@
  * Candidates: trigger orders on the trade's coin, on the CLOSING side, reduce-only or position TP/SL,
  * placed from 2 minutes before entry up to the exit (or now), and still live at entry.
  *  - SL vs TP by order type ("Stop …" / "Take Profit …"), else by trigger price vs the average entry.
- *  - Stop loss = the first stop in force after entry (R uses it). Each later stop order at a different
- *    price (cancel-and-replace, or a new one) is a stop move.
+ *  - Stop loss = the first RISK-SIDE stop in force after entry (below entry for a long, above for a short);
+ *    R uses it. A stop on the profit side of entry (breakeven/trailing) is never the stop loss, only a move.
+ *    No risk-side stop → no stop loss. A stop first placed > LATE_STOP_MS after entry is kept, and the
+ *    Edit page says how late it was placed.
+ *  - Every other stop order at a different price (cancel-and-replace, or a new one) is a stop move.
  *  - Take profit = the first TP in force. If two or more sized TP orders were live together and cover the
  *    position (±2%), they become TP partials and the take profit is the farthest one.
  */
@@ -41,6 +44,8 @@ export type DetectedProtection = {
 };
 
 export const PRE_ENTRY_GRACE_MS = 2 * 60_000;
+/** an initial stop placed later than this after entry is labelled "placed Xh after entry" */
+export const LATE_STOP_MS = 15 * 60_000;
 const COVERAGE_TOLERANCE = 0.02;
 
 export function classify(o: ProtectionOrder, t: ProtectionTrade): "sl" | "tp" | null {
@@ -79,15 +84,18 @@ export function detectProtection(t: ProtectionTrade, orders: ProtectionOrder[], 
   const tps = cands.filter((o) => classify(o, t) === "tp");
 
   // ── stop loss + moves ──
-  let stopLoss: DetectedLevel | null = null;
+  const riskSide = (px: number) => t.avgEntry !== null && (t.direction === "long" ? px < t.avgEntry : px > t.avgEntry);
+  const initial = sls.find((o) => riskSide(o.triggerPx!)) ?? null;
+  const stopLoss: DetectedLevel | null = initial ? { price: initial.triggerPx!, placedAt: initial.placedAt, oid: initial.oid } : null;
   const stopMoves: DetectedProtection["stopMoves"] = [];
+  let current: number | null = null;
   for (const o of sls) {
-    if (!stopLoss) {
-      stopLoss = { price: o.triggerPx!, placedAt: o.placedAt, oid: o.oid };
+    if (o === initial) {
+      current = o.triggerPx;
       continue;
     }
-    const current = stopMoves.at(-1)?.price ?? stopLoss.price;
     if (o.triggerPx !== current) stopMoves.push({ time: live(o), price: o.triggerPx!, oid: o.oid });
+    current = o.triggerPx;
   }
 
   // ── take profit / partials ──

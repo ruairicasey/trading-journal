@@ -218,7 +218,7 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
             hint={risk !== null ? `Risk ${fmtUsd(risk)}${balance > 0 ? ` (${fmtPct((risk / balance) * 100).replace("+", "")} of account)` : ""}` : undefined}
           >
             <NumberInput aria-label="Stop loss" value={draft.stopLoss} onChange={(v) => update({ stopLoss: v })} min={0} />
-            <ProtectionHint field="stopLoss" value={draft.stopLoss} state={protection} tz={tz} onRevert={onRevert} />
+            <ProtectionHint field="stopLoss" value={draft.stopLoss} state={protection} tz={tz} entryTime={entryTime} onRevert={onRevert} />
           </Field>
           <Field
             label="Take profit"
@@ -226,7 +226,7 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
             hint={rr !== null ? `${rr.toFixed(2)}R target` : undefined}
           >
             <NumberInput aria-label="Take profit" value={draft.takeProfit} onChange={(v) => update({ takeProfit: v })} min={0} />
-            <ProtectionHint field="takeProfit" value={draft.takeProfit} state={protection} tz={tz} onRevert={onRevert} />
+            <ProtectionHint field="takeProfit" value={draft.takeProfit} state={protection} tz={tz} entryTime={entryTime} onRevert={onRevert} />
           </Field>
         </div>
         {(realizedR !== null || (!manual && status === "closed")) && (

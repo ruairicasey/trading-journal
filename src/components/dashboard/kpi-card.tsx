@@ -37,8 +37,12 @@ export function KpiCard({ k, unit, sinceLabel, periodLabel }: { k: Kpis; unit: "
         <Stat label="Profit factor" sub="gross win ÷ gross loss">
           {pf}
         </Stat>
-        <Stat label="Avg R" sub={k.rCount ? `${k.rCount} trade${k.rCount === 1 ? "" : "s"} with a stop` : "add stops to see R"}>
+        <Stat label="Avg R · median" testId="kpi-r" sub={k.rCount ? `${k.rCount} trade${k.rCount === 1 ? "" : "s"} with a stop` : "add stops to see R"}>
           <span className={pnlClass(k.avgR)}>{fmtR(k.avgR)}</span>
+          <span className="text-muted-foreground"> · </span>
+          <span className={cn("text-base", pnlClass(k.medianR))} title="Median R: half your trades with a stop did better, half worse">
+            {fmtR(k.medianR)}
+          </span>
         </Stat>
         <Stat
           label="Avg trade"
