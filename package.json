@@ -29,7 +29,8 @@
     "backup": "tsx scripts/backup.ts",
     "screenshots": "tsx scripts/screenshots.ts",
     "debug:orders": "tsx scripts/debug-orders.ts",
-    "debug:r": "tsx scripts/debug-r.ts"
+    "debug:r": "tsx scripts/debug-r.ts",
+    "debug:ledger": "tsx scripts/debug-ledger.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1165.0",

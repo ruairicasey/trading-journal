@@ -11,12 +11,16 @@ import {
   FillsSchema,
   FundingSchema,
   HistoricalOrdersSchema,
+  LedgerSchema,
+  SpotStateSchema,
+  AbstractionSchema,
   OpenOrdersSchema,
   PerpDexsSchema,
   type HlClearinghouseState,
   type HlFill,
   type HlFunding,
   type HlHistoricalOrder,
+  type HlLedgerEntry,
   type HlOrder,
 } from "./schemas";
 
@@ -156,6 +160,21 @@ export function createHlClient(opts: HlClientOptions) {
         base: 20,
         perItems: 20,
       });
+    },
+    /** Deposits, withdrawals, transfers and vault flows; ≤2000 per call, ascending; paginate by last time. */
+    userNonFundingLedgerUpdates(user: string, startTime: number, endTime?: number): Promise<HlLedgerEntry[]> {
+      return post({ type: "userNonFundingLedgerUpdates", user, startTime, ...(endTime ? { endTime } : {}) }, LedgerSchema, {
+        base: 20,
+        perItems: 20,
+      });
+    },
+    spotClearinghouseState(user: string) {
+      return post({ type: "spotClearinghouseState", user }, SpotStateSchema, { base: 2 });
+    },
+    /** Account mode: e.g. "unifiedAccount", where spot USDC is the collateral for perps. */
+    async userAbstraction(user: string): Promise<string | null> {
+      const v = await post({ type: "userAbstraction", user }, AbstractionSchema, { base: 20 });
+      return typeof v === "string" ? v : null;
     },
     clearinghouseState(user: string, dex = ""): Promise<HlClearinghouseState> {
       return post({ type: "clearinghouseState", user, ...(dex ? { dex } : {}) }, ClearinghouseStateSchema, { base: 2 });

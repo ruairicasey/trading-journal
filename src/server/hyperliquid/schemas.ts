@@ -128,6 +128,25 @@ export const HistoricalOrdersSchema = z.array(
 export type HlHistoricalOrder = z.infer<typeof HistoricalOrdersSchema>[number];
 export const OpenOrdersSchema = z.array(OrderSchema);
 
+/** userNonFundingLedgerUpdates: deposits, withdrawals, transfers, vault flows… `delta` varies by `type`. */
+export const LedgerEntrySchema = z
+  .object({
+    time: z.number().int(),
+    hash: str,
+    delta: z.object({ type: str }).passthrough(),
+  })
+  .passthrough();
+export type HlLedgerEntry = z.infer<typeof LedgerEntrySchema>;
+export const LedgerSchema = z.array(LedgerEntrySchema);
+/** verified live 2026-11: up to 2000 entries per response, ascending by time */
+export const LEDGER_PAGE_LIMIT = 2000;
+
+export const SpotStateSchema = z
+  .object({ balances: z.array(z.object({ coin: str, total: num, hold: num.optional() }).passthrough()) })
+  .passthrough();
+/** "unifiedAccount" (spot USDC backs perps), "portfolioMargin", "disabled"/default … kept as a string. */
+export const AbstractionSchema = z.union([z.string(), z.null(), z.object({}).passthrough()]);
+
 /** Page sizes documented by Hyperliquid. */
 export const FILLS_PAGE_LIMIT = 2000;
 export const FILLS_HISTORY_LIMIT = 10_000;
