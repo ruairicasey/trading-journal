@@ -8,9 +8,9 @@ const M = 60_000;
 // Melbourne is UTC+11 (AEDT) in Nov 2026. Mon 9 Nov 2026 00:00 local = Sun 8 Nov 13:00 UTC.
 const MON = Date.UTC(2026, 10, 8, 13);
 const SESSIONS = [
-  { name: "Asia", startUtc: 0, endUtc: 8 },
-  { name: "London", startUtc: 7, endUtc: 13 },
-  { name: "New York", startUtc: 13, endUtc: 21 },
+  { name: "Asia", start: 0, end: 8, tz: "UTC" },
+  { name: "London", start: 7, end: 13, tz: "UTC" },
+  { name: "New York", start: 13, end: 21, tz: "UTC" },
 ];
 const trade = (entry: number, hold: number, net: number, o = {}) => atr(net, { entryTime: entry, exitTime: entry + hold, ...o });
 
@@ -66,10 +66,13 @@ describe("timing", () => {
     expect(seq.gap.get(t4.id)).toBe(30 * H - (12 * H + 5 * M));
     const b = timingBreakdowns([t1, t2, t3, t4], { tz: TZ, sessions: SESSIONS, minN: 1 });
     expect(b.gap.buckets.map((x) => [x.key, x.n])).toEqual([
+      ["first", 1],
       ["overlap", 1],
       ["15m", 1],
       ["24h", 1],
     ]);
+    // every trade is in exactly one bucket, so the widget reconciles to the trade count
+    expect(b.gap.buckets.reduce((a, x) => a + x.n, 0)).toBe(4);
     expect(b["nth-of-day"].buckets.map((x) => [x.label, x.n])).toEqual([
       ["1st", 2],
       ["2nd", 1],
@@ -83,5 +86,44 @@ describe("timing", () => {
     const b = timingBreakdowns([inPeriod], { tz: TZ, sessions: SESSIONS, minN: 1, context: [before, inPeriod] });
     expect(b["nth-of-day"].buckets[0].label).toBe("2nd");
     expect(b.gap.buckets[0].key).toBe("15m");
+  });
+});
+
+describe("sessions are anchored to their own time zone (daylight-saving safe)", () => {
+  test("default New York session: 07:00 Melbourne in November (20:00 UTC = 15:00 EST) is New York, not Late Night", async () => {
+    const { DEFAULT_SESSIONS, sessionFor } = await import("@/lib/sessions");
+    const melb7am = Date.UTC(2026, 10, 10, 20); // Wed 11 Nov 07:00 AEDT
+    expect(sessionFor(melb7am, DEFAULT_SESSIONS)).toBe("New York");
+    // the same Melbourne wall-clock time in July (21:00 UTC = 17:00 EDT) is after the NY close
+    expect(sessionFor(Date.UTC(2026, 6, 15, 21), DEFAULT_SESSIONS)).toBe("Late Night");
+    // NY 08:00 local opens at 13:00 UTC in winter and 12:00 UTC in summer
+    expect(sessionFor(Date.UTC(2026, 0, 12, 13, 0), DEFAULT_SESSIONS)).toBe("New York");
+    expect(sessionFor(Date.UTC(2026, 0, 12, 12, 30), DEFAULT_SESSIONS)).toBe("London");
+    expect(sessionFor(Date.UTC(2026, 6, 13, 12, 0), DEFAULT_SESSIONS)).toBe("New York");
+  });
+
+  test("the defaults cover every 30 minutes of the day, winter and summer", async () => {
+    const { DEFAULT_SESSIONS, sessionFor } = await import("@/lib/sessions");
+    for (const day of [Date.UTC(2026, 0, 14), Date.UTC(2026, 6, 15)])
+      for (let m = 0; m < 24 * 60; m += 30) expect(sessionFor(day + m * 60_000, DEFAULT_SESSIONS)).not.toBeNull();
+  });
+
+  test("old fixed-UTC settings still work; untouched old defaults are upgraded", async () => {
+    const { normalizeSessions, LEGACY_DEFAULT_SESSIONS, DEFAULT_SESSIONS, sessionFor } = await import("@/lib/sessions");
+    expect(normalizeSessions(LEGACY_DEFAULT_SESSIONS)).toEqual(DEFAULT_SESSIONS);
+    const custom = normalizeSessions([{ name: "Overnight", startUtc: 22, endUtc: 3 }]);
+    expect(custom).toEqual([{ name: "Overnight", start: 22, end: 3, tz: "UTC" }]);
+    expect(sessionFor(Date.UTC(2026, 0, 1, 23), custom)).toBe("Overnight");
+    expect(normalizeSessions([{ name: "x", start: 1, end: 2, tz: "Not/AZone" }])[0].tz).toBe("UTC");
+    expect(normalizeSessions(null)).toEqual(DEFAULT_SESSIONS);
+  });
+
+  test("hours shown in another zone follow daylight saving", async () => {
+    const { sessionHoursIn, describeSession } = await import("@/lib/sessions");
+    const ny = { name: "New York", start: 8, end: 16, tz: "America/New_York" };
+    expect(describeSession(ny)).toBe("08:00–16:00 New York time");
+    expect(sessionHoursIn(ny, Date.UTC(2026, 10, 16), "UTC")).toBe("13:00–21:00");
+    expect(sessionHoursIn(ny, Date.UTC(2026, 6, 15), "UTC")).toBe("12:00–20:00");
+    expect(sessionHoursIn(ny, Date.UTC(2026, 10, 16, 12), "Australia/Melbourne")).toBe("00:00–08:00");
   });
 });

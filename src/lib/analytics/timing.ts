@@ -32,6 +32,7 @@ export const HOLD_BUCKETS = [
 ] as const;
 
 export const GAP_BUCKETS = [
+  { key: "first", label: "First trade (no previous)", max: -Infinity },
   { key: "overlap", label: "Overlapping a trade", max: 0 },
   { key: "15m", label: "< 15 min", max: 15 * 60_000 },
   { key: "1h", label: "15 min – 1h", max: HOUR },
@@ -65,7 +66,7 @@ export function sequenceInfo(trades: AnalyticsTrade[], tz: string) {
 export function timingBreakdowns(
   trades: AnalyticsTrade[],
   opts: { tz: string; sessions: SessionDef[]; minN?: number; /** all trades, so the sequence before the period counts */ context?: AnalyticsTrade[] },
-): Record<TimingWidgetId, Breakdown> & { holdWin: number | null; holdLoss: number | null } {
+): Record<TimingWidgetId, Breakdown> & { holdWin: number | null; holdLoss: number | null; sessionFromTrade: number } {
   const minN = opts.minN ?? 5;
   const total = trades.length;
   const bd = (id: TimingWidgetId, buckets: Breakdown["buckets"]): Breakdown => ({ id, buckets, total, minN });
@@ -139,9 +140,10 @@ export function timingBreakdowns(
       "gap",
       g(
         (t) => {
-          const ms = gap.get(t.id);
-          if (ms === undefined || ms === null) return null;
-          const b = ms <= 0 ? GAP_BUCKETS[0] : GAP_BUCKETS.slice(1).find((x) => ms < x.max)!;
+          if (!gap.has(t.id)) return null; // no entry time
+          const ms = gap.get(t.id)!;
+          // every trade lands in exactly one bucket, so the widget reconciles to the trade count
+          const b = ms === null ? GAP_BUCKETS[0] : ms <= 0 ? GAP_BUCKETS[1] : GAP_BUCKETS.slice(2).find((x) => ms < x.max)!;
           return { key: b.key, label: b.label };
         },
         { order: GAP_BUCKETS.map((b) => b.key) },
@@ -149,5 +151,7 @@ export function timingBreakdowns(
     ),
     holdWin,
     holdLoss,
+    /** how many trades use the session set on the trade itself (the rest use your session hours) */
+    sessionFromTrade: trades.filter((t) => t.session).length,
   };
 }

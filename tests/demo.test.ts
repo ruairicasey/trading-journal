@@ -49,7 +49,7 @@ describe("sessionFor", () => {
   });
 
   test("handles ranges that wrap past midnight", () => {
-    const s = [{ name: "Overnight", startUtc: 22, endUtc: 3 }];
+    const s = [{ name: "Overnight", start: 22, end: 3, tz: "UTC" }];
     expect(sessionFor(Date.UTC(2026, 0, 5, 23), s)).toBe("Overnight");
     expect(sessionFor(Date.UTC(2026, 0, 5, 1), s)).toBe("Overnight");
     expect(sessionFor(Date.UTC(2026, 0, 5, 3), s)).toBeNull();

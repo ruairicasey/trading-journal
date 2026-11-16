@@ -6,12 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { TradeForm } from "@/components/trade-form/trade-form";
 import { cn } from "@/lib/utils";
 import { fmtDateTime, fmtPct, fmtPrice, fmtSignedUsd, fmtSize, fmtUsd, pnlClass } from "@/lib/format";
-import type { SessionDef } from "@/lib/sessions";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
-import { getActiveAccount, getSetting } from "@/server/db/queries/settings";
+import { getActiveAccount, getSessions, getSetting } from "@/server/db/queries/settings";
 import * as s from "@/server/db/schema";
-import { DEFAULT_SESSIONS } from "@/server/db/seed-data";
 import { loadTradeForEdit } from "@/server/trades/journal";
 
 export default async function TradePage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +22,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
   const { trade } = data;
   const [tz, sessions, legs] = await Promise.all([
     getSetting("timezone", getConfig().timezone),
-    getSetting<SessionDef[]>("sessions", DEFAULT_SESSIONS),
+    getSessions(),
     db.select().from(s.tradeFills).where(eq(s.tradeFills.tradeId, id)).orderBy(asc(s.tradeFills.time)),
   ]);
 

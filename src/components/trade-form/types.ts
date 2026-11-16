@@ -1,3 +1,4 @@
+import type { SessionDef } from "@/lib/sessions";
 import type { BasicInput, TradeEditData } from "@/server/trades/journal";
 
 /** Editable rows allow blanks while typing; they're validated before saving. */
@@ -18,7 +19,7 @@ export type AccountOpt = { id: string; name: string; startingBalance: number; st
 export type FormProps = {
   data: TradeEditData;
   accounts: AccountOpt[];
-  sessions: { name: string; startUtc: number; endUtc: number }[];
+  sessions: SessionDef[];
   tz: string;
 };
 

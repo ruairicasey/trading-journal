@@ -145,8 +145,16 @@ export async function setActiveAccount(id: string) {
 // ─── general settings ────────────────────────────────────────────────────────────
 const Session = z.object({
   name: label,
-  startUtc: z.number().int().min(0).max(24),
-  endUtc: z.number().int().min(0).max(24),
+  start: z.number().min(0).max(24),
+  end: z.number().min(0).max(24),
+  tz: z.string().refine((tz) => {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }, "Unknown time zone"),
 });
 
 export async function saveGeneralSettings(input: { timezone: string; sessions: z.input<typeof Session>[] }) {

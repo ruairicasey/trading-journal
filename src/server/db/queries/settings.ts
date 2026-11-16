@@ -1,3 +1,4 @@
+import { normalizeSessions, type SessionDef } from "../../../lib/sessions";
 import { asc, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "../client";
@@ -23,6 +24,11 @@ export async function getActiveAccount() {
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   const row = await getDb().query.settings.findFirst({ where: eq(s.settings.key, key) });
   return (row?.value as T | undefined) ?? fallback;
+}
+
+/** Session definitions, normalised (old fixed-UTC shapes read as UTC; untouched old defaults upgraded). */
+export async function getSessions(): Promise<SessionDef[]> {
+  return normalizeSessions(await getSetting<unknown>("sessions", null));
 }
 
 export async function setSetting(key: string, value: unknown) {

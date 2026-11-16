@@ -224,12 +224,7 @@ export const VOCAB_KIND_LABELS: Record<VocabKind, string> = {
 };
 
 /** Sessions are defined in UTC hours (end exclusive, may wrap past midnight). Editable in Settings. */
-export const DEFAULT_SESSIONS = [
-  { name: "Asia", startUtc: 0, endUtc: 7 },
-  { name: "London", startUtc: 7, endUtc: 13 },
-  { name: "New York", startUtc: 13, endUtc: 20 },
-  { name: "Late Night", startUtc: 20, endUtc: 24 },
-];
+export { DEFAULT_SESSIONS } from "../../lib/sessions";
 
 export const DEFAULT_QUICK_FILTERS = [
   { name: "Recent Winners", query: { outcome: "win", period: "30d" } },

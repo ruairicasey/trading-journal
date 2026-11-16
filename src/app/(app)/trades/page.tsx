@@ -8,12 +8,10 @@ import { TradeList } from "@/components/trades/trade-list";
 import { TradesToolbar } from "@/components/trades/trades-toolbar";
 import { cn } from "@/lib/utils";
 import { PERIOD_LABELS } from "@/lib/periods";
-import type { SessionDef } from "@/lib/sessions";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
-import { getActiveAccount, getSetting } from "@/server/db/queries/settings";
+import { getActiveAccount, getSessions, getSetting } from "@/server/db/queries/settings";
 import { countNotes, filterOptions, listNotes, listTrades } from "@/server/db/queries/trades";
-import { DEFAULT_SESSIONS } from "@/server/db/seed-data";
 import {
   activeFilterCount,
   CHIPS,
@@ -42,7 +40,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
   const db = getDb();
   const [tz, sessions, options] = await Promise.all([
     getSetting("timezone", getConfig().timezone),
-    getSetting<SessionDef[]>("sessions", DEFAULT_SESSIONS),
+    getSessions(),
     filterOptions(db, active.id),
   ]);
   const isNotes = filters.tab === "notes";

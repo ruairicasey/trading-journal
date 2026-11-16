@@ -8,14 +8,13 @@ import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params"
 import { setupBreakdowns, SETUP_WIDGETS } from "@/lib/analytics/setup";
 import { TIMING_WIDGETS, timingBreakdowns } from "@/lib/analytics/timing";
 import type { Breakdown } from "@/lib/analytics/types";
-import type { SessionDef } from "@/lib/sessions";
-import { DEFAULT_SESSIONS } from "@/server/db/seed-data";
+import { describeSession, sessionHoursIn } from "@/lib/sessions";
 import { cn } from "@/lib/utils";
 import { dayBoundsLocal, periodRange, PERIODS, type Period } from "@/lib/periods";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { analyticsTrades } from "@/server/db/queries/analytics";
-import { getActiveAccount, getSetting } from "@/server/db/queries/settings";
+import { getActiveAccount, getSessions, getSetting } from "@/server/db/queries/settings";
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -62,7 +61,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   const all = await analyticsTrades(getDb(), active.id);
   const trades = all.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end));
-  const sessions = await getSetting<SessionDef[]>("sessions", DEFAULT_SESSIONS);
+  const sessions = await getSessions();
   const hours = (ms: number | null) => (ms === null ? "—" : ms < 3_600_000 ? `${Math.round(ms / 60_000)}m` : ms < 172_800_000 ? `${(ms / 3_600_000).toFixed(1)}h` : `${(ms / 86_400_000).toFixed(1)}d`);
   let widgets: { id: string; title: string; description: string }[];
   let data: Record<string, Breakdown>;
@@ -71,6 +70,21 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     const tb = timingBreakdowns(trades, { tz, sessions, context: all });
     widgets = TIMING_WIDGETS;
     data = Object.fromEntries(TIMING_WIDGETS.map((w) => [w.id, tb[w.id]]));
+    footers.session = (
+      <div className="grid gap-0.5" data-testid="session-hours">
+        <span>
+          Hours used (first match wins){tb.sessionFromTrade ? ` · ${tb.sessionFromTrade} trade${tb.sessionFromTrade === 1 ? " uses" : "s use"} the session set on the trade` : ""}:
+        </span>
+        {sessions.map((x) => (
+          <span key={x.name} className="tabular-nums">
+            <span className="text-foreground">{x.name}</span> {describeSession(x)} · now {sessionHoursIn(x, now, "UTC")} UTC · {sessionHoursIn(x, now, tz)} yours
+          </span>
+        ))}
+        <Link href="/settings" className="text-sky-400 hover:underline">
+          Edit sessions in Settings →
+        </Link>
+      </div>
+    );
     footers.hold = (
       <span data-testid="hold-avg">
         Average hold: winners <span className="text-foreground tabular-nums">{hours(tb.holdWin)}</span> · losers{" "}
