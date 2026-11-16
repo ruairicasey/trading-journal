@@ -131,7 +131,8 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
     // delete one
     page.once("dialog", (d) => d.accept());
     await shots.last().getByRole("button", { name: "Delete screenshot" }).click();
-    await expect(shots).toHaveCount(before + 1);
+    // the first call to the delete action compiles it in dev mode, which can be slow on CI
+    await expect(shots).toHaveCount(before + 1, { timeout: 30_000 });
     await page.reload();
     await page.getByRole("tab", { name: /Notes/ }).click();
     await expect(shots).toHaveCount(before + 1);
