@@ -52,13 +52,14 @@ export function orderRows(o: SynthOrder): SynthRow[] {
   const rows: SynthRow[] = [{ order: order(o), status: "open", statusTimestamp: o.placedAt }];
   if (o.end?.status === "triggered") {
     rows.push({ order: order(o, { isTrigger: false, triggerPx: "0.0", sz: "0.0", origSz: "0.0", timestamp: o.end.at, children: [] }), status: "filled", statusTimestamp: o.end.at });
-    rows.push({ order: order(o, { children: [] }), status: "triggered", statusTimestamp: o.end.at + 1 });
+    rows.push({ order: order(o, { children: [] }), status: "triggered", statusTimestamp: o.end.at });
   } else if (o.end) {
     rows.push({ order: order(o, { children: [] }), status: o.end.status, statusTimestamp: o.end.at });
   }
-  return rows.reverse();
+  // newest first like the API; for a fired trigger the API lists "filled" before its same-timestamp "triggered"
+  return o.end?.status === "triggered" ? [rows[1], rows[2], rows[0]] : rows.reverse();
 }
 
 export function historyRows(orders: SynthOrder[]): SynthRow[] {
-  return orders.flatMap(orderRows).sort((a, b) => b.statusTimestamp - a.statusTimestamp);
+  return orders.flatMap(orderRows).sort((a, b) => b.statusTimestamp - a.statusTimestamp); // stable: keeps ties in API order
 }

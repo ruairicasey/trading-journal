@@ -97,7 +97,12 @@ async function main() {
     const mTrig = merged.filter((o) => o.isTrigger);
     const finals = new Map<string, number>();
     for (const o of mTrig) inc(finals, `${o.orderType} | final status ${o.status}`);
-    console.log(`\nAfter merging rows per order id: ${merged.length} orders, ${mTrig.length} trigger orders (${triggerOids.length} trigger rows incl. children)`);
+    const childIds = new Set(hist.flatMap((h) => (h.order.children ?? []).map((c) => c.oid)));
+    console.log(
+      `\nAfter merging rows per order id: ${merged.length} orders, ${mTrig.length} trigger orders.` +
+        `\n  (${triggerOids.length} trigger entries above = ${triggerOids.length - childCount} history rows + ${childCount} nested children;` +
+        ` the children carry ${childIds.size} parent order ids, so they are not orders of their own)`,
+    );
     table("Trigger orders by final status", finals);
     const oids = mTrig.map((o) => o.oid);
     let matched = 0;
@@ -109,7 +114,7 @@ async function main() {
       matched += new Set(rows.map((r) => r.oid)).size;
     }
     const fired = mTrig.filter((o) => o.status === "triggered").length;
-    console.log(`Trigger orders with fills: ${matched} (orders that fired: ${fired})`);
+    console.log(`Trigger orders that fired: ${fired}; of those with fills stored locally: ${matched}`);
 
     // Preview of auto-detection on your stored trades (read-only: nothing is written).
     const trades = (

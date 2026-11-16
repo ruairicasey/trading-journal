@@ -32,9 +32,18 @@ describe("merging history rows", () => {
     );
     expect(m).toHaveLength(3);
     const byOid = new Map(m.map((r) => [r.oid, r]));
-    expect(byOid.get(1)).toMatchObject({ isTrigger: true, triggerPx: 95, placedAt: at(1), status: "triggered", endedAt: at(50) + 1, isPositionTpsl: true });
+    expect(byOid.get(1)).toMatchObject({ isTrigger: true, triggerPx: 95, placedAt: at(1), status: "triggered", endedAt: at(50), isPositionTpsl: true });
     expect(byOid.get(2)).toMatchObject({ status: "reduceOnlyCanceled", endedAt: at(50) });
     expect(byOid.get(3)).toMatchObject({ status: "open", endedAt: null });
+  });
+
+  test('a fired trigger ends "triggered" even though its "filled" twin shares the timestamp and comes first', () => {
+    const r = rows([{ oid: 4, coin: "BTC", side: "A", orderType: "Stop Market", triggerPx: 95, placedAt: at(1), end: { status: "triggered", at: at(50) } }]);
+    expect(r.map((x) => x.status)).toEqual(["filled", "triggered", "open"]);
+    expect(mergeOrderRows("w", r)[0]).toMatchObject({ status: "triggered", endedAt: at(50) });
+    // and when the filled row is (rarely) later than triggered
+    const late = r.map((x) => (x.status === "filled" ? { ...x, statusTimestamp: at(51) } : x));
+    expect(mergeOrderRows("w", late)[0].status).toBe("triggered");
   });
 
   test("on a status-timestamp tie the terminal status beats the open snapshot", () => {
@@ -187,6 +196,8 @@ describe("storing and applying", () => {
     await storeOrders(db(), walletId, all.slice(3)); // older half first: only the open snapshots of some
     await storeOrders(db(), walletId, all);
     await storeOrders(db(), walletId, all.slice(0, 2)); // a newer window again
+    // a later window holding only the fired stop's "filled" row must not downgrade "triggered"
+    await storeOrders(db(), walletId, all.filter((x) => x.order.oid === 13 && x.status === "filled"));
     const stored = await db().select().from(s.orders);
     expect(stored).toHaveLength(3);
     const tp = stored.find((o) => o.oid === 13)!;
