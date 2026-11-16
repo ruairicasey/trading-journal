@@ -11,6 +11,17 @@ export type AnalyticsTrade = ClosedTrade & {
   /** higher-timeframe confluences (journal) */
   htf: string[];
   confluences: { id: string; label: string }[];
+  /** |avg entry − stop| × size, null without a stop */
+  riskUsd: number | null;
+  riskMultiplier: number | null;
+  maxRReached: number | null;
+  entryRetests: number | null;
+  rulesFollowed: "yes" | "partial" | "no" | null;
+  processCompliant: boolean | null;
+  slReasons: { id: string; label: string }[];
+  tpReasons: { id: string; label: string }[];
+  /** what closed the final exit: your take-profit order, your stop order, a manual/limit exit, or liquidation */
+  exitBy: "tp" | "stop" | "manual" | "liquidated";
 };
 
 /** One bucket of a breakdown (a bar / a table row). */

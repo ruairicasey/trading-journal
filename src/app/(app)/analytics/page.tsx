@@ -7,6 +7,8 @@ import { EmptyState } from "@/components/shell/empty-state";
 import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params";
 import { setupBreakdowns, SETUP_WIDGETS } from "@/lib/analytics/setup";
 import { TIMING_WIDGETS, timingBreakdowns } from "@/lib/analytics/timing";
+import { RISK_WIDGETS, riskBreakdowns } from "@/lib/analytics/risk";
+import { fmtUsd } from "@/lib/format";
 import type { Breakdown } from "@/lib/analytics/types";
 import { describeSession, sessionHoursIn } from "@/lib/sessions";
 import { cn } from "@/lib/utils";
@@ -23,7 +25,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SECTIONS = [
   { id: "setup", label: "Setup" },
   { id: "timing", label: "Timing" },
-  { id: "risk", label: "Risk & execution", soon: true },
+  { id: "risk", label: "Risk & execution" },
   { id: "behaviour", label: "Behaviour", soon: true },
 ] as const;
 
@@ -41,7 +43,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const custom = rawPeriod === "custom" && !!from && DATE.test(from);
   const period = custom ? "custom" : (PERIODS as readonly string[]).includes(rawPeriod) ? rawPeriod : "all";
   const unit = one(sp.unit) === "r" ? "r" : "usd";
-  const section = one(sp.section) === "timing" ? "timing" : "setup";
+  const rawSection = one(sp.section);
+  const section = rawSection === "timing" || rawSection === "risk" ? rawSection : "setup";
   const params: DashParams = {
     period,
     from: custom ? from : undefined,
@@ -89,6 +92,30 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       <span data-testid="hold-avg">
         Average hold: winners <span className="text-foreground tabular-nums">{hours(tb.holdWin)}</span> · losers{" "}
         <span className="text-foreground tabular-nums">{hours(tb.holdLoss)}</span>
+      </span>
+    );
+  } else if (section === "risk") {
+    const rb = riskBreakdowns(trades);
+    widgets = RISK_WIDGETS;
+    data = rb.breakdowns;
+    const pctOf = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)}%`);
+    footers["risk-size"] = (
+      <span data-testid="typical-risk">
+        Typical (median) risk <span className="money text-foreground tabular-nums">{rb.typicalRisk === null ? "—" : fmtUsd(rb.typicalRisk)}</span> across{" "}
+        {rb.withStop} trade{rb.withStop === 1 ? "" : "s"} with a stop. Trades without a stop are left out.
+      </span>
+    );
+    footers["exit-by"] = <span>&quot;Take-profit&quot; and &quot;stop&quot; mean the final exit filled one of your trigger orders; anything else counts as by hand.</span>;
+    footers["loser-max-r"] = (
+      <span data-testid="losers-1r">
+        <span className="text-foreground tabular-nums">{pctOf(rb.losersReached1R)}</span> of losers with max R recorded ({rb.losersWithMax} of {rb.losers}) were 1R+ in profit
+        before they lost.
+      </span>
+    );
+    footers.capture = (
+      <span data-testid="avg-capture">
+        On average you kept <span className="text-foreground tabular-nums">{pctOf(rb.avgCapture)}</span> of the max R reached ({rb.winnersWithMax} winner
+        {rb.winnersWithMax === 1 ? "" : "s"} with max R recorded).
       </span>
     );
   } else {

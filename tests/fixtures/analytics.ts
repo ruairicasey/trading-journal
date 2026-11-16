@@ -24,6 +24,15 @@ export function atr(net: number, o: Partial<AnalyticsTrade> = {}): AnalyticsTrad
     strategy: null,
     htf: [],
     confluences: [],
+    riskUsd: null,
+    riskMultiplier: null,
+    maxRReached: null,
+    entryRetests: null,
+    rulesFollowed: null,
+    processCompliant: null,
+    slReasons: [],
+    tpReasons: [],
+    exitBy: "manual",
     ...o,
   };
 }

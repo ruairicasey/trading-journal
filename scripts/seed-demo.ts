@@ -75,6 +75,24 @@ async function main() {
   const { applyProtection } = await import("../src/server/protection/apply");
   const synth = demoOrders(createRng(DEMO_SEED + 3), history.plans, (plan) => byKey.get(`${wallet.id}:${plan.coin}:${plan.firstTid}${plan.keySuffix}`), journaled);
   await storeOrders(db, wallet.id, historyRows(synth) as Parameters<typeof storeOrders>[2]);
+  // the order that fired closes the trade: give the final exit fill that order's id, as on Hyperliquid
+  const { and: andOp, desc: descOp } = await import("drizzle-orm");
+  const tradeByExit = new Map([...byKey.values()].filter((t) => t.exitTime !== null).map((t) => [`${t.coin}|${t.exitTime}`, t]));
+  const linkedTrades = new Set<string>();
+  for (const o of synth) {
+    if (o.end?.status !== "triggered") continue;
+    const t = tradeByExit.get(`${o.coin}|${o.end.at}`);
+    if (!t || linkedTrades.has(t.id)) continue;
+    const [leg] = await db
+      .select()
+      .from(s.tradeFills)
+      .where(andOp(eq(s.tradeFills.tradeId, t.id), eq(s.tradeFills.role, "exit")))
+      .orderBy(descOp(s.tradeFills.time))
+      .limit(1);
+    if (!leg) continue;
+    await db.update(s.fills).set({ oid: o.oid }).where(andOp(eq(s.fills.walletId, wallet.id), eq(s.fills.tid, leg.tid)));
+    linkedTrades.add(t.id);
+  }
   const prot = await applyProtection(db, wallet.id);
 
   console.log(

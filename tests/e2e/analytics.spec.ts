@@ -46,4 +46,18 @@ test.describe("Analytics: Setup (demo data)", () => {
     await expect(page).toHaveURL(/section=timing/);
     await expect(page.getByTestId("analytics-summary")).toContainText("by entry time");
   });
+
+  test("Risk & execution tab: risk size vs typical risk, how trades ended, loser and capture footers", async ({ page }) => {
+    await page.goto("/analytics?section=risk");
+    for (const id of ["risk-size", "risk-multiplier", "sl-reason", "tp-reason", "exit-by", "loser-max-r", "capture", "retests", "rules", "process"])
+      await expect(page.getByTestId(`widget-${id}`)).toBeVisible();
+    await expect(page.getByTestId("typical-risk")).toContainText("Typical (median) risk $");
+    const ended = page.getByTestId("widget-exit-by");
+    await expect(ended.getByText("Take-profit order", { exact: true })).toBeVisible();
+    await expect(ended.getByText("Stop order", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("losers-1r")).toContainText("were 1R+ in profit");
+    await expect(page.getByTestId("avg-capture")).toContainText("of the max R reached");
+    // privacy mode blurs the typical-risk amount like every other $ figure
+    await expect(page.getByTestId("typical-risk").locator(".money")).toHaveCount(1);
+  });
 });

@@ -54,7 +54,10 @@ screenshots), and the dashboard shows how you're actually doing.
   HTF confluences, each HTF, and HTF combinations. Every bucket shows its sample size and win rate; buckets under 5 trades are
   greyed. Each widget has a table view and can be hidden.
 - **Timing:** day of week, 2-hour block and session (by entry time, your timezone), time in trade with winners' vs losers'
-  average hold, nth trade of the day, and time since your last exit. Risk & execution and Behaviour are next.
+  average hold, nth trade of the day, and time since your last exit (sessions follow daylight saving).
+- **Risk & execution:** risk size against your typical risk, risk multiplier, stop and target placement reasons, how trades
+  ended (take-profit order, stop order or by hand), losers by max R reached first, winners' R captured of max R, entry
+  retests, rules followed and process compliance. Behaviour is next.
 
 **Your own vocabulary.** Strategies, confluences (seeded with a VWAP / volume-profile set), SL/TP reasons, the checklist,
 exit reasons, mistakes and emotions are all editable under **Settings → Journal lists**.
