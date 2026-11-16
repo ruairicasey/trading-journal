@@ -24,6 +24,7 @@ export async function analyticsTrades(db: DB, accountId: string): Promise<Analyt
       exitTime: t.exitTime,
       r: rExpr,
       tradeType: j.tradeType,
+      session: j.session,
       grade: j.grade,
       strategyId: j.strategyId,
       strategy: strategy.label,

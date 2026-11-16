@@ -3,6 +3,8 @@ import type { ClosedTrade } from "../stats";
 export type AnalyticsTrade = ClosedTrade & {
   coin: string;
   tradeType: "planned" | "reactive" | null;
+  /** session you picked on the trade (null = not set; Timing falls back to your session hours) */
+  session: string | null;
   grade: string | null;
   strategyId: string | null;
   strategy: string | null;

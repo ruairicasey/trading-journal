@@ -4,8 +4,12 @@ import { BreakdownWidget } from "@/components/analytics/breakdown-widget";
 import { CustomizeWidgets } from "@/components/analytics/customize";
 import { DashboardControls } from "@/components/dashboard/controls";
 import { EmptyState } from "@/components/shell/empty-state";
-import { DASH_PERIODS, type DashParams } from "@/lib/dashboard-params";
+import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params";
 import { setupBreakdowns, SETUP_WIDGETS } from "@/lib/analytics/setup";
+import { TIMING_WIDGETS, timingBreakdowns } from "@/lib/analytics/timing";
+import type { Breakdown } from "@/lib/analytics/types";
+import type { SessionDef } from "@/lib/sessions";
+import { DEFAULT_SESSIONS } from "@/server/db/seed-data";
 import { cn } from "@/lib/utils";
 import { dayBoundsLocal, periodRange, PERIODS, type Period } from "@/lib/periods";
 import { getConfig } from "@/server/config";
@@ -19,7 +23,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const SECTIONS = [
   { id: "setup", label: "Setup" },
-  { id: "timing", label: "Timing", soon: true },
+  { id: "timing", label: "Timing" },
   { id: "risk", label: "Risk & execution", soon: true },
   { id: "behaviour", label: "Behaviour", soon: true },
 ] as const;
@@ -38,7 +42,14 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const custom = rawPeriod === "custom" && !!from && DATE.test(from);
   const period = custom ? "custom" : (PERIODS as readonly string[]).includes(rawPeriod) ? rawPeriod : "all";
   const unit = one(sp.unit) === "r" ? "r" : "usd";
-  const params: DashParams = { period, from: custom ? from : undefined, to: custom && to && DATE.test(to) ? to : undefined, unit };
+  const section = one(sp.section) === "timing" ? "timing" : "setup";
+  const params: DashParams = {
+    period,
+    from: custom ? from : undefined,
+    to: custom && to && DATE.test(to) ? to : undefined,
+    unit,
+    section: section === "setup" ? undefined : section,
+  };
 
   let start: number | null = null;
   let end: number | null = null;
@@ -51,9 +62,27 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   const all = await analyticsTrades(getDb(), active.id);
   const trades = all.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end));
-  const setup = setupBreakdowns(trades);
+  const sessions = await getSetting<SessionDef[]>("sessions", DEFAULT_SESSIONS);
+  const hours = (ms: number | null) => (ms === null ? "—" : ms < 3_600_000 ? `${Math.round(ms / 60_000)}m` : ms < 172_800_000 ? `${(ms / 3_600_000).toFixed(1)}h` : `${(ms / 86_400_000).toFixed(1)}d`);
+  let widgets: { id: string; title: string; description: string }[];
+  let data: Record<string, Breakdown>;
+  const footers: Record<string, React.ReactNode> = {};
+  if (section === "timing") {
+    const tb = timingBreakdowns(trades, { tz, sessions, context: all });
+    widgets = TIMING_WIDGETS;
+    data = Object.fromEntries(TIMING_WIDGETS.map((w) => [w.id, tb[w.id]]));
+    footers.hold = (
+      <span data-testid="hold-avg">
+        Average hold: winners <span className="text-foreground tabular-nums">{hours(tb.holdWin)}</span> · losers{" "}
+        <span className="text-foreground tabular-nums">{hours(tb.holdLoss)}</span>
+      </span>
+    );
+  } else {
+    widgets = SETUP_WIDGETS;
+    data = setupBreakdowns(trades);
+  }
   const periodLabel = custom ? `${from} → ${params.to ?? "now"}` : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period);
-  const visible = SETUP_WIDGETS.filter((w) => !hidden.includes(w.id));
+  const visible = widgets.filter((w) => !hidden.includes(w.id));
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -61,7 +90,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <h1 className="text-lg font-semibold">Analytics</h1>
         <div className="flex flex-wrap items-center gap-2">
           <DashboardControls params={params} base="/analytics" defaultPeriod="all" />
-          <CustomizeWidgets widgets={SETUP_WIDGETS} hidden={hidden} />
+          <CustomizeWidgets widgets={widgets} hidden={hidden} />
         </div>
       </div>
 
@@ -72,7 +101,15 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
               {s.label} <span className="text-[10px]">soon</span>
             </span>
           ) : (
-            <Link key={s.id} href="#" aria-current="page" className={cn("border-primary -mb-px border-b-2 px-3 py-1.5 text-sm font-medium")}>
+            <Link
+              key={s.id}
+              href={dashHref(params, { section: s.id === "setup" ? undefined : s.id }, "/analytics", "all")}
+              aria-current={section === s.id ? "page" : undefined}
+              className={cn(
+                "-mb-px border-b-2 px-3 py-1.5 text-sm",
+                section === s.id ? "border-primary font-medium" : "text-muted-foreground hover:text-foreground border-transparent",
+              )}
+            >
               {s.label}
             </Link>
           ),
@@ -80,7 +117,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       </nav>
 
       <p className="text-muted-foreground text-xs" data-testid="analytics-summary">
-        {trades.length} closed trade{trades.length === 1 ? "" : "s"} · {periodLabel} · by exit time · bars show {unit === "r" ? "average R (trades with a stop)" : "net P&L"}
+        {trades.length} closed trade{trades.length === 1 ? "" : "s"} · {periodLabel} · by exit time{section === "timing" ? ` · day, hour and session by entry time (${tz})` : ""} · bars show {unit === "r" ? "average R (trades with a stop)" : "net P&L"}
       </p>
 
       {trades.length === 0 ? (
@@ -88,7 +125,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {visible.map((w) => (
-            <BreakdownWidget key={w.id} id={w.id} title={w.title} description={w.description} data={setup[w.id]} unit={unit} hidden={hidden} />
+            <BreakdownWidget key={w.id} id={w.id} title={w.title} description={w.description} data={data[w.id]} unit={unit} hidden={hidden} footer={footers[w.id]} />
           ))}
           {visible.length === 0 && <p className="text-muted-foreground text-sm">All widgets are hidden. Use “Widgets” to show them again.</p>}
         </div>

@@ -29,4 +29,19 @@ test.describe("Analytics: Setup (demo data)", () => {
     await page.getByRole("checkbox").nth(1).click();
     await expect(page.getByTestId("widget-direction")).toBeVisible();
   });
+
+  test("Timing tab: six widgets, hold averages, and the section survives period / unit changes", async ({ page }) => {
+    await page.goto("/analytics");
+    await page.getByRole("link", { name: "Timing" }).click();
+    await expect(page).toHaveURL(/section=timing/);
+    for (const id of ["weekday", "hour", "session", "hold", "nth-of-day", "gap"]) await expect(page.getByTestId(`widget-${id}`)).toBeVisible();
+    await expect(page.getByTestId("widget-weekday").getByText("Mon", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("hold-avg")).toContainText(/winners \d/);
+    await page.getByRole("link", { name: "R", exact: true }).click();
+    await expect(page).toHaveURL(/section=timing/);
+    await page.getByRole("link", { name: "Year" }).click();
+    await expect(page).toHaveURL(/period=year/);
+    await expect(page).toHaveURL(/section=timing/);
+    await expect(page.getByTestId("analytics-summary")).toContainText("by entry time");
+  });
 });

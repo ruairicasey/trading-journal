@@ -8,7 +8,7 @@ export const DASH_PERIODS = [
   { id: "all", label: "All" },
 ] as const;
 
-export type DashParams = { period: string; from?: string; to?: string; unit: "usd" | "r"; month?: string; week?: string };
+export type DashParams = { period: string; from?: string; to?: string; unit: "usd" | "r"; month?: string; week?: string; section?: string };
 
 /** `base` lets other pages (e.g. /analytics) reuse the same period and $/R controls. */
 export function dashHref(p: DashParams, patch: Partial<DashParams>, base = "/dashboard", defaultPeriod = "30d") {
@@ -22,6 +22,7 @@ export function dashHref(p: DashParams, patch: Partial<DashParams>, base = "/das
   if (n.unit === "r") sp.set("unit", "r");
   if (n.month) sp.set("month", n.month);
   if (n.week) sp.set("week", n.week);
+  if (n.section) sp.set("section", n.section);
   const qs = sp.toString();
   return qs ? `${base}?${qs}` : base;
 }

@@ -1,32 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { bucketOf, groupBy } from "@/lib/analytics/group";
 import { setupBreakdowns } from "@/lib/analytics/setup";
-import type { AnalyticsTrade } from "@/lib/analytics/types";
+import { atr } from "./fixtures/analytics";
 
-let n = 0;
-const T0 = Date.UTC(2026, 9, 5);
-function tr(net: number, o: Partial<AnalyticsTrade> = {}): AnalyticsTrade {
-  n++;
-  return {
-    id: `t${n}`,
-    coin: "BTC",
-    displayPair: "BTC/USD",
-    direction: "long",
-    netPnl: net,
-    fees: 1,
-    notionalUsd: 10_000, // BE band = $5
-    entryTime: T0 + n * 3_600_000,
-    exitTime: T0 + n * 3_600_000 + 60_000,
-    r: null,
-    tradeType: null,
-    grade: null,
-    strategyId: null,
-    strategy: null,
-    htf: [],
-    confluences: [],
-    ...o,
-  };
-}
+const tr = atr;
 
 describe("buckets", () => {
   test("win rate excludes breakevens; R only from trades with a stop; small samples flagged", () => {

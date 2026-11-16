@@ -20,6 +20,7 @@ export function BreakdownWidget({
   data,
   unit,
   hidden,
+  footer,
 }: {
   id: string;
   title: string;
@@ -27,6 +28,7 @@ export function BreakdownWidget({
   data: Breakdown;
   unit: "usd" | "r";
   hidden: string[];
+  footer?: React.ReactNode;
 }) {
   const [view, setView] = useState<"bars" | "table">("bars");
   const [pending, start] = useTransition();
@@ -135,6 +137,7 @@ export function BreakdownWidget({
           </table>
         </div>
       )}
+      {footer && <div className="text-muted-foreground mt-2 border-t pt-2 text-xs">{footer}</div>}
       {data.buckets.some((b) => b.small) && (
         <p className="text-muted-foreground mt-2 text-[11px]">Greyed: fewer than {data.minN} trades, too few to read much into.</p>
       )}
