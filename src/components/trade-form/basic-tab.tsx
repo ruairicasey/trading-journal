@@ -26,7 +26,8 @@ import {
 import { displayPair } from "@/server/hyperliquid/markets";
 import { createStrategyAction } from "@/app/(app)/trades/[id]/actions";
 import { Field, Locked, NumberInput, Section, Segmented } from "./fields";
-import { PartialsHint, ProtectionHint, StopMoves } from "./protection";
+import { PartialsHint, ProtectionHint } from "./protection";
+import { StopMoveHistory } from "./stop-move-history";
 import type { Draft, FormProps, ProtectionField, ProtectionState, Row } from "./types";
 
 const NONE = "__none";
@@ -38,9 +39,10 @@ type Props = FormProps & {
   errors: Record<string, string>;
   protection: ProtectionState;
   onRevert: (f: ProtectionField) => Promise<void>;
+  onStopMoves: (rows: ProtectionState["stopMoves"]) => void;
 };
 
-export function BasicTab({ data, accounts, sessions, tz, draft, update, updateManual, errors, protection, onRevert }: Props) {
+export function BasicTab({ data, accounts, sessions, tz, draft, update, updateManual, errors, protection, onRevert, onStopMoves }: Props) {
   const t = data.trade;
   const m = draft.manual;
   const manual = !!m;
@@ -238,7 +240,20 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
             </span>
           </div>
         )}
-        <StopMoves state={protection} initial={draft.stopLoss} tz={tz} />
+        <StopMoveHistory
+          tradeId={t.id}
+          direction={dir}
+          entry={entry ?? null}
+          initialStop={draft.stopLoss}
+          detectedInitial={protection.detected?.stopLoss ?? null}
+          initialDiffers={
+            draft.stopLoss !== null && !!protection.detected?.stopLoss && Math.abs(protection.detected.stopLoss.price - draft.stopLoss) > Math.abs(draft.stopLoss) * 1e-12
+          }
+          moves={protection.stopMoves}
+          entryTime={manual ? (m!.entryTime ?? null) : t.entryTime}
+          tz={tz}
+          onMoves={onStopMoves}
+        />
       </Section>
 
       {/* ── Size ── */}

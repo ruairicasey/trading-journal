@@ -99,3 +99,29 @@ describe("overtrading and stacking", () => {
     ]);
   });
 });
+
+describe("stop management", () => {
+  test("one bucket per class, only trades with a stop; buckets reconcile to them in count and net", () => {
+    const ts = [
+      atr(-100, { stopClass: "widened" }),
+      atr(-50, { stopClass: "widened" }),
+      atr(200, { stopClass: "trailed" }),
+      atr(0, { stopClass: "breakeven" }),
+      atr(-80, { stopClass: "tightened" }),
+      atr(-100, { stopClass: "never_moved" }),
+      atr(300, { stopClass: null }), // no stop: left out
+    ];
+    const b = behaviourBreakdowns(ts, { tz: TZ, minN: 1 })["stop-management"];
+    expect(b.buckets.map((x) => [x.key, x.n])).toEqual([
+      ["widened", 2],
+      ["trailed", 1],
+      ["breakeven", 1],
+      ["tightened", 1],
+      ["never_moved", 1],
+    ]);
+    const withStop = ts.filter((t) => t.stopClass);
+    expect(b.buckets.reduce((a, x) => a + x.n, 0)).toBe(withStop.length);
+    expect(b.buckets.reduce((a, x) => a + x.net, 0)).toBe(withStop.reduce((a, t) => a + t.netPnl, 0));
+    expect(b.buckets[0].label).toBe("Stop widened");
+  });
+});

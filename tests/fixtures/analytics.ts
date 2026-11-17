@@ -30,6 +30,7 @@ export function atr(net: number, o: Partial<AnalyticsTrade> = {}): AnalyticsTrad
     entryRetests: null,
     rulesFollowed: null,
     processCompliant: null,
+    stopClass: null,
     slReasons: [],
     tpReasons: [],
     exitBy: "manual",

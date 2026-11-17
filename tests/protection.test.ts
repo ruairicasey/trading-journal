@@ -11,6 +11,8 @@ import { applyProtection, revertToAuto } from "@/server/protection/apply";
 import { detectProtection, type ProtectionOrder, type ProtectionTrade } from "@/server/protection/detect";
 import { insertFills, rebuildTrades } from "@/server/reconstruct/persist";
 import { saveTradeBasic } from "@/server/trades/journal";
+import { addStopMove, deleteStopMove, updateStopMove } from "@/server/trades/stop-moves";
+import { analyticsTrades } from "@/server/db/queries/analytics";
 import { DEMO_WALLET, MIN, T0, resetTids, sim } from "./fixtures/fills";
 
 const rows = (orders: SynthOrder[]) => HistoricalOrdersSchema.parse(historyRows(orders));
@@ -305,5 +307,82 @@ describe("storing and applying", () => {
     await storeOrders(db(), walletId, rows([SL1]));
     expect((await applyProtection(db(), walletId)).trades).toBe(0);
     expect(await journal(t.id)).toBeUndefined();
+  });
+});
+
+describe("your own stop moves", () => {
+  test("add, edit and delete; validated against the trade's entry and exit; note trimmed", async () => {
+    const t = await oneLongTrade(); // entry at(0), exit at(120)
+    const add = await addStopMove(db(), accountId, t.id, { time: at(10), price: 98, note: "  under the last low  " });
+    expect(add).toMatchObject({ ok: true, moves: [{ time: at(10), price: 98, source: "user", note: "under the last low" }] });
+    const id = add.ok ? add.moves[0].id : "";
+    expect(await updateStopMove(db(), accountId, id, { time: at(20), price: 99.5, note: "" })).toMatchObject({ ok: true, moves: [{ time: at(20), price: 99.5, note: null }] });
+
+    expect(await addStopMove(db(), accountId, t.id, { time: at(-2), price: 98 })).toEqual({ ok: false, error: "A stop move can't be before the entry" });
+    expect(await addStopMove(db(), accountId, t.id, { time: at(0) - 30_000, price: 98 })).toMatchObject({ ok: true }); // a minute-rounded input
+    expect(await addStopMove(db(), accountId, t.id, { time: at(122), price: 98 })).toEqual({ ok: false, error: "A stop move can't be after the exit" });
+    expect(await addStopMove(db(), accountId, t.id, { time: at(121), price: 98 })).toMatchObject({ ok: true }); // within a minute of the exit
+    for (const bad of [{ time: at(10), price: 0 }, { time: at(10), price: -1 }, { time: at(10), price: Number.NaN }, { time: at(10), price: 98, note: "x".repeat(501) }, { price: 98 }, null])
+      expect((await addStopMove(db(), accountId, t.id, bad)).ok).toBe(false);
+
+    expect(await deleteStopMove(db(), accountId, id)).toMatchObject({ ok: true });
+    expect((await db().select().from(s.stopMoves)).map((m) => m.time).sort((a, b) => a - b)).toEqual([at(0) - 30_000, at(121)]);
+  });
+
+  test("another account can't touch them; exchange (auto) moves can't be edited or deleted; deleted trades refuse", async () => {
+    const t = await oneLongTrade();
+    await storeOrders(db(), walletId, rows([SL1, SL2]));
+    await applyProtection(db(), walletId);
+    const [auto] = await db().select().from(s.stopMoves);
+    expect(auto.source).toBe("auto");
+    expect(await updateStopMove(db(), accountId, auto.id, { time: at(30), price: 1 })).toEqual({ ok: false, error: "Only your own stop moves can be edited" });
+    expect(await deleteStopMove(db(), accountId, auto.id)).toEqual({ ok: false, error: "Only your own stop moves can be deleted" });
+
+    const other = (await db().insert(s.accounts).values({ name: "Someone else" }).returning())[0].id;
+    expect(await addStopMove(db(), other, t.id, { time: at(10), price: 98 })).toEqual({ ok: false, error: "Trade not found" });
+    const mine = await addStopMove(db(), accountId, t.id, { time: at(10), price: 98 });
+    const mineId = mine.ok ? mine.moves.find((m) => m.source === "user")!.id : "";
+    expect((await updateStopMove(db(), other, mineId, { time: at(11), price: 97 })).ok).toBe(false);
+    expect((await deleteStopMove(db(), other, mineId)).ok).toBe(false);
+
+    await db().update(s.trades).set({ deletedAt: Date.now() }).where(eq(s.trades.id, t.id));
+    expect(await addStopMove(db(), accountId, t.id, { time: at(12), price: 98 })).toEqual({ ok: false, error: "Trade not found" });
+  });
+
+  test("re-syncs and rebuilds replace exchange moves but never yours", async () => {
+    const t = await oneLongTrade();
+    await storeOrders(db(), walletId, rows([SL1, SL2]));
+    await applyProtection(db(), walletId);
+    await addStopMove(db(), accountId, t.id, { time: at(60), price: 100, note: "BE by hand" });
+    // the exchange history changes (a later window adds a third stop): auto rows are rebuilt
+    const SL3: SynthOrder = { oid: 14, coin: "BTC", side: "A", orderType: "Stop Market", triggerPx: 104, placedAt: at(90), end: { status: "canceled", at: at(120) } };
+    await storeOrders(db(), walletId, rows([SL1, SL2, SL3]));
+    await applyProtection(db(), walletId);
+    await rebuildTrades(db(), { walletId, accountId });
+    const moves = await db().select().from(s.stopMoves).where(eq(s.stopMoves.tradeId, t.id));
+    expect(moves.filter((m) => m.source === "auto").map((m) => m.price).sort((a, b) => a - b)).toEqual([99, 104]);
+    expect(moves.filter((m) => m.source === "user")).toMatchObject([{ price: 100, note: "BE by hand", time: at(60) }]);
+  });
+});
+
+describe("stop class in analytics", () => {
+  test("from your saved stop loss and every move (exchange and yours, in time then id order); null without a stop", async () => {
+    const t = await oneLongTrade(); // long, entry 100
+    const cls = async () => (await analyticsTrades(db(), accountId)).find((x) => x.id === t.id)!.stopClass;
+    expect(await cls()).toBeNull(); // no stop loss yet
+    await db().insert(s.tradeJournal).values({ tradeId: t.id, stopLoss: 95, stopLossSource: "user" });
+    expect(await cls()).toBe("never_moved");
+    await storeOrders(db(), walletId, rows([SL1, SL2])); // exchange: 95 → 99 at at(30)
+    await applyProtection(db(), walletId);
+    expect(await cls()).toBe("tightened");
+    await addStopMove(db(), accountId, t.id, { time: at(60), price: 100 }); // yours: to breakeven
+    expect(await cls()).toBe("breakeven");
+    await addStopMove(db(), accountId, t.id, { time: at(90), price: 106 });
+    expect(await cls()).toBe("trailed");
+    await addStopMove(db(), accountId, t.id, { time: at(100), price: 103 }); // gives back profit
+    expect(await cls()).toBe("widened");
+    // clearing the stop loss takes the trade out of the widget, as the timeline says
+    await db().update(s.tradeJournal).set({ stopLoss: null }).where(eq(s.tradeJournal.tradeId, t.id));
+    expect(await cls()).toBeNull();
   });
 });

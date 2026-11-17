@@ -9,8 +9,9 @@ import { dayBoundsLocal, localDateKey } from "../periods";
 import { outcomeOf } from "../outcome";
 import { groupBy } from "./group";
 import type { AnalyticsTrade, Breakdown } from "./types";
+import { STOP_CLASS_LABEL, STOP_CLASSES } from "../stop-moves";
 
-export type BehaviourWidgetId = "streaks" | "after-streak" | "rolling" | "daily" | "per-day" | "stacking";
+export type BehaviourWidgetId = "streaks" | "after-streak" | "rolling" | "daily" | "per-day" | "stacking" | "stop-management";
 
 export const BEHAVIOUR_WIDGETS: { id: BehaviourWidgetId; title: string; description: string }[] = [
   { id: "streaks", title: "Streaks and extremes", description: "Runs of wins and losses (breakevens don't break a run), and your biggest trades" },
@@ -19,6 +20,11 @@ export const BEHAVIOUR_WIDGETS: { id: BehaviourWidgetId; title: string; descript
   { id: "daily", title: "Daily P&L", description: "The last 30 days of the period, by exit day" },
   { id: "per-day", title: "Trades per day (overtrading)", description: "Trades grouped by how many you entered that day" },
   { id: "stacking", title: "Stacking positions", description: "Other trades already open when you entered" },
+  {
+    id: "stop-management",
+    title: "Stop management",
+    description: "Trades with a stop, by what you did with it: one class each (widened beats trailed beats breakeven beats tightened)",
+  },
 ];
 
 type Outcome = "win" | "loss" | "be";
@@ -174,6 +180,10 @@ export function behaviourBreakdowns(trades: AnalyticsTrade[], opts: { tz: string
         },
         { order: ["none", "same1", "same2", "opp"] },
       ),
+    ),
+    "stop-management": bd(
+      "stop-management",
+      g((t) => (t.stopClass ? { key: t.stopClass, label: STOP_CLASS_LABEL[t.stopClass] } : null), { order: [...STOP_CLASSES] }),
     ),
   } satisfies Partial<Record<BehaviourWidgetId, Breakdown>>;
 }

@@ -165,7 +165,7 @@ export async function loadTradeForEdit(db: DB, accountId: string, tradeId: strin
   ]);
   const [detected, moves] = await Promise.all([
     detectForTrade(db, trade),
-    db.select().from(s.stopMoves).where(eq(s.stopMoves.tradeId, tradeId)).orderBy(asc(s.stopMoves.time)),
+    db.select().from(s.stopMoves).where(eq(s.stopMoves.tradeId, tradeId)).orderBy(asc(s.stopMoves.time), asc(s.stopMoves.id)),
   ]);
   const used = new Set(vocab.map((v) => v.itemId));
   for (const k of ["emotionBeforeId", "emotionAfterId", "exitReasonId"] as const) if (journal?.[k]) used.add(journal[k]!);

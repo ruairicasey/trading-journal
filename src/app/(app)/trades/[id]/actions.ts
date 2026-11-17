@@ -5,6 +5,7 @@ import { getDb } from "@/server/db/client";
 import { getActiveAccount } from "@/server/db/queries/settings";
 import { createStrategy, saveTradeBasic, type SaveResult } from "@/server/trades/journal";
 import { revertToAuto } from "@/server/protection/apply";
+import { addStopMove, deleteStopMove, updateStopMove, type StopMoveResult } from "@/server/trades/stop-moves";
 import { deleteScreenshot, moveScreenshot, updateCaption } from "@/server/screenshots";
 import { getStorage } from "@/server/storage";
 
@@ -52,4 +53,31 @@ export async function revertToAutoAction(tradeId: string, field: "stopLoss" | "t
     revalidatePath("/dashboard");
   }
   return res;
+}
+
+/** Your own stop moves. Analytics groups trades by them, so it is refreshed too. */
+async function afterStopMove(res: StopMoveResult) {
+  if (res.ok) {
+    revalidatePath("/trades");
+    revalidatePath("/analytics");
+  }
+  return res;
+}
+
+export async function addStopMoveAction(tradeId: string, input: unknown): Promise<StopMoveResult> {
+  const { active } = await getActiveAccount();
+  if (!active) return { ok: false, error: "No account" };
+  return afterStopMove(await addStopMove(getDb(), active.id, String(tradeId), input));
+}
+
+export async function updateStopMoveAction(moveId: string, input: unknown): Promise<StopMoveResult> {
+  const { active } = await getActiveAccount();
+  if (!active) return { ok: false, error: "No account" };
+  return afterStopMove(await updateStopMove(getDb(), active.id, String(moveId), input));
+}
+
+export async function deleteStopMoveAction(moveId: string): Promise<StopMoveResult> {
+  const { active } = await getActiveAccount();
+  if (!active) return { ok: false, error: "No account" };
+  return afterStopMove(await deleteStopMove(getDb(), active.id, String(moveId)));
 }

@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { AnalyticsTrade } from "../../../lib/analytics/types";
+import { classifyStopMoves } from "../../../lib/stop-moves";
 import type { DB } from "../client";
 import * as s from "../schema";
 import { rExpr } from "./trades";
@@ -37,6 +38,8 @@ export async function analyticsTrades(db: DB, accountId: string): Promise<Analyt
       entryRetests: j.entryRetests,
       rulesFollowed: j.rulesFollowed,
       processCompliant: j.processCompliant,
+      stopLoss: j.stopLoss,
+      avgEntry: t.avgEntry,
     })
     .from(t)
     .leftJoin(j, eq(j.tradeId, t.id))
@@ -58,6 +61,7 @@ export async function analyticsTrades(db: DB, accountId: string): Promise<Analyt
   const linked = { confluence: new Map<string, Item[]>(), sl_reason: new Map<string, Item[]>(), tp_reason: new Map<string, Item[]>() };
   // final exit leg per trade, with the order behind it (if it was one of your trigger orders)
   const lastExit = new Map<string, { time: number; orderType: string | null; isTrigger: boolean | null }>();
+  const moves = new Map<string, { id: string; time: number; price: number }[]>();
   for (let i = 0; i < ids.length; i += 400) {
     const chunk = ids.slice(i, i + 400);
     const links = await db
@@ -75,6 +79,12 @@ export async function analyticsTrades(db: DB, accountId: string): Promise<Analyt
       .innerJoin(s.fills, and(eq(s.fills.walletId, s.tradeFills.walletId), eq(s.fills.tid, s.tradeFills.tid)))
       .leftJoin(s.orders, and(eq(s.orders.walletId, s.fills.walletId), eq(s.orders.oid, s.fills.oid)))
       .where(and(inArray(s.tradeFills.tradeId, chunk), eq(s.tradeFills.role, "exit")));
+    for (const m of await db
+      .select({ id: s.stopMoves.id, tradeId: s.stopMoves.tradeId, time: s.stopMoves.time, price: s.stopMoves.price })
+      .from(s.stopMoves)
+      .where(inArray(s.stopMoves.tradeId, chunk))
+      .orderBy(asc(s.stopMoves.time), asc(s.stopMoves.id)))
+      moves.set(m.tradeId, [...(moves.get(m.tradeId) ?? []), { id: m.id, time: m.time, price: m.price }]);
     for (const e of exits) {
       const cur = lastExit.get(e.tradeId);
       if (!cur || e.time >= cur.time) lastExit.set(e.tradeId, { time: e.time, orderType: e.orderType, isTrigger: e.isTrigger });
@@ -86,7 +96,7 @@ export async function analyticsTrades(db: DB, accountId: string): Promise<Analyt
     if (!e?.isTrigger || !e.orderType) return "manual";
     return e.orderType.toLowerCase().includes("take profit") ? "tp" : "stop";
   };
-  return rows.map(({ flags, ...r }) => ({
+  return rows.map(({ flags, stopLoss, avgEntry, ...r }) => ({
     ...r,
     netPnl: r.netPnl ?? 0,
     fees: r.fees ?? 0,
@@ -98,5 +108,6 @@ export async function analyticsTrades(db: DB, accountId: string): Promise<Analyt
     slReasons: linked.sl_reason.get(r.id) ?? [],
     tpReasons: linked.tp_reason.get(r.id) ?? [],
     exitBy: exitBy(r.id, flags?.liquidated),
+    stopClass: stopLoss != null && avgEntry ? classifyStopMoves(r.direction, avgEntry, stopLoss, moves.get(r.id) ?? []).cls : null,
   }));
 }

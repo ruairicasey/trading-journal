@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { RotateCcw, Zap } from "lucide-react";
-import { fmtDateTime, fmtPrice } from "@/lib/format";
+import { fmtDateTime } from "@/lib/format";
 import { LATE_STOP_MS } from "@/server/protection/detect";
 import type { ProtectionField, ProtectionState } from "./types";
 
@@ -108,33 +108,5 @@ export function PartialsHint({
         </span>
       )}
     </p>
-  );
-}
-
-/** Read-only timeline of stop orders: the initial (risk-side) stop and every move, in time order. */
-export function StopMoves({ state, initial, tz }: { state: ProtectionState; initial: number | null; tz: string }) {
-  if (!state.stopMoves.length) return null;
-  const start = state.detected?.stopLoss ?? null;
-  const rows = [
-    ...(start ? [{ key: "initial", time: start.placedAt, price: start.price, initial: true, user: false }] : []),
-    ...state.stopMoves.map((m) => ({ key: m.id, time: m.time, price: m.price, initial: false, user: m.source === "user" })),
-  ].sort((a, b) => a.time - b.time);
-  return (
-    <div className="mt-3 border-t pt-3" data-testid="stop-moves">
-      <p className="text-muted-foreground mb-1.5 text-xs">Stop moves (from your exchange orders)</p>
-      <ol className="grid gap-1 text-xs">
-        {rows.map((r) => (
-          <li key={r.key} className="flex gap-3">
-            <span className="text-muted-foreground w-36 shrink-0">{fmtDateTime(r.time, tz)}</span>
-            <span className="tabular-nums">{r.initial ? fmtPrice(r.price) : `→ ${fmtPrice(r.price)}`}</span>
-            {r.initial && (
-              <span className="text-muted-foreground">initial stop{initial !== null && !same(initial, r.price) ? " (your stop loss differs)" : ""}</span>
-            )}
-            {r.user && <span className="text-muted-foreground">added by you</span>}
-          </li>
-        ))}
-      </ol>
-      {!start && <p className="text-muted-foreground mt-1.5 text-[11px]">No stop on the risk side of entry, so no stop loss was set from these.</p>}
-    </div>
   );
 }

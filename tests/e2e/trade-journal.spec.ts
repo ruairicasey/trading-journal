@@ -130,9 +130,12 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
 
     // delete one
     page.once("dialog", (d) => d.accept());
+    // the screenshot leaves the list at once (optimistic); wait for the server action itself before reloading,
+    // or the reload can race it (its first call compiles the actions module in dev mode, which can be slow)
+    const deleted = page.waitForResponse((r) => r.request().method() === "POST" && !!r.request().headers()["next-action"], { timeout: 30_000 });
     await shots.last().getByRole("button", { name: "Delete screenshot" }).click();
-    // the first call to the delete action compiles it in dev mode, which can be slow on CI
-    await expect(shots).toHaveCount(before + 1, { timeout: 30_000 });
+    await expect(shots).toHaveCount(before + 1);
+    await deleted;
     await page.reload();
     await page.getByRole("tab", { name: /Notes/ }).click();
     await expect(shots).toHaveCount(before + 1);

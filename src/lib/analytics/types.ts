@@ -1,4 +1,5 @@
 import type { ClosedTrade } from "../stats";
+import type { StopClass } from "../stop-moves";
 
 export type AnalyticsTrade = ClosedTrade & {
   coin: string;
@@ -22,6 +23,8 @@ export type AnalyticsTrade = ClosedTrade & {
   tpReasons: { id: string; label: string }[];
   /** what closed the final exit: your take-profit order, your stop order, a manual/limit exit, or liquidation */
   exitBy: "tp" | "stop" | "manual" | "liquidated";
+  /** what you did with the stop (see src/lib/stop-moves.ts); null without a stop loss */
+  stopClass: StopClass | null;
 };
 
 /** One bucket of a breakdown (a bar / a table row). */

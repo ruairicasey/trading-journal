@@ -167,7 +167,7 @@ export function TradeForm(props: FormProps) {
         </Button>
       </div>
       <TabsContent value="basic">
-        <BasicTab {...props} draft={draft} update={update} updateManual={updateManual} errors={errors} protection={protection} onRevert={revert} />
+        <BasicTab {...props} draft={draft} update={update} updateManual={updateManual} errors={errors} protection={protection} onRevert={revert} onStopMoves={(rows) => setProtection((pr) => ({ ...pr, stopMoves: rows }))} />
       </TabsContent>
       <TabsContent value="analysis">
         <AnalysisTab data={props.data} value={draft.analysis} onChange={updateAnalysis} standardRiskPct={account?.standardRiskPct ?? null} />

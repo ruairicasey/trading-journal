@@ -154,6 +154,26 @@ async function main() {
   }
   const prot = await applyProtection(db, wallet.id);
 
+  // synthetic stop moves of your own (sync never touches these): a widen, a move to breakeven and a trail,
+  // each on an older closed trade that has a stop and no moves yet
+  const { sql: rawSql } = await import("drizzle-orm");
+  const candidates = await db.all<{ id: string; direction: "long" | "short"; entry: number; sl: number; entryTime: number; exitTime: number }>(
+    rawSql`select t.id, t.direction, t.avg_entry as entry, j.stop_loss as sl, t.entry_time as entryTime, t.exit_time as exitTime
+      from trades t join trade_journal j on j.trade_id = t.id
+      where t.status = 'closed' and t.deleted_at is null and j.stop_loss is not null and t.avg_entry is not null
+        and t.exit_time - t.entry_time > 3600000
+        and not exists (select 1 from stop_moves m where m.trade_id = t.id)
+      order by t.entry_time limit 3`,
+  );
+  const userMoves = candidates.map((c, i) => {
+    const sign = c.direction === "long" ? 1 : -1;
+    const risk = Math.abs(c.entry - c.sl);
+    const price = [c.sl - sign * risk * 0.5, c.entry, c.entry + sign * risk * 0.5][i]; // widen, breakeven, trail
+    const note = ["gave it more room", "risk off at breakeven", "trailed under structure"][i];
+    return { tradeId: c.id, time: c.entryTime + Math.round((c.exitTime - c.entryTime) / 2), price, note, source: "user" as const };
+  });
+  if (userMoves.length) await db.insert(s.stopMoves).values(userMoves);
+
   console.log(
     `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank), ${shots} screenshots\n  ${synth.length} trigger orders → auto SL/TP on ${prot.trades} trades\n  ${fundingResult.payments} funding payments, ${fundingResult.attributed} attributed`,
   );
