@@ -13,8 +13,8 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
 - ~~Auto-detect SL/TP from trigger orders~~ **done**: stop loss, take profit, TP ladders and stop moves from `historicalOrders`,
   never overwriting values you entered.
 - ~~Funding attribution to trades~~ **done**; deposits, withdrawals and transfers are stored and drive the balance view.
-- Stop-move history: your own stop moves alongside the ones read from exchange orders, each move classed (tighten,
-  widen, to breakeven, trail into profit), and what moving the stop did to R.
+- ~~Stop-move history~~ **done**: your own stop moves alongside the ones read from exchange orders, each move classed
+  (tightened, widened, to breakeven, trailing in profit) with the R it locks, and Analytics → Behaviour → Stop management.
 - Multiple wallets per account in the UI.
 - Manual trades for non-Hyperliquid accounts.
 - Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import.
