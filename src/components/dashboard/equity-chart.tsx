@@ -94,7 +94,7 @@ export function EquityChart({ points, unit, baseline, tz }: { points: (EquityPoi
               );
             }}
           />
-          <Area type="monotone" dataKey="v" stroke={LINE} strokeWidth={2} fill="url(#eq-fill)" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--background)" }} isAnimationActive={false} />
+          <Area type={balance ? "stepAfter" : "monotone"} dataKey="v" stroke={LINE} strokeWidth={2} fill="url(#eq-fill)" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--background)" }} isAnimationActive={false} />
           {balance && (
             <Line type="stepAfter" dataKey="dep" stroke="var(--muted-foreground)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} activeDot={false} isAnimationActive={false} />
           )}
