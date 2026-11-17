@@ -28,6 +28,8 @@ cache/
 !.env.example
 *.pem
 *.key
+# local Claude Code notes (production URL, baselines)
+CLAUDE.local.md
 
 # ─── logs ───────────────────────────────────────────────────────
 logs/
