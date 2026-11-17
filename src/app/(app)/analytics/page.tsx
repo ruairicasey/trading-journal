@@ -19,7 +19,7 @@ import { dayBoundsLocal, periodRange, PERIODS, type Period } from "@/lib/periods
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { analyticsTrades } from "@/server/db/queries/analytics";
-import { getActiveAccount, getSessions, getSetting } from "@/server/db/queries/settings";
+import { getActiveScope, getSessions, getSetting } from "@/server/db/queries/settings";
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -34,7 +34,7 @@ const SECTIONS = [
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const { active } = await getActiveAccount();
+  const { active, walletId } = await getActiveScope();
   if (!active) return <EmptyState icon={BarChart3} title="No account" body="Create an account in Settings first." />;
   const tz = await getSetting("timezone", getConfig().timezone);
   const hidden = await getSetting<string[]>("analytics_hidden", []);
@@ -65,7 +65,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     start = periodRange(period as Period, now, tz).from;
   }
 
-  const all = await analyticsTrades(getDb(), active.id);
+  const all = await analyticsTrades(getDb(), active.id, walletId);
   const trades = all.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end));
   const sessions = await getSessions();
   const hours = (ms: number | null) => (ms === null ? "—" : ms < 3_600_000 ? `${Math.round(ms / 60_000)}m` : ms < 172_800_000 ? `${(ms / 3_600_000).toFixed(1)}h` : `${(ms / 86_400_000).toFixed(1)}d`);

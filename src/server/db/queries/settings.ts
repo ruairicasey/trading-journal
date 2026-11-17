@@ -5,6 +5,8 @@ import { getDb } from "../client";
 import * as s from "../schema";
 
 export const ACTIVE_ACCOUNT_COOKIE = "tj_account";
+/** The wallet chosen in the sidebar switcher; absent (or not on the active account) = all wallets. */
+export const ACTIVE_WALLET_COOKIE = "tj_wallet";
 
 export async function listAccounts() {
   return getDb()
@@ -19,6 +21,26 @@ export async function getActiveAccount() {
   const all = await listAccounts();
   const chosen = (await cookies()).get(ACTIVE_ACCOUNT_COOKIE)?.value;
   return { accounts: all, active: all.find((a) => a.id === chosen) ?? all[0] ?? null };
+}
+
+export type WalletOption = { id: string; label: string; kind: string; enabled: boolean };
+
+/**
+ * The active account plus the wallet scope inside it. `walletId` is null for "All wallets", and always
+ * belongs to the active account (a stale cookie from another account, or a moved wallet, reads as all).
+ */
+export async function getActiveScope() {
+  const { accounts, active } = await getActiveAccount();
+  const wallets: WalletOption[] = active
+    ? await getDb()
+        .select({ id: s.wallets.id, label: s.wallets.label, kind: s.wallets.kind, enabled: s.wallets.enabled })
+        .from(s.wallets)
+        .where(eq(s.wallets.accountId, active.id))
+        .orderBy(asc(s.wallets.createdAt), asc(s.wallets.id))
+    : [];
+  const chosen = (await cookies()).get(ACTIVE_WALLET_COOKIE)?.value;
+  const wallet = wallets.length > 1 ? (wallets.find((w) => w.id === chosen) ?? null) : null;
+  return { accounts, active, wallets, wallet, walletId: wallet?.id ?? null };
 }
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {

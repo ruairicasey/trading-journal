@@ -138,6 +138,35 @@ export type BalanceCash = { t: number; usd: number };
 export type BalancePoint = EquityPoint & { deposited: number; flow?: { kind: string; usd: number } };
 
 /**
+ * A transfer between two wallets that are both in view is not money in or out: each side is synced by its own
+ * wallet, so the pair is folded into one "internal" flow worth their sum (just the fee, if any). A side whose
+ * other wallet is out of view stays a transfer. Pairs match on tx hash + time + opposite kinds, across wallets.
+ */
+export function foldOwnTransfers(rows: (BalanceFlow & { walletId: string; hash: string })[]): BalanceFlow[] {
+  const isT = (k: string) => k === "transfer_in" || k === "transfer_out";
+  const groups = new Map<string, typeof rows>();
+  for (const r of rows) {
+    if (!isT(r.kind)) continue;
+    const key = `${r.hash}|${r.t}`;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  const folded = new Set<(typeof rows)[number]>();
+  const out: BalanceFlow[] = [];
+  for (const g of groups.values()) {
+    const outs = g.filter((r) => r.kind === "transfer_out");
+    const ins = g.filter((r) => r.kind === "transfer_in");
+    for (const o of outs) {
+      const i = ins.find((x) => !folded.has(x) && x.walletId !== o.walletId);
+      if (!i) continue;
+      folded.add(o).add(i);
+      out.push({ t: o.t, usd: o.usd + i.usd, kind: "internal" });
+    }
+  }
+  for (const r of rows) if (!folded.has(r)) out.push({ t: r.t, usd: r.usd, kind: r.kind });
+  return out.filter((f) => f.usd !== 0).sort((a, b) => a.t - b.t);
+}
+
+/**
  * The real account balance over time, from the exchange's own cash events rather than journal trades: net ledger
  * flows (deposits, withdrawals, transfers, ledger fees) + every fill's realised P&L − fee + every funding payment.
  * So partial closes of open positions, funding the journal can't attribute and trades hidden from the journal all

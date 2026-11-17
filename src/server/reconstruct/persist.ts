@@ -93,7 +93,7 @@ export async function rebuildTrades(
   db: DB,
   opts: { walletId: string; accountId: string; coins?: string[]; includeSpot?: boolean },
 ): Promise<RebuildResult> {
-  const { walletId, accountId } = opts;
+  const { walletId } = opts;
   const where = opts.coins?.length
     ? and(eq(s.fills.walletId, walletId), inArray(s.fills.coin, opts.coins))
     : eq(s.fills.walletId, walletId);
@@ -106,6 +106,9 @@ export async function rebuildTrades(
   const now = Date.now();
 
   const out = await db.transaction(async (tx) => {
+    // new trades go to the account that owns the wallet now (it may have moved while a sync was paging)
+    const [owner] = await tx.select({ accountId: s.wallets.accountId }).from(s.wallets).where(eq(s.wallets.id, walletId));
+    const accountId = owner?.accountId ?? opts.accountId;
     const existingWhere = and(
       eq(s.trades.walletId, walletId),
       eq(s.trades.source, "hyperliquid"),

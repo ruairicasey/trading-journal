@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { ADDRESS_RE, fmtDateTime, maskAddr, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { addWallet, updateWallet } from "@/app/(app)/settings/wallets/actions";
+import { addWallet, moveWallet, updateWallet } from "@/app/(app)/settings/wallets/actions";
 import { runSync } from "@/components/sync/run-sync";
 
 type Wallet = {
@@ -63,7 +63,7 @@ export function WalletsEditor(props: {
         </p>
       )}
       {props.wallets.map((w) => (
-        <WalletCard key={w.id} wallet={w} tz={props.timezone} isDemo={props.isDemo} />
+        <WalletCard key={w.id} wallet={w} tz={props.timezone} isDemo={props.isDemo} accounts={props.accounts} />
       ))}
       {adding ? (
         <AddWallet accounts={props.accounts} onDone={() => setAdding(false)} />
@@ -77,7 +77,7 @@ export function WalletsEditor(props: {
   );
 }
 
-function WalletCard({ wallet: w, tz, isDemo }: { wallet: Wallet; tz: string; isDemo: boolean }) {
+function WalletCard({ wallet: w, tz, isDemo, accounts }: { wallet: Wallet; tz: string; isDemo: boolean; accounts: { id: string; name: string }[] }) {
   const router = useRouter();
   const [reveal, setReveal] = useState(false);
   const [pending, start] = useTransition();
@@ -141,6 +141,8 @@ function WalletCard({ wallet: w, tz, isDemo }: { wallet: Wallet; tz: string; isD
           <Stat label="Last success" value={timeAgo(w.lastSuccessAt)} />
         </dl>
 
+        <WalletDetails wallet={w} accounts={accounts} />
+
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-xs">
             <Switch checked={w.enabled} disabled={pending} onCheckedChange={(v) => toggle({ enabled: v })} /> Enabled
@@ -184,6 +186,112 @@ function WalletCard({ wallet: w, tz, isDemo }: { wallet: Wallet; tz: string; isD
         {msg && <p className="text-xs">{msg}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+const KIND_LABEL = { main: "Main account", sub: "Sub-account", vault: "Vault" } as const;
+
+/** Rename, change the type, or move the wallet (and its trades) to another journal account. */
+function WalletDetails({ wallet: w, accounts }: { wallet: Wallet; accounts: { id: string; name: string }[] }) {
+  const router = useRouter();
+  const [label, setLabel] = useState(w.label);
+  const [kind, setKind] = useState(w.kind);
+  const [accountId, setAccountId] = useState(w.accountId);
+  const [confirmMove, setConfirmMove] = useState(false);
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  const dirty = label.trim() !== w.label || kind !== w.kind || accountId !== w.accountId;
+  const moving = accountId !== w.accountId;
+  const target = accounts.find((a) => a.id === accountId)?.name ?? "the other account";
+
+  const save = () =>
+    start(async () => {
+      setMsg(null);
+      try {
+        if (label.trim() !== w.label || kind !== w.kind) await updateWallet({ id: w.id, label: label.trim(), kind });
+        if (moving) {
+          const r = await moveWallet({ id: w.id, accountId });
+          setMsg(`Moved to ${target} with ${r.trades} trade${r.trades === 1 ? "" : "s"}`);
+        }
+        setConfirmMove(false);
+        router.refresh();
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : "Couldn't save");
+      }
+    });
+
+  return (
+    <form
+      className="flex flex-wrap items-end gap-2"
+      data-testid="wallet-details"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!label.trim()) return setMsg("Give the wallet a name");
+        if (moving && !confirmMove) return setConfirmMove(true);
+        save();
+      }}
+    >
+      <div className="grid gap-1">
+        <Label htmlFor={`wl-${w.id}`} className="text-muted-foreground text-xs">
+          Name
+        </Label>
+        <Input id={`wl-${w.id}`} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} className="h-8 w-40" />
+      </div>
+      <div className="grid gap-1">
+        <Label className="text-muted-foreground text-xs">Type</Label>
+        <Select value={kind} onValueChange={(v) => setKind(v as Wallet["kind"])}>
+          <SelectTrigger className="h-8 w-36" aria-label="Wallet type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(KIND_LABEL) as Wallet["kind"][]).map((k) => (
+              <SelectItem key={k} value={k}>
+                {KIND_LABEL[k]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {accounts.length > 1 && (
+        <div className="grid gap-1">
+          <Label className="text-muted-foreground text-xs">Journal account</Label>
+          <Select
+            value={accountId}
+            onValueChange={(v) => {
+              setAccountId(v);
+              setConfirmMove(false);
+            }}
+          >
+            <SelectTrigger className="h-8 w-40" aria-label="Journal account">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      {confirmMove ? (
+        <span className="flex flex-wrap items-center gap-2 text-xs" role="alert">
+          Move this wallet and its {w.trades} trade{w.trades === 1 ? "" : "s"} to {target}? Journal entries go with them; you can move it back.
+          <Button type="submit" size="sm" disabled={pending}>
+            Move
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => (setConfirmMove(false), setAccountId(w.accountId))}>
+            Keep
+          </Button>
+        </span>
+      ) : (
+        <Button type="submit" size="sm" variant="secondary" disabled={pending || !dirty}>
+          Save details
+        </Button>
+      )}
+      {msg && <span className="text-xs">{msg}</span>}
+    </form>
   );
 }
 

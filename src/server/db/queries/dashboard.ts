@@ -1,17 +1,21 @@
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import type { BalanceCash, BalanceFlow, ClosedTrade } from "../../../lib/stats";
+import { foldOwnTransfers, type BalanceCash, type BalanceFlow, type ClosedTrade } from "../../../lib/stats";
 import type { DB } from "../client";
 import * as s from "../schema";
 import { rExpr } from "./trades";
 
-const live = (accountId: string) => [
+/** null = every wallet on the account (and its manual trades); otherwise just that wallet's trades */
+export type WalletScope = string | null;
+
+const live = (accountId: string, walletId: WalletScope = null) => [
   eq(s.trades.accountId, accountId),
+  ...(walletId ? [eq(s.trades.walletId, walletId)] : []),
   isNull(s.trades.deletedAt),
   sql`coalesce(json_extract(${s.trades.flags}, '$.superseded'), 0) = 0`,
 ];
 
 /** All closed trades for the account (stats are computed in JS; hundreds to low thousands of rows). */
-export async function closedTrades(db: DB, accountId: string): Promise<ClosedTrade[]> {
+export async function closedTrades(db: DB, accountId: string, walletId: WalletScope = null): Promise<ClosedTrade[]> {
   const rows = await db
     .select({
       id: s.trades.id,
@@ -28,7 +32,7 @@ export async function closedTrades(db: DB, accountId: string): Promise<ClosedTra
     })
     .from(s.trades)
     .leftJoin(s.tradeJournal, eq(s.tradeJournal.tradeId, s.trades.id))
-    .where(and(...live(accountId), eq(s.trades.status, "closed"), isNotNull(s.trades.exitTime), isNotNull(s.trades.netPnl)))
+    .where(and(...live(accountId, walletId), eq(s.trades.status, "closed"), isNotNull(s.trades.exitTime), isNotNull(s.trades.netPnl)))
     .orderBy(asc(s.trades.exitTime));
   return rows.map((r) => ({ ...r, netPnl: r.netPnl ?? 0, fees: r.fees ?? 0, exitTime: r.exitTime!, r: r.r === null ? null : Number(r.r) }));
 }
@@ -44,17 +48,20 @@ const isStable = (token: string) => STABLES.has(token.split(":")[0].toUpperCase(
  * the definitions `npm run debug:ledger` reconciles against holdings. Spot fills count only for unified accounts,
  * where spot stablecoins are the collateral.
  */
-export async function balanceInputs(db: DB, accountId: string): Promise<{ flows: BalanceFlow[]; cash: BalanceCash[] } | null> {
+export async function balanceInputs(db: DB, accountId: string, walletId: WalletScope = null): Promise<{ flows: BalanceFlow[]; cash: BalanceCash[] } | null> {
   // disabled wallets are never synced, so they are left out of both the gate and the money
   const wallets = await db
     .select()
     .from(s.wallets)
-    .where(and(eq(s.wallets.accountId, accountId), eq(s.wallets.enabled, true)));
+    .where(and(eq(s.wallets.accountId, accountId), eq(s.wallets.enabled, true), ...(walletId ? [eq(s.wallets.id, walletId)] : [])));
   if (!wallets.length || wallets.some((w) => !w.ledgerCompletedAt || !w.fundingCompletedAt || !w.backfillCompletedAt || w.historyTruncated)) return null;
   const ids = wallets.map((w) => w.id);
   const unified = new Set(wallets.filter((w) => w.accountMode === "unifiedAccount").map((w) => w.id));
   const [ledger, fills, funding] = await Promise.all([
-    db.select({ t: s.ledgerEvents.time, usd: s.ledgerEvents.usd, kind: s.ledgerEvents.kind }).from(s.ledgerEvents).where(inArray(s.ledgerEvents.walletId, ids)),
+    db
+      .select({ walletId: s.ledgerEvents.walletId, hash: s.ledgerEvents.hash, t: s.ledgerEvents.time, usd: s.ledgerEvents.usd, kind: s.ledgerEvents.kind })
+      .from(s.ledgerEvents)
+      .where(inArray(s.ledgerEvents.walletId, ids)),
     db
       .select({ walletId: s.fills.walletId, t: s.fills.time, marketType: s.fills.marketType, closedPnl: s.fills.closedPnl, fee: s.fills.fee, feeToken: s.fills.feeToken, px: s.fills.px })
       .from(s.fills)
@@ -72,10 +79,10 @@ export async function balanceInputs(db: DB, accountId: string): Promise<{ flows:
     const usd = Number(p.usdc);
     if (Number.isFinite(usd) && usd !== 0) cash.push({ t: p.t, usd });
   }
-  return { flows: ledger.filter((r) => r.usd !== 0), cash };
+  return { flows: foldOwnTransfers(ledger), cash };
 }
 
-export async function openTrades(db: DB, accountId: string) {
+export async function openTrades(db: DB, accountId: string, walletId: WalletScope = null) {
   return db
     .select({
       id: s.trades.id,
@@ -94,7 +101,7 @@ export async function openTrades(db: DB, accountId: string) {
     })
     .from(s.trades)
     .leftJoin(s.tradeJournal, eq(s.tradeJournal.tradeId, s.trades.id))
-    .where(and(...live(accountId), eq(s.trades.status, "open")))
+    .where(and(...live(accountId, walletId), eq(s.trades.status, "open")))
     .orderBy(asc(s.trades.entryTime));
 }
 export type OpenTradeRow = Awaited<ReturnType<typeof openTrades>>[number];

@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
-import { getActiveAccount } from "@/server/db/queries/settings";
+import { getActiveScope } from "@/server/db/queries/settings";
 import * as s from "@/server/db/schema";
 import { getHlClient } from "@/server/hyperliquid";
 import { displayPair } from "@/server/hyperliquid/markets";
@@ -36,15 +36,16 @@ const cache = (g.__posCache ??= new Map());
 
 export async function GET() {
   if (getConfig().isDemo) return NextResponse.json({ live: false, reason: "Demo data: no live positions", positions: [] });
-  const { active } = await getActiveAccount();
+  const { active, walletId } = await getActiveScope();
   if (!active) return NextResponse.json({ live: false, reason: "No account", positions: [] });
-  const hit = cache.get(active.id);
+  const key = `${active.id}|${walletId ?? "all"}`;
+  const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return NextResponse.json(hit.body);
 
   const wallets = await getDb()
     .select()
     .from(s.wallets)
-    .where(and(eq(s.wallets.accountId, active.id), eq(s.wallets.enabled, true)));
+    .where(and(eq(s.wallets.accountId, active.id), eq(s.wallets.enabled, true), ...(walletId ? [eq(s.wallets.id, walletId)] : [])));
   if (!wallets.length) return NextResponse.json({ live: false, reason: "No wallet", positions: [] });
   try {
     const client = getHlClient();
@@ -67,7 +68,7 @@ export async function GET() {
       }
     }
     const body = { live: true, at: Date.now(), positions };
-    cache.set(active.id, { at: Date.now(), body });
+    cache.set(key, { at: Date.now(), body });
     return NextResponse.json(body);
   } catch (e) {
     return NextResponse.json({ live: false, reason: sanitizeError(e), positions: [] }, { status: 502 });

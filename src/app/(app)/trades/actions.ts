@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
-import { getActiveAccount, getSetting } from "@/server/db/queries/settings";
+import { getActiveAccount, getActiveScope, getSetting } from "@/server/db/queries/settings";
 import { searchEverything } from "@/server/db/queries/trades";
 import * as m from "@/server/trades/mutations";
 
@@ -62,5 +62,7 @@ export async function deleteNoteAction(noteId: string) {
 export async function commandSearchAction(q: string) {
   const query = z.string().trim().max(100).parse(q);
   const tz = await getSetting("timezone", getConfig().timezone);
-  return searchEverything(getDb(), await accountId(), query, { tz });
+  const { active, walletId } = await getActiveScope();
+  if (!active) throw new Error("No account");
+  return searchEverything(getDb(), active.id, query, { tz, walletId });
 }

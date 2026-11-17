@@ -127,6 +127,10 @@ async function main() {
   ).onConflictDoNothing();
   await db.update(s.wallets).set({ ledgerCompletedAt: Date.now(), fundingCompletedAt: Date.now() }).where(eq(s.wallets.id, wallet.id));
 
+  // a second wallet on the same account (a sub-account with its own, shorter history), funded by a transfer from
+  // the main wallet: both sides of the transfer are in the ledger, so "All wallets" folds them into one internal move
+  const sub = await seedSubWallet(db, s, { accountId: account.id, mainWalletId: wallet.id, generateDemoHistory, insertFills, rebuildTrades, eq });
+
   // synthetic trigger orders (stops, moves, targets) → SL/TP auto-detection, exactly as a real sync would
   const { demoOrders } = await import("../src/server/demo/orders");
   const { historyRows } = await import("../src/server/demo/hl-orders");
@@ -175,8 +179,51 @@ async function main() {
   if (userMoves.length) await db.insert(s.stopMoves).values(userMoves);
 
   console.log(
-    `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank), ${shots} screenshots\n  ${synth.length} trigger orders → auto SL/TP on ${prot.trades} trades\n  ${fundingResult.payments} funding payments, ${fundingResult.attributed} attributed`,
+    `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank), ${shots} screenshots\n  ${synth.length} trigger orders → auto SL/TP on ${prot.trades} trades\n  ${fundingResult.payments} funding payments, ${fundingResult.attributed} attributed\n  sub-account wallet: ${sub.fills} fills, ${sub.trades} trades`,
   );
+}
+
+type Mods = {
+  accountId: string;
+  mainWalletId: string;
+  generateDemoHistory: typeof import("../src/server/demo/generate").generateDemoHistory;
+  insertFills: typeof import("../src/server/reconstruct/persist").insertFills;
+  rebuildTrades: typeof import("../src/server/reconstruct/persist").rebuildTrades;
+  eq: typeof import("drizzle-orm").eq;
+};
+async function seedSubWallet(
+  db: ReturnType<typeof import("../src/server/db/client").getDb>,
+  s: typeof import("../src/server/db/schema"),
+  m: Mods,
+) {
+  const { DEMO_SEED } = await import("../src/server/demo/generate");
+  const [w] = await db
+    .insert(s.wallets)
+    .values({ accountId: m.accountId, address: "0x0000000000000000000000000000000000000de1", label: "Scalps", kind: "sub", autoSync: false })
+    .returning();
+  const h = m.generateDemoHistory({ seed: DEMO_SEED + 10, end: Date.now(), days: 45 });
+  const { inserted } = await m.insertFills(db, w.id, h.fills);
+  const rebuilt = await m.rebuildTrades(db, { walletId: w.id, accountId: m.accountId });
+  const at = (h.fills[0]?.time ?? Date.now()) - 3_600_000;
+  const hash = "0x" + "5".repeat(64);
+  const delta = { type: "subAccountTransfer", usdc: "4000" };
+  await db.insert(s.ledgerEvents).values([
+    { walletId: m.mainWalletId, uid: "demo-sub-out", time: at, hash, type: "subAccountTransfer", delta, kind: "transfer_out", usd: -4000 },
+    { walletId: w.id, uid: "demo-sub-in", time: at, hash, type: "subAccountTransfer", delta, kind: "transfer_in", usd: 4000 },
+  ]);
+  const now = Date.now();
+  await db
+    .update(s.wallets)
+    .set({
+      accountMode: "unifiedAccount",
+      lastFillTime: h.fills.at(-1)?.time ?? null,
+      oldestFillTime: h.fills[0]?.time ?? null,
+      backfillCompletedAt: now,
+      ledgerCompletedAt: now,
+      fundingCompletedAt: now,
+    })
+    .where(m.eq(s.wallets.id, w.id));
+  return { fills: inserted, trades: rebuilt.created };
 }
 
 main().catch((err) => {

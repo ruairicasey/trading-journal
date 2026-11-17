@@ -8,13 +8,13 @@ import { cn } from "@/lib/utils";
 import { fmtDateTime, fmtPct, fmtPrice, fmtSignedUsd, fmtSize, fmtUsd, pnlClass } from "@/lib/format";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
-import { getActiveAccount, getSessions, getSetting } from "@/server/db/queries/settings";
+import { getActiveScope, getSessions, getSetting } from "@/server/db/queries/settings";
 import * as s from "@/server/db/schema";
 import { loadTradeForEdit } from "@/server/trades/journal";
 
 export default async function TradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { active, accounts } = await getActiveAccount();
+  const { active, accounts, wallets } = await getActiveScope();
   if (!active) notFound();
   const db = getDb();
   const data = await loadTradeForEdit(db, active.id, id);
@@ -40,6 +40,11 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
           {trade.status}
         </Badge>
         <Badge variant="outline">{trade.source === "hyperliquid" ? "Synced from Hyperliquid" : "Manual"}</Badge>
+        {wallets.length > 1 && trade.walletId && (
+          <Badge variant="outline" data-testid="trade-wallet">
+            {wallets.find((w) => w.id === trade.walletId)?.label ?? "Other wallet"}
+          </Badge>
+        )}
         <div className="flex-1" />
         {trade.status !== "planned" && (
           <span className={cn("money text-sm font-medium tabular-nums", pnlClass(trade.netPnl))}>

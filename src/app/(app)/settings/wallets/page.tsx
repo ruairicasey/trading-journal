@@ -23,6 +23,8 @@ export default async function WalletsPage() {
     db
       .select({ walletId: s.trades.walletId, n: sql<number>`count(*)` })
       .from(s.trades)
+      // trades on the wallet's own account: the ones a move takes with it (not ones you put on another account)
+      .innerJoin(s.wallets, sql`${s.wallets.id} = ${s.trades.walletId} and ${s.wallets.accountId} = ${s.trades.accountId}`)
       .where(sql`${s.trades.deletedAt} is null and coalesce(json_extract(${s.trades.flags}, '$.superseded'), 0) = 0`)
       .groupBy(s.trades.walletId),
   ]);

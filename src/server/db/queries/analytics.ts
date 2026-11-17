@@ -11,7 +11,7 @@ const j = s.tradeJournal;
 const strategy = alias(s.vocabItems, "strategy");
 
 /** Closed, live trades with the journal fields the analytics page groups by (computed in JS). */
-export async function analyticsTrades(db: DB, accountId: string): Promise<AnalyticsTrade[]> {
+export async function analyticsTrades(db: DB, accountId: string, walletId: string | null = null): Promise<AnalyticsTrade[]> {
   const rows = await db
     .select({
       id: t.id,
@@ -47,6 +47,7 @@ export async function analyticsTrades(db: DB, accountId: string): Promise<Analyt
     .where(
       and(
         eq(t.accountId, accountId),
+        ...(walletId ? [eq(t.walletId, walletId)] : []),
         isNull(t.deletedAt),
         sql`coalesce(json_extract(${t.flags}, '$.superseded'), 0) = 0`,
         eq(t.status, "closed"),

@@ -30,7 +30,8 @@ import { fmtDateTime, fmtDuration, fmtPct, fmtPrice, fmtR, fmtSignedUsd, fmtSize
 import type { TradeRow } from "@/server/db/queries/trades";
 import { deleteTradeAction, duplicateTradeAction, restoreTradeAction } from "@/app/(app)/trades/actions";
 
-export function TradeList({ rows, tz }: { rows: TradeRow[]; tz: string }) {
+/** `walletLabels` is passed only when the account has two or more wallets: each row then says which one */
+export function TradeList({ rows, tz, walletLabels }: { rows: TradeRow[]; tz: string; walletLabels?: Record<string, string> }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<TradeRow | null>(null);
   const [pending, start] = useTransition();
@@ -74,6 +75,7 @@ export function TradeList({ rows, tz }: { rows: TradeRow[]; tz: string }) {
             key={r.id}
             row={r}
             tz={tz}
+            walletLabel={walletLabels ? (r.walletId ? (walletLabels[r.walletId] ?? "Other wallet") : "Manual") : undefined}
             expanded={open.has(r.id)}
             onToggle={() => toggle(r.id)}
             onDuplicate={() => duplicate(r)}
@@ -105,6 +107,7 @@ export function TradeList({ rows, tz }: { rows: TradeRow[]; tz: string }) {
 function TradeItem({
   row: r,
   tz,
+  walletLabel,
   expanded,
   onToggle,
   onDuplicate,
@@ -112,6 +115,7 @@ function TradeItem({
 }: {
   row: TradeRow;
   tz: string;
+  walletLabel?: string;
   expanded: boolean;
   onToggle: () => void;
   onDuplicate: () => void;
@@ -131,6 +135,11 @@ function TradeItem({
         >
           <ChevronDown className={cn("text-muted-foreground size-4 shrink-0 transition-transform", expanded && "rotate-180")} />
           <span className="truncate text-sm font-medium">{r.displayPair}</span>
+          {walletLabel && (
+            <span className="text-muted-foreground max-w-24 truncate text-[11px]" data-testid="trade-wallet">
+              {walletLabel}
+            </span>
+          )}
           <Badge
             variant="outline"
             className={cn(

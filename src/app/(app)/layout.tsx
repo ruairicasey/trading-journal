@@ -3,7 +3,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { getConfig } from "@/server/config";
-import { getActiveAccount } from "@/server/db/queries/settings";
+import { getActiveScope } from "@/server/db/queries/settings";
 import { getSyncStatus } from "@/server/db/queries/sync";
 import { SyncStatus } from "@/components/sync/sync-status";
 import { readAuthEnv } from "@/server/auth/env";
@@ -15,8 +15,8 @@ import { getSetting } from "@/server/db/queries/settings";
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [{ accounts, active }, syncStatus, tz, privacyDefault] = await Promise.all([
-    getActiveAccount(),
+  const [{ accounts, active, wallets, wallet }, syncStatus, tz, privacyDefault] = await Promise.all([
+    getActiveScope(),
     getSyncStatus(),
     getSetting("timezone", getConfig().timezone),
     getSetting("privacy_default", false),
@@ -26,6 +26,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppSidebar
         accounts={accounts.map((a) => ({ id: a.id, name: a.name, type: a.type }))}
         activeId={active?.id ?? null}
+        wallets={wallets}
+        walletId={wallet?.id ?? null}
         authEnabled={readAuthEnv().authEnabled}
       />
       <SidebarInset>
@@ -35,6 +37,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {getConfig().isDemo && (
             <Badge variant="outline" className="border-amber-500/40 text-amber-400">
               Demo data
+            </Badge>
+          )}
+          {wallet && (
+            <Badge variant="outline" className="max-w-40 truncate" data-testid="wallet-scope" title="Every page shows this wallet only. Change it in the sidebar.">
+              Wallet: {wallet.label}
             </Badge>
           )}
           <CommandPalette tz={tz} />

@@ -20,7 +20,7 @@ import { INCLUDE_FUNDING_KEY } from "@/server/funding/attribute";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { balanceInputs, closedTrades, openTrades } from "@/server/db/queries/dashboard";
-import { getActiveAccount, getSetting } from "@/server/db/queries/settings";
+import { getActiveScope, getSetting } from "@/server/db/queries/settings";
 import { fmtUsd } from "@/lib/format";
 
 type SP = Record<string, string | string[] | undefined>;
@@ -29,7 +29,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const { active } = await getActiveAccount();
+  const { active, walletId } = await getActiveScope();
   if (!active) return <EmptyState icon={LayoutDashboard} title="No account" body="Create an account in Settings first." />;
   const tz = await getSetting("timezone", getConfig().timezone);
   const fundingInNet = (await getSetting<boolean>(INCLUDE_FUNDING_KEY, true)) !== false;
@@ -65,8 +65,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     start = periodRange(period as Period, now, tz).from;
   }
 
+  // the starting balance is the whole account's: one wallet on its own starts from $0 (realised P&L only)
+  const startBal = walletId ? 0 : active.startingBalance;
   const db = getDb();
-  const [all, open, bal] = await Promise.all([closedTrades(db, active.id), openTrades(db, active.id), balanceInputs(db, active.id)]);
+  const [all, open, bal] = await Promise.all([closedTrades(db, active.id, walletId), openTrades(db, active.id, walletId), balanceInputs(db, active.id, walletId)]);
   if (all.length === 0 && open.length === 0) {
     return (
       <div className="space-y-4">
@@ -85,7 +87,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const balanceView = unit === "usd" && bal !== null;
   const curve = balanceView
     ? balanceCurve(all, bal.flows, bal.cash, { from: start, to: end })
-    : equityCurve(end === null ? all : all.filter((t) => t.exitTime < end), active.startingBalance, start);
+    : equityCurve(end === null ? all : all.filter((t) => t.exitTime < end), startBal, start);
   const lastPoint = curve.at(-1);
   const deposited: number | null = balanceView && lastPoint ? (lastPoint as BalancePoint).deposited : null;
   const cal = calendarMonth(all, cy, cm, tz);
@@ -96,7 +98,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return `${y}-${String(mm).padStart(2, "0")}`;
   };
   // drawdown: computed over all history (the running peak includes earlier trades), shown for the period
-  const underwater = underwaterSeries(end === null ? all : all.filter((t) => t.exitTime < end), active.startingBalance);
+  const underwater = underwaterSeries(end === null ? all : all.filter((t) => t.exitTime < end), startBal);
   const dd = drawdownStats(underwater, { from: start, to: end, now });
   const ddPoints = sliceUnderwater(underwater, start);
 
@@ -108,7 +110,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     week = weekOf(week.prev, now, tz);
     score = weekScore(all, week, tz);
   }
-  const [missing, note] = await Promise.all([missingCounts(db, active.id, week.start, week.end), weeklyNote(db, active.id, week.start, week.end)]);
+  const [missing, note] = await Promise.all([missingCounts(db, active.id, week.start, week.end, walletId), weeklyNote(db, active.id, week.start, week.end)]);
 
   const recent = [...all].sort((a, b) => b.exitTime - a.exitTime).slice(0, 7);
   const dateFmt = new Intl.DateTimeFormat("en-AU", { timeZone: tz, day: "numeric", month: "short", year: "numeric" });
@@ -160,13 +162,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   "deposits, withdrawals and transfers included"
                 )
               ) : (
-                <>
-                  from starting balance <span className="money">${active.startingBalance.toLocaleString()}</span>
-                </>
+                walletId ? (
+                  "this wallet's realised P&L from $0 (the starting balance is the whole account's)"
+                ) : (
+                  <>
+                    from starting balance <span className="money">${active.startingBalance.toLocaleString()}</span>
+                  </>
+                )
               )}
             </span>
           </header>
-          <EquityChart points={curve} unit={unit} baseline={active.startingBalance} tz={tz} />
+          <EquityChart points={curve} unit={unit} baseline={startBal} tz={tz} />
         </section>
         <RecentTrades trades={recent} tz={tz} unit={unit} />
       </div>

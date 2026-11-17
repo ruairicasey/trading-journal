@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { PERIOD_LABELS } from "@/lib/periods";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
-import { getActiveAccount, getSessions, getSetting } from "@/server/db/queries/settings";
+import { getActiveScope, getSessions, getSetting } from "@/server/db/queries/settings";
 import { countNotes, filterOptions, listNotes, listTrades } from "@/server/db/queries/trades";
 import {
   activeFilterCount,
@@ -34,18 +34,18 @@ const TAB_LABELS: Record<(typeof TABS)[number], string> = {
 
 export default async function TradesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const filters = parseFilters(await searchParams);
-  const { active } = await getActiveAccount();
+  const { active, wallets, walletId } = await getActiveScope();
   if (!active) return <EmptyState icon={ListOrdered} title="No account" body="Create an account in Settings first." />;
 
   const db = getDb();
   const [tz, sessions, options] = await Promise.all([
     getSetting("timezone", getConfig().timezone),
     getSessions(),
-    filterOptions(db, active.id),
+    filterOptions(db, active.id, walletId),
   ]);
   const isNotes = filters.tab === "notes";
   const [trades, notesCount, notes] = await Promise.all([
-    listTrades(db, active.id, isNotes ? { ...filters, page: 1 } : filters, { tz }),
+    listTrades(db, active.id, isNotes ? { ...filters, page: 1 } : filters, { tz, walletId }),
     countNotes(db, active.id, filters.q),
     isNotes ? listNotes(db, active.id, filters) : Promise.resolve(null),
   ]);
@@ -149,7 +149,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           />
         )
       ) : trades.rows.length ? (
-        <TradeList rows={trades.rows} tz={tz} />
+        <TradeList rows={trades.rows} tz={tz} walletLabels={wallets.length > 1 ? Object.fromEntries(wallets.map((w) => [w.id, w.label])) : undefined} />
       ) : counts.all === 0 && !filters.q && pills.length === 0 ? (
         <EmptyState
           icon={ListOrdered}

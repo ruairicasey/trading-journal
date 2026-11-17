@@ -22,7 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { AccountSwitcher, type AccountOption } from "./account-switcher";
+import { AccountSwitcher, type AccountOption, type WalletPick } from "./account-switcher";
 import { LogoutButton } from "./logout-button";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; soon?: string };
@@ -37,10 +37,14 @@ const NAV: NavItem[] = [
 export function AppSidebar({
   accounts,
   activeId,
+  wallets = [],
+  walletId = null,
   authEnabled = false,
 }: {
   accounts: AccountOption[];
   activeId: string | null;
+  wallets?: WalletPick[];
+  walletId?: string | null;
   authEnabled?: boolean;
 }) {
   const pathname = usePathname();
@@ -51,7 +55,7 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <AccountSwitcher accounts={accounts} activeId={activeId} />
+            <AccountSwitcher accounts={accounts} activeId={activeId} wallets={wallets} walletId={walletId} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

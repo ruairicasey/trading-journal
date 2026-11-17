@@ -49,7 +49,7 @@ export function missingCondition(kind: MissingKind): SQL {
 }
 
 /** Per-kind missing-context counts over closed trades that EXITED in [start, end). */
-export async function missingCounts(db: DB, accountId: string, start: number, end: number) {
+export async function missingCounts(db: DB, accountId: string, start: number, end: number, walletId: string | null = null) {
   const cols = Object.fromEntries(
     MISSING_KINDS.map((k) => [k, sql<number>`coalesce(sum(case when ${missingCondition(k)} then 1 else 0 end), 0)`]),
   ) as Record<MissingKind, SQL<number>>;
@@ -57,13 +57,14 @@ export async function missingCounts(db: DB, accountId: string, start: number, en
     .select({ total: sql<number>`count(*)`, ...cols })
     .from(t)
     .leftJoin(j, eq(j.tradeId, t.id))
-    .where(and(...baseConditions(accountId), eq(t.status, "closed"), gte(t.exitTime, start), lt(t.exitTime, end)));
+    .where(and(...baseConditions(accountId, walletId), eq(t.status, "closed"), gte(t.exitTime, start), lt(t.exitTime, end)));
   return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, Number(v ?? 0)])) as Record<MissingKind | "total", number>;
 }
 
-function baseConditions(accountId: string): SQL[] {
+function baseConditions(accountId: string, walletId: string | null = null): SQL[] {
   return [
     eq(t.accountId, accountId),
+    ...(walletId ? [eq(t.walletId, walletId)] : []),
     isNull(t.deletedAt),
     sql`coalesce(json_extract(${t.flags}, '$.superseded'), 0) = 0`,
   ];
@@ -122,14 +123,15 @@ const tabCondition = (tab: TradeFilters["tab"]): SQL[] =>
 
 export type TradeRow = Awaited<ReturnType<typeof listTrades>>["rows"][number];
 
-export async function listTrades(db: DB, accountId: string, f: TradeFilters, opts: { tz: string; now?: number }) {
+export async function listTrades(db: DB, accountId: string, f: TradeFilters, opts: { tz: string; now?: number; walletId?: string | null }) {
   const now = opts.now ?? Date.now();
-  const common = [...baseConditions(accountId), ...filterConditions(f, opts.tz, now)];
+  const common = [...baseConditions(accountId, opts.walletId ?? null), ...filterConditions(f, opts.tz, now)];
   const from = () =>
     db
       .select({
         id: t.id,
         source: t.source,
+        walletId: t.walletId,
         coin: t.coin,
         displayPair: t.displayPair,
         marketType: t.marketType,
@@ -230,12 +232,12 @@ export async function countNotes(db: DB, accountId: string, q?: string) {
 }
 
 /** Options for the filter panel, from the account's own data. */
-export async function filterOptions(db: DB, accountId: string) {
+export async function filterOptions(db: DB, accountId: string, walletId: string | null = null) {
   const [pairs, strategies] = await Promise.all([
     db
       .selectDistinct({ coin: t.coin, displayPair: t.displayPair })
       .from(t)
-      .where(and(...baseConditions(accountId)))
+      .where(and(...baseConditions(accountId, walletId)))
       .orderBy(asc(t.displayPair)),
     db
       .select({ id: s.vocabItems.id, label: s.vocabItems.label })
@@ -247,11 +249,11 @@ export async function filterOptions(db: DB, accountId: string) {
 }
 
 /** ⌘K live results. */
-export async function searchEverything(db: DB, accountId: string, q: string, opts: { tz: string }) {
+export async function searchEverything(db: DB, accountId: string, q: string, opts: { tz: string; walletId?: string | null }) {
   if (!q.trim()) return { trades: [], notes: [] };
   const base = { tab: "all" as const, page: 1, q };
   const [tr, no] = await Promise.all([
-    listTrades(db, accountId, base, { tz: opts.tz }),
+    listTrades(db, accountId, base, { tz: opts.tz, walletId: opts.walletId ?? null }),
     listNotes(db, accountId, { q, page: 1 }),
   ]);
   return {

@@ -8,7 +8,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { getDb } from "@/server/db/client";
 import * as s from "@/server/db/schema";
-import { ACTIVE_ACCOUNT_COOKIE, getSetting, setSetting } from "@/server/db/queries/settings";
+import { ACTIVE_ACCOUNT_COOKIE, ACTIVE_WALLET_COOKIE, getSetting, setSetting } from "@/server/db/queries/settings";
 
 const kind = z.enum(s.VOCAB_KINDS);
 const label = z.string().trim().min(1).max(120);
@@ -133,14 +133,26 @@ export async function archiveAccount(id: string) {
   revalidatePath("/", "layout");
 }
 
+const cookieOpts = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 365,
+};
+
 export async function setActiveAccount(id: string) {
-  (await cookies()).set(ACTIVE_ACCOUNT_COOKIE, idStr.parse(id), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-  });
+  const jar = await cookies();
+  jar.set(ACTIVE_ACCOUNT_COOKIE, idStr.parse(id), cookieOpts);
+  jar.delete(ACTIVE_WALLET_COOKIE); // a new account starts on all its wallets
+  revalidatePath("/", "layout");
+}
+
+/** Scope every page to one wallet of the active account, or null for all wallets. */
+export async function setActiveWallet(id: string | null) {
+  const jar = await cookies();
+  if (id === null) jar.delete(ACTIVE_WALLET_COOKIE);
+  else jar.set(ACTIVE_WALLET_COOKIE, idStr.parse(id), cookieOpts);
   revalidatePath("/", "layout");
 }
 
