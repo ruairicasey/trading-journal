@@ -1,3 +1,5 @@
+import path from "node:path";
+import { createClient } from "@libsql/client";
 import { expect, test } from "@playwright/test";
 
 const tradeCount = async (text: string) => Number(/(\d+) closed trades?/.exec(text)?.[1] ?? NaN);
@@ -24,15 +26,43 @@ test.describe("Dashboard (demo data)", () => {
     await expect(net).toContainText(/[+-]?\d+\.\d{2}R/);
   });
 
-  test("with full ledger history the $ curve is the account balance, with net deposits", async ({ page }) => {
+  test("with full ledger history the $ curve is the account balance; balance − net deposited reconciles to the cent", async ({ page }) => {
     await page.goto("/dashboard?period=all");
     const chart = page.getByRole("region", { name: "Equity curve" });
     await expect(chart.getByRole("heading", { name: "Account balance" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Account balance and net deposits over time" })).toBeVisible();
-    const usd = async (id: string) => Number((await page.getByTestId(id).innerText()).replace(/[^0-9.-]/g, ""));
-    // demo flows: +25,000 +5,000 −3,001 −750
-    expect(await usd("balance-deposited")).toBeCloseTo(26_249, 0);
-    expect(Number.isFinite(await usd("balance-now"))).toBe(true);
+    const usd = async (loc: ReturnType<typeof page.getByTestId>) => Number((await loc.innerText()).replace(/[^0-9.-]/g, ""));
+    const balance = await usd(page.getByTestId("balance-now"));
+    const deposited = await usd(page.getByTestId("balance-deposited"));
+    const kpiNet = await usd(page.getByTestId("kpi-net").locator("div").nth(1));
+
+    // expected figures straight from the seeded demo database (plain SQL, not the app's query code)
+    const db = createClient({ url: `file:${path.resolve("data/demo/journal.db")}` });
+    const one = async (sql: string) => Number((await db.execute(sql)).rows[0][0] ?? 0);
+    const flows = await one("select sum(usd) from ledger_events");
+    // every fill's closedPnl − fee: a fee in a non-stable token (the spot buy pays PURR) is valued at the fill price;
+    // spot fills count because the demo wallet is a unified account
+    const fillCash = await one(`select sum(cast(closed_pnl as real) - case when upper(fee_token) in ('USDC','USDH','USDT0','USDT','USDE')
+      then cast(fee as real) else cast(fee as real) * cast(px as real) end) from fills`);
+    const spotCash = await one("select sum(cast(closed_pnl as real)) - sum(case when fee_token = 'USDC' then cast(fee as real) else cast(fee as real) * cast(px as real) end) from fills where market_type = 'spot'");
+    const funding = await one("select sum(cast(usdc as real)) from funding_events");
+    // the parts of that cash the all-time KPI net doesn't hold: open positions, funding no trade claims, spot fills
+    const openCash = await one("select sum(coalesce(gross_pnl,0) - coalesce(fees,0) + funding) from trades where status = 'open' and deleted_at is null");
+    const unclaimedFunding = await one("select sum(cast(usdc as real)) from funding_events where trade_id is null");
+    const hiddenCash = await one(
+      "select sum(coalesce(gross_pnl,0) - coalesce(fees,0) + funding) from trades where status = 'closed' and (deleted_at is not null or coalesce(json_extract(flags, '$.superseded'), 0) = 1)",
+    );
+    db.close();
+    const cents = (x: number) => Math.round(x * 100);
+
+    expect(spotCash).toBeCloseTo(300 - 3.5 * 0.2 - 1.035, 6); // the seeded spot round trip
+    expect(cents(deposited)).toBe(cents(flows));
+    expect(cents(flows)).toBe(2_624_900); // +25,000 +5,000 −3,001 −750
+    expect(cents(balance)).toBe(cents(flows + fillCash + funding));
+    // reconciliation: balance − net deposited = KPI net + open positions' realised cash + unclaimed funding
+    // + spot fills + hidden trades. Each side is rounded once, so allow a 1-cent rounding step.
+    const gap = cents(balance) - cents(deposited);
+    expect(Math.abs(gap - cents(kpiNet + openCash + unclaimedFunding + spotCash + hiddenCash))).toBeLessThanOrEqual(1);
 
     // privacy mode blurs both figures
     await page.getByRole("button", { name: "Hide amounts" }).click();

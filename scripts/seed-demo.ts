@@ -40,6 +40,17 @@ async function main() {
   const history = generateDemoHistory({ end: Date.now() });
   const { inserted } = await insertFills(db, wallet.id, history.fills);
   const rebuilt = await rebuildTrades(db, { walletId: wallet.id, accountId: account.id });
+
+  // a synthetic spot round trip (unified account: spot stablecoins are the collateral, so spot P&L moves the
+  // balance). The buy's fee is charged in the base token, as on Hyperliquid; the balance values it at the fill price.
+  const { createSim } = await import("../src/server/demo/hl-sim");
+  const spotAt = (history.fills[0]?.time ?? Date.now()) + (Date.now() - (history.fills[0]?.time ?? Date.now())) * 0.5;
+  let spotTid = 9_000_000;
+  const spot = createSim("PURR/USDC", { startTime: Math.round(spotAt), nextTid: () => spotTid++ })
+    .step({ side: "B", sz: 10_000, px: "0.2", fee: "3.5", feeToken: "PURR" })
+    .step({ side: "A", sz: 10_000, px: "0.23", fee: "1.035", feeToken: "USDC" });
+  await insertFills(db, wallet.id, spot.fills);
+  await db.update(s.wallets).set({ accountMode: "unifiedAccount" }).where(eq(s.wallets.id, wallet.id));
   const last = history.fills.at(-1)?.time ?? null;
   await db
     .update(s.wallets)

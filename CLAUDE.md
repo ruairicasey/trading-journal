@@ -12,7 +12,7 @@ For each roadmap item:
 1. **Plan.** Post the plan in 10 lines or fewer, then build. Don't wait for approval unless a stop condition below applies.
 2. **Test.** Run lint, typecheck and unit tests, plus e2e tests for the areas you touched.
 3. **Review.** Run the `reviewer` subagent on the diff. Fix what it finds and re-run it until it says LGTM.
-4. **Ship.** Commit with no trailers and push to main. Wait for CI to pass (`gh run watch`) and for the Vercel production deploy to be Ready.
+4. **Ship.** Commit with no trailers and push to main. Wait for CI to pass (`gh run watch`) and for the Vercel production deploy to be Ready. Vercel doesn't report deploys to GitHub, so `gh` can't see them: open the project's production Deployments page in Claude in Chrome (URL in `CLAUDE.local.md`; read-only) and check that the top row shows your commit's short SHA with status **Ready**. If it shows Error or Canceled, read the build log there and fix it; never redeploy or change settings from the dashboard.
 5. **Verify on production yourself** (see Verification below). If anything fails, fix it and repeat from step 2.
 6. **Report** in the format below, update `docs/roadmap.md` and `CLAUDE.local.md` baselines, then start the next item.
 

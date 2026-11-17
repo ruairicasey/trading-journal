@@ -4,8 +4,8 @@
  *
  * READ-ONLY. Shows the R distribution, flags trades whose stop makes R misleading (stop very close to entry,
  * stop placed late, stop on the profit side of entry, size added after the stop), what average R would be
- * without each group, and the most negative R trades with their stop timing. Prints prices and P&L but
- * never an address, so the output is safe to paste back.
+ * without each group, and the most negative R trades with their stop timing. Prints counts, R multiples and
+ * percentages only: never an address, a price, a size or a $ amount, so the output is safe to paste back.
  */
 import { loadEnvConfig } from "@next/env";
 
@@ -17,7 +17,6 @@ const TOP = topArg > -1 ? Math.max(1, Number(process.argv[topArg + 1]) || 5) : 5
 
 const pad = (v: unknown, n: number) => String(v ?? "—").padEnd(n).slice(0, n);
 const padL = (v: unknown, n: number) => String(v ?? "—").padStart(n).slice(-n);
-const num = (n: number | null | undefined) => (n == null ? "—" : Number(n.toPrecision(7)).toString());
 const r2 = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? "—" : n.toFixed(2));
 const mins = (ms: number) => {
   const m = ms / 60_000;
@@ -143,9 +142,15 @@ async function main() {
   }
   console.log(`  unflagged    n=${padL(sum.unflagged.n, 4)}  avg R ${r2(sum.unflagged.avg)}  median ${r2(sum.unflagged.median)}`);
 
+  // share of the trade's total entry size that came after the stop was placed (a percentage, never units)
+  const addedPct = (x: Row) => {
+    const total = x.t.entryUnitsTotal ?? x.t.sizeUnits;
+    return total ? `${Math.round((x.addedAfterStop / total) * 100)}%` : "some";
+  };
+
   console.log(`\n${TOP} most negative R`);
   console.log(
-    `  ${pad("#", 3)}${pad(`exit (${tz})`, 26)}${pad("pair", 14)}${pad("dir", 6)}${padL("R", 8)}${padL("net $", 11)}${padL("risk $", 10)}${padL("entry", 12)}${padL("stop", 12)}${padL("dist%", 7)}  ${pad("source", 16)}${pad("stop placed", 22)}${padL("moves", 6)}  ${pad("closed by", 13)}flags`,
+    `  ${pad("#", 3)}${pad(`exit (${tz})`, 29)}${pad("pair", 17)}${pad("dir", 6)}${padL("R", 8)}${padL("dist%", 7)}  ${pad("source", 16)}${pad("stop placed", 22)}${padL("moves", 6)}  ${pad("closed by", 13)}flags`,
   );
   rows
     .sort((a, b) => a.r - b.r)
@@ -153,7 +158,7 @@ async function main() {
     .forEach((x, i) => {
       const placed = x.stopPlaced === null ? "no stop order" : x.stopPlaced >= x.t.entryTime! ? `${mins(x.stopPlaced - x.t.entryTime!)} after entry` : `${mins(x.t.entryTime! - x.stopPlaced)} before entry`;
       console.log(
-        `  ${pad(i + 1, 3)}${pad(fmtDateTime(x.t.exitTime, tz), 26)}${pad(x.t.displayPair, 14)}${pad(x.t.direction, 6)}${padL(r2(x.r), 8)}${padL(r2(x.t.netPnl), 11)}${padL(r2(x.risk), 10)}${padL(num(x.t.avgEntry), 12)}${padL(num(x.sl), 12)}${padL(x.distPct.toFixed(3), 7)}  ${pad(x.source, 16)}${pad(placed, 22)}${padL(x.moves, 6)}  ${pad(x.exitBy, 13)}${x.flags.join(", ") || "—"}${x.addedAfterStop ? `  (+${num(x.addedAfterStop)} units added after the stop)` : ""}`,
+        `  ${pad(i + 1, 3)}${pad(fmtDateTime(x.t.exitTime, tz), 29)}${pad(x.t.displayPair, 17)}${pad(x.t.direction, 6)}${padL(r2(x.r), 8)}${padL(x.distPct.toFixed(3), 7)}  ${pad(x.source, 16)}${pad(placed, 22)}${padL(x.moves, 6)}  ${pad(x.exitBy, 13)}${x.flags.join(", ") || "—"}${x.addedAfterStop ? `  (${addedPct(x)} of the size added after the stop)` : ""}`,
       );
     });
   console.log("\nRead-only: nothing was written. No addresses in this output.");
