@@ -11,7 +11,7 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
 - ~~Drawdown tracker and weekly reflection card on the dashboard~~ **done**.
 - ~~Auto-detect SL/TP from trigger orders~~ **done**: stop loss, take profit, TP ladders and stop moves from `historicalOrders`,
   never overwriting values you entered.
-- Funding attribution to trades (raw funding is already stored).
+- ~~Funding attribution to trades~~ **done**; deposits, withdrawals and transfers are stored (the balance view is next).
 - Multiple wallets per account in the UI; manual trades for non-Hyperliquid accounts; stop-move history.
 - Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import.
 - Importer for Hyperliquid's trade-history CSV (the API only serves the 10,000 most recent fills).

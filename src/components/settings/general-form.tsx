@@ -26,8 +26,9 @@ const COMMON_TZ = [
   "UTC",
 ];
 
-export function GeneralForm({ timezone, sessions }: { timezone: string; sessions: Session[] }) {
+export function GeneralForm({ timezone, sessions, includeFunding }: { timezone: string; sessions: Session[]; includeFunding: boolean }) {
   const [tz, setTz] = useState(timezone);
+  const [funding, setFunding] = useState(includeFunding);
   const [rows, setRows] = useState<Session[]>(sessions);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export function GeneralForm({ timezone, sessions }: { timezone: string; sessions
         start(async () => {
           setMsg(null);
           try {
-            await saveGeneralSettings({ timezone: tz, sessions: rows });
+            await saveGeneralSettings({ timezone: tz, sessions: rows, includeFunding: funding });
             setMsg("Saved");
           } catch (err) {
             setMsg(err instanceof Error ? err.message : "Could not save");
@@ -61,6 +62,26 @@ export function GeneralForm({ timezone, sessions }: { timezone: string; sessions
             <option key={z} value={z} />
           ))}
         </datalist>
+      </section>
+
+      <section className="space-y-2">
+        <Label htmlFor="include-funding">Funding</Label>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            id="include-funding"
+            type="checkbox"
+            className="mt-1"
+            checked={funding}
+            onChange={(e) => setFunding(e.target.checked)}
+          />
+          <span>
+            Include funding in net P&amp;L
+            <span className="text-muted-foreground block text-xs">
+              Each funding payment is attributed to the trade that was open at the time. Turn this off to compare net P&amp;L with
+              tools that leave funding out (it stays visible on each trade).
+            </span>
+          </span>
+        </label>
       </section>
 
       <section className="space-y-2">

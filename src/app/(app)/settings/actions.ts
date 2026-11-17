@@ -1,12 +1,14 @@
 "use server";
 
+import { INCLUDE_FUNDING_KEY, recomputeNet } from "@/server/funding/attribute";
+
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { getDb } from "@/server/db/client";
 import * as s from "@/server/db/schema";
-import { ACTIVE_ACCOUNT_COOKIE, setSetting } from "@/server/db/queries/settings";
+import { ACTIVE_ACCOUNT_COOKIE, getSetting, setSetting } from "@/server/db/queries/settings";
 
 const kind = z.enum(s.VOCAB_KINDS);
 const label = z.string().trim().min(1).max(120);
@@ -157,7 +159,7 @@ const Session = z.object({
   }, "Unknown time zone"),
 });
 
-export async function saveGeneralSettings(input: { timezone: string; sessions: z.input<typeof Session>[] }) {
+export async function saveGeneralSettings(input: { timezone: string; sessions: z.input<typeof Session>[]; includeFunding?: boolean }) {
   const p = z
     .object({
       timezone: z.string().refine((tz) => {
@@ -169,9 +171,17 @@ export async function saveGeneralSettings(input: { timezone: string; sessions: z
         }
       }, "Unknown timezone"),
       sessions: z.array(Session).min(1).max(8),
+      includeFunding: z.boolean().optional(),
     })
     .parse(input);
   await setSetting("timezone", p.timezone);
   await setSetting("sessions", p.sessions);
+  if (p.includeFunding !== undefined) {
+    const before = (await getSetting<boolean>(INCLUDE_FUNDING_KEY, true)) !== false;
+    if (before !== p.includeFunding) {
+      await setSetting(INCLUDE_FUNDING_KEY, p.includeFunding);
+      await recomputeNet(getDb());
+    }
+  }
   revalidatePath("/", "layout");
 }

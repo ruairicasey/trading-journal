@@ -297,6 +297,11 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
                 <Locked>{fmtUsd(t.fees)}</Locked>
               )}
             </Field>
+            {!manual && (
+              <Field label="Funding" hint="Paid (−) or received (+) while this position was open">
+                <Locked>{t.funding ? fmtSignedUsd(t.funding) : "—"}</Locked>
+              </Field>
+            )}
             <Field label="Trade type">
               <Segmented
                 aria-label="Trade type"

@@ -11,6 +11,8 @@ import * as s from "../db/schema";
 import { applyProtection } from "../protection/apply";
 import { insertFills, rebuildTrades } from "../reconstruct/persist";
 import { storeOrders } from "./orders";
+import { syncLedger } from "./ledger-sync";
+import { attributeFunding } from "../funding/attribute";
 import type { FillInput } from "../reconstruct/types";
 import type { HlClient } from "./client";
 import { FILLS_HISTORY_LIMIT, FILLS_PAGE_LIMIT, TIME_RANGE_PAGE_LIMIT, type HlFill, type HlPosition } from "./schemas";
@@ -18,7 +20,7 @@ import { FILLS_HISTORY_LIMIT, FILLS_PAGE_LIMIT, TIME_RANGE_PAGE_LIMIT, type HlFi
 export const INCREMENTAL_OVERLAP_MS = 10 * 60_000;
 export const LOCK_TTL_MS = 5 * 60_000;
 
-export type SyncProgress = { phase: "fills" | "rebuild" | "orders" | "positions" | "funding"; page?: number; fetched?: number; inserted?: number; detail?: string };
+export type SyncProgress = { phase: "fills" | "rebuild" | "orders" | "positions" | "funding" | "ledger"; page?: number; fetched?: number; inserted?: number; detail?: string };
 
 export type SyncTrigger = "manual" | "auto" | "cron" | "range" | "backfill";
 type Wallet = typeof s.wallets.$inferSelect;
@@ -37,6 +39,7 @@ export type WalletSyncResult = {
   openPositions: number;
   ordersStored: number;
   protectionUpdated: number;
+  ledgerNew: number;
   error?: string;
 };
 
@@ -85,6 +88,7 @@ export async function syncWallet(
     openPositions: 0,
     ordersStored: 0,
     protectionUpdated: 0,
+    ledgerNew: 0,
   };
 
   // ── lock: one sync per wallet at a time (stale locks expire) ──
@@ -204,6 +208,21 @@ export async function syncWallet(
       result.pages += f.pages;
       result.gapsDetected += f.stalls;
       if (!f.done) result.done = false;
+      // re-attribute ALL of the wallet's funding every run: cheap (only changed rows are written) and it also
+      // picks up payments stored before attribution existed or before a rebuild moved trade boundaries
+      await attributeFunding(db, wallet.id);
+    }
+
+    // ── 5. ledger (deposits, withdrawals, transfers): resumable; a problem here never blocks the rest ──
+    if (fillsDone && !opts.range) {
+      try {
+        const l = await syncLedger(db, client, wallet, { outOfTime, onProgress: (detail) => opts.onProgress?.({ phase: "ledger", detail }) });
+        result.ledgerNew = l.inserted;
+        result.pages += l.pages;
+        if (!l.done) result.done = false;
+      } catch (e) {
+        result.error = [result.error, `ledger: ${sanitizeError(e)}`].filter(Boolean).join("; ");
+      }
     }
 
     result.status = result.done ? "success" : "partial";

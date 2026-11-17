@@ -163,6 +163,25 @@ async function main() {
     console.log(`  other spot tokens held: ${otherSpot}${otherSpot ? " (not valued: they make holdings look smaller than they are)" : ""}; perp dexes checked: ${dexes.length}`);
     if (w.historyTruncated) console.log("  ⚠ fill history is TRUNCATED (Hyperliquid's 10k-fill limit): older P&L is missing");
     console.log("  A negative difference means ledger + P&L add up to LESS than you hold (a missing inflow); positive, more.");
+
+    // ── what sync has stored (Phase 2 item 4, parts 1 and 2) ──
+    const stored = await db.select().from(s.ledgerEvents).where(eq(s.ledgerEvents.walletId, w.id)).catch(() => null);
+    console.log("\nStored in this database");
+    if (stored === null) {
+      console.log("  ledger_events table not found yet (deploy, then run a sync)");
+    } else {
+      const storedUsd = stored.reduce((a, r) => a + r.usd, 0);
+      console.log(`  ledger entries: ${stored.length} stored vs ${rows.length} from the API${stored.length === rows.length ? " ✓" : ""}`);
+      console.log(`  stored ledger flows: ${pct(of(storedUsd))} of holdings (API classification above: ${pct(of(flows))})${Math.abs(storedUsd - flows) < 0.01 ? " ✓" : ""}`);
+      const fresh = await db.query.wallets.findFirst({ where: eq(s.wallets.id, w.id) });
+      console.log(`  stored account mode: ${fresh?.accountMode ?? "not set yet"}`);
+    }
+    const fundRows = await db.select({ usdc: s.fundingEvents.usdc, tradeId: s.fundingEvents.tradeId }).from(s.fundingEvents).where(eq(s.fundingEvents.walletId, w.id));
+    const attributed = fundRows.filter((r) => r.tradeId);
+    const tradeFunding = (await db.select({ f: s.trades.funding }).from(s.trades).where(eq(s.trades.walletId, w.id))).reduce((a, t) => a + (t.f ?? 0), 0);
+    const attributedUsd = attributed.reduce((a, r) => a + Number(r.usdc), 0);
+    console.log(`  funding payments attributed to a trade: ${attributed.length} of ${fundRows.length}`);
+    console.log(`  funding on trades: ${pct(of(tradeFunding))} of holdings; attributed payments: ${pct(of(attributedUsd))}${Math.abs(tradeFunding - attributedUsd) < 0.01 ? " ✓" : ""}; all payments: ${pct(of(funding))}`);
   }
   console.log("\nRead-only. No addresses or amounts in this output.");
 }

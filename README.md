@@ -17,7 +17,9 @@ screenshots), and the dashboard shows how you're actually doing.
 **Sync from Hyperliquid** (read-only: just a wallet address, never a key)
 - Full backfill plus incremental sync. It's idempotent: re-syncing any range never duplicates a trade or touches your journal.
 - Reconstruction from `startPosition`, handling same-millisecond multi-fill orders, flips, partial history and float dust. Tested against real fills.
-- Open positions on every perp dex (including HIP-3 dexes like `xyz`), funding history, and a sync status with stale and gap warnings.
+- Open positions on every perp dex (including HIP-3 dexes like `xyz`), and a sync status with stale and gap warnings.
+- **Funding attributed to each trade** (paid or received while it was open), included in net P&L by default with a setting to
+  leave it out, and your **deposits, withdrawals and transfers** stored from Hyperliquid's ledger (unified accounts included).
 - Scheduled sync when deployed: a Cloudflare Worker cron (primary), with GitHub Actions and Vercel Cron as backups.
 
 **Trades**

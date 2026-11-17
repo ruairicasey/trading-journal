@@ -19,6 +19,7 @@ export async function closedTrades(db: DB, accountId: string): Promise<ClosedTra
       direction: s.trades.direction,
       netPnl: s.trades.netPnl,
       fees: s.trades.fees,
+      funding: s.trades.funding,
       notionalUsd: s.trades.notionalUsd,
       entryTime: s.trades.entryTime,
       exitTime: s.trades.exitTime,

@@ -12,7 +12,19 @@ function Stat({ label, children, sub, testId }: { label: string; children: React
   );
 }
 
-export function KpiCard({ k, unit, sinceLabel, periodLabel }: { k: Kpis; unit: "usd" | "r"; sinceLabel: string | null; periodLabel: string }) {
+export function KpiCard({
+  k,
+  unit,
+  sinceLabel,
+  periodLabel,
+  fundingInNet = true,
+}: {
+  k: Kpis;
+  unit: "usd" | "r";
+  sinceLabel: string | null;
+  periodLabel: string;
+  fundingInNet?: boolean;
+}) {
   const r = unit === "r";
   const pf = k.profitFactor === null ? "—" : k.profitFactor === Infinity ? "∞" : k.profitFactor.toFixed(2);
   const pct = (x: number | null) => (x === null ? "—" : `${(x * 100).toFixed(1)}%`);
@@ -56,8 +68,20 @@ export function KpiCard({ k, unit, sinceLabel, periodLabel }: { k: Kpis; unit: "
         >
           {r ? <span className={pnlClass(k.avgR)}>{fmtR(k.avgR)}</span> : <span className={cn("money", pnlClass(k.avgTrade))}>{fmtSignedUsd(k.avgTrade)}</span>}
         </Stat>
-        <Stat label="Total fees" sub="maker rebates net off">
+        <Stat
+          label="Fees · funding"
+          testId="kpi-fees"
+          sub={
+            <>
+              maker rebates net off · funding {fundingInNet ? "in" : "not in"} net
+            </>
+          }
+        >
           <span className="money">{fmtUsd(k.fees)}</span>
+          <span className="text-muted-foreground"> · </span>
+          <span className={cn("money text-base", pnlClass(k.funding))} data-testid="kpi-funding" title="Funding attributed to these trades (negative = you paid)">
+            {fmtSignedUsd(k.funding)}
+          </span>
         </Stat>
       </div>
     </section>

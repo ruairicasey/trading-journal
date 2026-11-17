@@ -13,6 +13,8 @@ export type ClosedTrade = {
   direction: "long" | "short";
   netPnl: number;
   fees: number;
+  /** attributed funding (negative = paid); 0 for manual trades */
+  funding?: number | null;
   notionalUsd: number | null;
   entryTime: number | null;
   exitTime: number;
@@ -23,6 +25,8 @@ export type Kpis = {
   count: number;
   net: number;
   fees: number;
+  /** Σ attributed funding (negative = paid) */
+  funding: number;
   wins: number;
   losses: number;
   breakeven: number;
@@ -53,6 +57,7 @@ export function computeKpis(trades: ClosedTrade[]): Kpis {
   const n = trades.length;
   let net = 0;
   let fees = 0;
+  let funding = 0;
   let wins = 0;
   let losses = 0;
   let be = 0;
@@ -64,6 +69,7 @@ export function computeKpis(trades: ClosedTrade[]): Kpis {
   for (const t of trades) {
     net += t.netPnl;
     fees += t.fees;
+    funding += t.funding ?? 0;
     const o = outcomeOf(t.netPnl, t.notionalUsd);
     if (o === "win") {
       wins++;
@@ -83,6 +89,7 @@ export function computeKpis(trades: ClosedTrade[]): Kpis {
     count: n,
     net,
     fees,
+    funding,
     wins,
     losses,
     breakeven: be,

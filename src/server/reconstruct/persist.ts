@@ -86,6 +86,9 @@ export type RebuildResult = { created: number; updated: number; superseded: numb
  * Rebuild trades from stored fills for a wallet (optionally only some coins).
  * Each coin is always rebuilt from its FULL stored fill set.
  */
+import { attributeFunding as attributeFundingFor } from "../funding/attribute";
+const attributeFunding = (db: DB, o: { walletId: string; coins?: string[] }) => attributeFundingFor(db, o.walletId, { coins: o.coins });
+
 export async function rebuildTrades(
   db: DB,
   opts: { walletId: string; accountId: string; coins?: string[]; includeSpot?: boolean },
@@ -102,7 +105,7 @@ export async function rebuildTrades(
   });
   const now = Date.now();
 
-  return db.transaction(async (tx) => {
+  const out = await db.transaction(async (tx) => {
     const existingWhere = and(
       eq(s.trades.walletId, walletId),
       eq(s.trades.source, "hyperliquid"),
@@ -133,7 +136,7 @@ export async function rebuildTrades(
         notionalUsd: m.notionalUsd,
         grossPnl: m.grossPnl,
         fees: m.fees,
-        netPnl: m.netPnl, // funding attribution arrives in Phase 2
+        netPnl: m.netPnl, // without funding here; attributeFunding() below adds it (per the setting)
         returnPct: m.returnPct,
         entryTime: m.entryTime,
         exitTime: m.exitTime,
@@ -190,4 +193,7 @@ export async function rebuildTrades(
     }
     return result;
   });
+  // funding follows the rebuilt trades (rebuild writes net without it)
+  await attributeFunding(db, { walletId, coins: opts.coins });
+  return out;
 }

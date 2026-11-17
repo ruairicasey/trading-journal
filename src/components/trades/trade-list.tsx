@@ -222,6 +222,9 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
         <Field label="Fees">
           <span className="money">{fmtUsd(r.fees)}</span>
         </Field>
+        <Field label="Funding">
+          <span className={cn("money", pnlClass(r.funding))}>{r.funding ? fmtSignedUsd(r.funding) : "—"}</span>
+        </Field>
         <Field label="R multiple">{r.stopLoss === null ? <span className="text-muted-foreground">add a stop to see R</span> : fmtR(r.r)}</Field>
         <Field label="Setup">
           {[r.strategyLabel, r.grade && `Grade ${r.grade}`, r.session].filter(Boolean).join(" · ") || "—"}

@@ -118,6 +118,9 @@ export const wallets = sqliteTable(
     lastSyncedAt: integer("last_synced_at"),
     lastSuccessAt: integer("last_success_at"),
     lastFundingTime: integer("last_funding_time"), // funding sync cursor, saved after every page
+    // [X] non-funding ledger cursor (saved after every page) and the account mode it was classified under
+    lastLedgerTime: integer("last_ledger_time"),
+    accountMode: text("account_mode"), // e.g. "unifiedAccount" (spot stablecoins are the perp collateral)
     historyTruncated: integer("history_truncated", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [uniqueIndex("wallets_address_uq").on(t.address)],
@@ -238,6 +241,27 @@ export const orders = sqliteTable(
     raw: text("raw", { mode: "json" }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.walletId, t.oid] }), index("orders_wallet_coin_placed_idx").on(t.walletId, t.coin, t.placedAt)],
+);
+
+// ─── [X] ledger_events: deposits, withdrawals, transfers, vault flows (never deleted) ─────
+// Keyed by a digest of (time, hash, delta): hashes repeat across entries of one transaction.
+export const ledgerEvents = sqliteTable(
+  "ledger_events",
+  {
+    walletId: text("wallet_id")
+      .notNull()
+      .references(() => wallets.id),
+    uid: text("uid").notNull(),
+    time: integer("time").notNull(),
+    hash: text("hash").notNull(),
+    type: text("type").notNull(),
+    delta: text("delta", { mode: "json" }).notNull(),
+    /** classification for the wallet's account mode (see src/server/hyperliquid/ledger.ts) */
+    kind: text("kind").notNull(),
+    /** signed effect on the trading collateral, USD */
+    usd: real("usd").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.walletId, t.uid] }), index("ledger_wallet_time_idx").on(t.walletId, t.time)],
 );
 
 // ─── trades ([X] for source=hyperliquid; [U] for source=manual) ─────────────────────

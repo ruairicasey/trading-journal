@@ -68,6 +68,31 @@ async function main() {
     shots++;
   }
 
+  // synthetic hourly funding while each position was open (longs mostly pay, shorts mostly receive)
+  const { attributeFunding } = await import("../src/server/funding/attribute");
+  const fundRng = createRng(DEMO_SEED + 4);
+  const HOUR = 3_600_000;
+  const fundingRows: (typeof s.fundingEvents.$inferInsert)[] = [];
+  for (const t of byKey.values()) {
+    if (t.entryTime === null || !t.sizeUnits || !t.avgEntry) continue;
+    const until = t.exitTime ?? Date.now();
+    const sign = t.direction === "long" ? 1 : -1;
+    for (let h = Math.ceil(t.entryTime / HOUR) * HOUR; h <= until && fundingRows.length < 20_000; h += HOUR) {
+      const rate = fundRng.between(-0.000004, 0.000016); // per hour, usually positive (longs pay)
+      fundingRows.push({
+        walletId: wallet.id,
+        hash: "0x" + "0".repeat(64),
+        coin: t.coin,
+        time: h,
+        usdc: (-sign * rate * t.sizeUnits * t.avgEntry).toFixed(6),
+        szi: String(sign * t.sizeUnits),
+        fundingRate: rate.toFixed(8),
+      });
+    }
+  }
+  for (let i = 0; i < fundingRows.length; i += 200) await db.insert(s.fundingEvents).values(fundingRows.slice(i, i + 200)).onConflictDoNothing();
+  const fundingResult = await attributeFunding(db, wallet.id);
+
   // synthetic trigger orders (stops, moves, targets) → SL/TP auto-detection, exactly as a real sync would
   const { demoOrders } = await import("../src/server/demo/orders");
   const { historyRows } = await import("../src/server/demo/hl-orders");
@@ -96,7 +121,7 @@ async function main() {
   const prot = await applyProtection(db, wallet.id);
 
   console.log(
-    `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank), ${shots} screenshots\n  ${synth.length} trigger orders → auto SL/TP on ${prot.trades} trades`,
+    `seed:demo → ${DEMO_DB_FILE}\n  ${inserted} fills, ${rebuilt.created} trades, ${journal.journaled} journaled (${journal.total - journal.journaled} left blank), ${shots} screenshots\n  ${synth.length} trigger orders → auto SL/TP on ${prot.trades} trades\n  ${fundingResult.payments} funding payments, ${fundingResult.attributed} attributed`,
   );
 }
 

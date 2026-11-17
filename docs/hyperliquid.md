@@ -94,6 +94,25 @@ Verified 2026-11 against live public accounts and an address-free probe (`npm ru
 - Sync stores the history on every run (accumulating beyond the 2000-row window) and never deletes it. `frontendOpenOrders`
   isn't needed: a live order is simply one whose latest row is still `open`.
 
+## Funding attribution
+
+- Recent funding is one row per hour (`nSamples: null`). **Older funding comes as daily aggregates**: one row stamped 00:00 UTC
+  at the START of the UTC day it covers, with `nSamples` hourly payments rolled up (verified live 2026-11).
+- Each payment goes to the trade on the same wallet and coin that held the position at that time, matched on direction via the
+  payment's `szi` sign (this resolves a flip inside one funding hour). A daily aggregate with no trade open at 00:00 goes to the
+  same-direction trade open for the most hours that day. Every sync re-attributes all of the wallet's funding.
+
+## Ledger (deposits, withdrawals, transfers)
+
+- `userNonFundingLedgerUpdates`: up to 2000 entries per call, ascending, inclusive start; paginate by the last time.
+- 17 entry types seen live. `send` carries `sourceDex`/`destinationDex` ("" main, a HIP-3 dex, or "spot"); vault entries read
+  differently when the wallet IS the vault; one transaction hash can carry several entries (stored by a digest of the entry).
+- **Unified accounts** (`userAbstraction` = "unifiedAccount") keep their collateral in SPOT stablecoins, and that spot balance
+  already includes open P&L. There, spot transfers and sends are flows in or out, spot<->perp moves are internal, and spot
+  fills' P&L counts. Standard accounts: the perp `accountValue`.
+- `npm run debug:ledger` reconciles ledger flows + realised P&L + funding + open P&L against what you hold (percentages only).
+  Four public accounts and the owner's account reconcile within 0.5%.
+- Withdrawal fees are charged on top of the withdrawn amount.
+
 ## Not used yet (Phase 2)
 
-- `userNonFundingLedgerUpdates` (deposits, transfers, withdrawals) for equity curves.

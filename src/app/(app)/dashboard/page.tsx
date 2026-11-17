@@ -16,6 +16,7 @@ import { DrawdownCard } from "@/components/dashboard/drawdown-card";
 import { WeeklyCard } from "@/components/dashboard/weekly-card";
 import { missingCounts } from "@/server/db/queries/trades";
 import { weeklyNote } from "@/server/trades/mutations";
+import { INCLUDE_FUNDING_KEY } from "@/server/funding/attribute";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { closedTrades, openTrades } from "@/server/db/queries/dashboard";
@@ -30,6 +31,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { active } = await getActiveAccount();
   if (!active) return <EmptyState icon={LayoutDashboard} title="No account" body="Create an account in Settings first." />;
   const tz = await getSetting("timezone", getConfig().timezone);
+  const fundingInNet = (await getSetting<boolean>(INCLUDE_FUNDING_KEY, true)) !== false;
   const now = Date.now();
 
   // ── params ──
@@ -114,7 +116,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       <OpenTradesBanner trades={open} demo={getConfig().isDemo} />
 
-      <KpiCard k={k} unit={unit} periodLabel={periodLabel} sinceLabel={k.since ? dateFmt.format(k.since) : null} />
+      <KpiCard k={k} unit={unit} periodLabel={periodLabel} sinceLabel={k.since ? dateFmt.format(k.since) : null} fundingInNet={fundingInNet} />
 
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">

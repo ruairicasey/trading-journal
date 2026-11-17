@@ -17,12 +17,14 @@ type Fake = {
   positions: Record<string, unknown[]>; // by dex
   dexes: (null | { name: string })[];
   orders: unknown[] | "broken"; // historicalOrders rows
+  ledger: unknown[]; // userNonFundingLedgerUpdates rows
+  mode: string | null; // userAbstraction
   calls: { type: string; body: Record<string, unknown> }[];
   failNext: number[]; // status codes to return before succeeding
 };
 
 function fakeHl(init: Partial<Fake> = {}) {
-  const st: Fake = { fills: [], funding: [], positions: {}, dexes: [null, { name: "xyz" }], orders: [], calls: [], failNext: [], ...init };
+  const st: Fake = { fills: [], funding: [], positions: {}, dexes: [null, { name: "xyz" }], orders: [], ledger: [], mode: null, calls: [], failNext: [], ...init };
   const fetchImpl = (async (_url: string, req: { body: string }) => {
     const body = JSON.parse(req.body);
     st.calls.push({ type: body.type, body });
@@ -44,6 +46,12 @@ function fakeHl(init: Partial<Fake> = {}) {
         break;
       case "userFunding":
         json = st.funding.filter((f) => inRange(f.time)).sort((a, b) => a.time - b.time).slice(0, 500);
+        break;
+      case "userNonFundingLedgerUpdates":
+        json = (st.ledger as { time: number }[]).filter((e) => inRange(e.time)).slice(0, 2000);
+        break;
+      case "userAbstraction":
+        json = st.mode;
         break;
       case "historicalOrders":
         json = st.orders === "broken" ? [{ unexpected: true }] : st.orders;
@@ -96,7 +104,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   resetTids();
   const d = db();
-  for (const t of [s.stopMoves, s.tradePartials, s.tradeFills, s.tradeJournal, s.trades, s.fills, s.fundingEvents, s.orders, s.syncRuns, s.wallets])
+  for (const t of [s.stopMoves, s.tradePartials, s.tradeFills, s.tradeJournal, s.trades, s.fills, s.fundingEvents, s.orders, s.ledgerEvents, s.syncRuns, s.wallets])
     await d.delete(t);
   [wallet] = await d.insert(s.wallets).values({ accountId, address: DEMO_WALLET }).returning();
 });
@@ -267,6 +275,51 @@ describe("orders → SL/TP auto-detection", () => {
     const { st, client } = fakeHl({ fills: trade(), orders: stop });
     await syncAll(db(), client, { trigger: "range", range: { start: 0, end: T0 + 100 * MIN } });
     expect(st.calls.some((c) => c.type === "historicalOrders")).toBe(false);
+  });
+});
+
+describe("ledger sync (deposits, withdrawals, transfers)", () => {
+  const OTHER = "0x0000000000000000000000000000000000000002";
+  const ledgerRows = () => [
+    { time: T0 - 3_600_000, hash: "0xaa", delta: { type: "deposit", usdc: "1000.0" } },
+    { time: T0 + 60_000, hash: "0xbb", delta: { type: "spotTransfer", token: "USDC", amount: "250", usdcValue: "250", user: OTHER, destination: DEMO_WALLET, fee: "0", feeToken: "USDC", nativeTokenFee: "0", nonce: 1 } },
+    // two entries in one transaction share a hash; both are kept
+    { time: T0 + 120_000, hash: "0xcc", delta: { type: "withdraw", usdc: "100.0", fee: "1.0", nonce: 2 } },
+    { time: T0 + 120_000, hash: "0xcc", delta: { type: "accountClassTransfer", usdc: "50.0", toPerp: true } },
+  ];
+
+  test("stores every entry once, classified for the account mode, and resumes from the cursor", async () => {
+    const { st, client } = fakeHl({ ledger: ledgerRows(), mode: "unifiedAccount" });
+    const r = await syncWallet(db(), client, wallet, { trigger: "manual" });
+    expect(r).toMatchObject({ status: "success", ledgerNew: 4 });
+    const rows = await db().select().from(s.ledgerEvents);
+    const byType = Object.fromEntries(rows.map((x) => [x.type, [x.kind, x.usd]]));
+    expect(byType).toEqual({ deposit: ["deposit", 1000], spotTransfer: ["transfer_in", 250], withdraw: ["withdraw", -101], accountClassTransfer: ["internal", 0] });
+    expect((await freshWallet()).accountMode).toBe("unifiedAccount");
+    expect((await freshWallet()).lastLedgerTime).toBe(T0 + 120_000);
+
+    const again = await syncWallet(db(), client, await freshWallet(), { trigger: "manual" });
+    expect(again.ledgerNew).toBe(0);
+    const calls = st.calls.filter((c) => c.type === "userNonFundingLedgerUpdates");
+    expect(calls.at(-1)!.body.startTime).toBe(T0 + 120_000); // resumed, inclusive
+  });
+
+  test("a change of account mode re-classifies what is stored", async () => {
+    const a = fakeHl({ ledger: ledgerRows(), mode: null });
+    await syncWallet(db(), a.client, wallet, { trigger: "manual" });
+    const spot = async () => (await db().select().from(s.ledgerEvents).where(eq(s.ledgerEvents.type, "spotTransfer")))[0];
+    expect(await spot()).toMatchObject({ kind: "spot_only", usd: 0 });
+    const b = fakeHl({ ledger: ledgerRows(), mode: "unifiedAccount" });
+    await syncWallet(db(), b.client, await freshWallet(), { trigger: "manual" });
+    expect(await spot()).toMatchObject({ kind: "transfer_in", usd: 250 });
+  });
+
+  test("a ledger failure never blocks fills or funding", async () => {
+    const { client } = fakeHl({ fills: sim("BTC").buy(1, 60000, 0).sell(1, 61000, 10).fills, ledger: [{ time: T0, hash: "0x01", delta: "not an object" }] as unknown[] });
+    const r = await syncWallet(db(), client, wallet, { trigger: "manual" });
+    expect(r.status).toBe("success");
+    expect(r.error).toMatch(/ledger: /);
+    expect(await count(s.trades)).toBe(1);
   });
 });
 
