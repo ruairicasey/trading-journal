@@ -297,9 +297,12 @@ describe("ledger sync (deposits, withdrawals, transfers)", () => {
     expect(byType).toEqual({ deposit: ["deposit", 1000], spotTransfer: ["transfer_in", 250], withdraw: ["withdraw", -101], accountClassTransfer: ["internal", 0] });
     expect((await freshWallet()).accountMode).toBe("unifiedAccount");
     expect((await freshWallet()).lastLedgerTime).toBe(T0 + 120_000);
+    const completed = (await freshWallet()).ledgerCompletedAt;
+    expect(completed).not.toBeNull(); // short final page: the balance view may use this ledger
 
     const again = await syncWallet(db(), client, await freshWallet(), { trigger: "manual" });
     expect(again.ledgerNew).toBe(0);
+    expect((await freshWallet()).ledgerCompletedAt).toBe(completed); // first completion is kept
     const calls = st.calls.filter((c) => c.type === "userNonFundingLedgerUpdates");
     expect(calls.at(-1)!.body.startTime).toBe(T0 + 120_000); // resumed, inclusive
   });
@@ -361,14 +364,18 @@ describe("funding sync", () => {
     let done = false;
     for (let i = 0; i < 10 && !done; i++) {
       const r = await syncWallet(db(), client, await freshWallet(), { trigger: "auto", budgetMs: 0 });
-      cursors.push((await freshWallet()).lastFundingTime);
+      const w = await freshWallet();
+      cursors.push(w.lastFundingTime);
       done = r.done;
+      // the funding backfill is only marked complete once a short page reaches the present
+      if (!done && w.lastFundingTime! < T0 + 1199 * 3_600_000) expect(w.fundingCompletedAt).toBeNull();
     }
     expect(done).toBe(true);
     expect(cursors.length).toBeGreaterThanOrEqual(3); // one funding page per call
     expect(cursors[0]).toBe(T0 + 499 * 3_600_000);
     expect(new Set(cursors).size).toBe(cursors.length); // advanced every call
     expect(await count(s.fundingEvents)).toBe(1200);
+    expect((await freshWallet()).fundingCompletedAt).not.toBeNull();
   });
 });
 

@@ -182,6 +182,20 @@ async function main() {
     const attributedUsd = attributed.reduce((a, r) => a + Number(r.usdc), 0);
     console.log(`  funding payments attributed to a trade: ${attributed.length} of ${fundRows.length}`);
     console.log(`  funding on trades: ${pct(of(tradeFunding))} of holdings; attributed payments: ${pct(of(attributedUsd))}${Math.abs(tradeFunding - attributedUsd) < 0.01 ? " ✓" : ""}; all payments: ${pct(of(funding))}`);
+
+    // the dashboard's account-balance view, computed exactly as the page does (whole account)
+    const { balanceInputs } = await import("../src/server/db/queries/dashboard");
+    const { balanceCurve } = await import("../src/lib/stats");
+    const bal = await balanceInputs(db, w.accountId);
+    if (!bal) {
+      console.log("  balance view: off (an enabled wallet on this account hasn't finished its fill, funding or ledger backfill, or its history is truncated)");
+    } else {
+      const last = balanceCurve([], bal.flows, bal.cash, { from: null, to: null }).at(-1);
+      const shown = last?.equity ?? 0;
+      const gapB = of(shown + unrealised - target);
+      console.log(`  balance view: ${pct(of(shown))} of holdings; + open P&L = ${pct(of(shown + unrealised))}; difference ${pct(gapB)}${gapB !== null && Math.abs(gapB) <= 2 ? "  ✓ within 2%" : ""}`);
+      console.log(`  net deposited (dashed line): ${pct(of(last?.deposited ?? 0))} of holdings`);
+    }
   }
   console.log("\nRead-only. No addresses or amounts in this output.");
 }

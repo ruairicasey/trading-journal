@@ -312,7 +312,10 @@ async function syncFunding(
         start = lastTime;
       }
     }
-    await db.update(s.wallets).set({ lastFundingTime: start }).where(eq(s.wallets.id, wallet.id));
+    await db
+      .update(s.wallets)
+      .set({ lastFundingTime: start, ...(done && !fresh?.fundingCompletedAt ? { fundingCompletedAt: ctx.now() } : {}) })
+      .where(eq(s.wallets.id, wallet.id));
     if (done) return { done: true, pages, inserted, stalls };
   }
 }

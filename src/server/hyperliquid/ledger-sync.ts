@@ -80,7 +80,10 @@ export async function syncLedger(
       const last = page[page.length - 1].time;
       start = !done && last <= start ? start + 1 : last;
     }
-    await db.update(s.wallets).set({ lastLedgerTime: start }).where(eq(s.wallets.id, wallet.id));
+    await db
+      .update(s.wallets)
+      .set({ lastLedgerTime: start, ...(done && !fresh?.ledgerCompletedAt ? { ledgerCompletedAt: Date.now() } : {}) })
+      .where(eq(s.wallets.id, wallet.id));
     ctx.onProgress?.(`${inserted} new ledger entr${inserted === 1 ? "y" : "ies"}`);
     if (done) return { done: true, pages, inserted, mode };
   }

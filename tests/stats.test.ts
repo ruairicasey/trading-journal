@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { calendarMonth, computeKpis, equityCurve, type ClosedTrade } from "@/lib/stats";
+import { balanceCurve, calendarMonth, computeKpis, equityCurve, type ClosedTrade } from "@/lib/stats";
 
 const T = (net: number, exitIso: string, extra: Partial<ClosedTrade> = {}): ClosedTrade => ({
   id: Math.random().toString(36).slice(2),
@@ -68,6 +68,62 @@ describe("equity curve", () => {
     expect(pts[0]).toMatchObject({ t: from, equity: 10_100, cumR: 0 });
     expect(pts.map((p) => p.equity)).toEqual([10_100, 10_060, 10_120]);
     expect(equityCurve(trades, 10_000, Date.parse("2027-01-01T00:00:00Z"))).toEqual([]);
+  });
+});
+
+describe("account balance curve", () => {
+  const at = (iso: string) => Date.parse(iso);
+  const flows = [
+    { t: at("2026-09-30T00:00:00Z"), usd: 5_000, kind: "deposit" },
+    { t: at("2026-11-03T00:00:00Z"), usd: -1_000, kind: "withdraw" },
+  ];
+  // exchange cash: each trade's exit fill (closedPnl − fee) plus a funding payment
+  const cash = [
+    { t: at("2026-09-30T12:00:00Z"), usd: -10 }, // funding while the first trade was open
+    { t: at("2026-10-01T00:00:00Z"), usd: 110 },
+    { t: at("2026-11-02T00:00:00Z"), usd: -40 },
+    { t: at("2026-11-05T00:00:00Z"), usd: 60 },
+  ];
+  const trades = [T(100, "2026-10-01T00:00:00Z", { r: 1 }), T(-40, "2026-11-02T00:00:00Z", { r: -1 }), T(60, "2026-11-05T00:00:00Z")];
+  const opts = { from: null, to: null };
+
+  test("balance = net flows + exchange cash; points at flows and trade exits; deposited tracks flows only", () => {
+    const pts = balanceCurve(trades, flows, cash, opts);
+    expect(pts.map((p) => p.equity)).toEqual([0, 5_000, 5_100, 5_060, 4_060, 4_120]);
+    expect(pts.map((p) => p.deposited)).toEqual([0, 5_000, 5_000, 5_000, 4_000, 4_000]);
+    expect(pts.map((p) => p.cumR)).toEqual([0, 0, 1, 0, 0, 0]);
+    expect(pts[1].flow).toEqual({ kind: "deposit", usd: 5_000 });
+    expect(pts[2].trade?.net).toBe(100);
+    const last = pts.at(-1)!;
+    expect(last.equity - last.deposited).toBe(cash.reduce((a, c) => a + c.usd, 0));
+  });
+
+  test("cash after the last trade (a partial close of an open position, funding) gets a final point", () => {
+    const later = [...cash, { t: at("2026-11-10T00:00:00Z"), usd: 500 }];
+    const pts = balanceCurve(trades, flows, later, opts);
+    expect(pts.at(-1)).toMatchObject({ t: at("2026-11-10T00:00:00Z"), equity: 4_620, deposited: 4_000 });
+    expect(pts.at(-1)!.trade).toBeUndefined();
+  });
+
+  test("manual trades add no marker and no money", () => {
+    const manual = T(999, "2026-10-20T00:00:00Z", { source: "manual" });
+    const pts = balanceCurve([...trades, manual], flows, cash, opts);
+    expect(pts.some((p) => p.trade?.id === manual.id)).toBe(false);
+    expect(pts.at(-1)!.equity).toBe(4_120);
+  });
+
+  test("a period starts at the balance before it; the end bound is exclusive", () => {
+    const from = at("2026-11-01T00:00:00Z");
+    const pts = balanceCurve(trades, flows, cash, { from, to: at("2026-11-05T00:00:00Z") });
+    expect(pts[0]).toMatchObject({ t: from, equity: 5_100, deposited: 5_000, cumR: 0 });
+    expect(pts.map((p) => p.equity)).toEqual([5_100, 5_060, 4_060]);
+    expect(balanceCurve(trades, flows, cash, { from: at("2027-01-01T00:00:00Z"), to: null })).toEqual([]);
+  });
+
+  test("same millisecond: flow, then cash, then the trade marker (which includes its exit fill)", () => {
+    const t0 = at("2026-10-01T00:00:00Z");
+    const pts = balanceCurve([T(50, "2026-10-01T00:00:00Z")], [{ t: t0, usd: 1_000, kind: "deposit" }], [{ t: t0, usd: 50 }], opts);
+    expect(pts.slice(1).map((p) => [p.flow?.kind ?? "trade", p.equity])).toEqual([["deposit", 1_000], ["trade", 1_050]]);
   });
 });
 

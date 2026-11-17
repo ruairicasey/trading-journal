@@ -120,6 +120,10 @@ export const wallets = sqliteTable(
     lastFundingTime: integer("last_funding_time"), // funding sync cursor, saved after every page
     // [X] non-funding ledger cursor (saved after every page) and the account mode it was classified under
     lastLedgerTime: integer("last_ledger_time"),
+    /** set once the ledger backfill has reached the present: the balance view needs the full history */
+    ledgerCompletedAt: integer("ledger_completed_at"),
+    /** set once the funding backfill has reached the present (the balance view needs every payment) */
+    fundingCompletedAt: integer("funding_completed_at"),
     accountMode: text("account_mode"), // e.g. "unifiedAccount" (spot stablecoins are the perp collateral)
     historyTruncated: integer("history_truncated", { mode: "boolean" }).notNull().default(false),
   },

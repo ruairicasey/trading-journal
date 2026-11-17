@@ -24,6 +24,28 @@ test.describe("Dashboard (demo data)", () => {
     await expect(net).toContainText(/[+-]?\d+\.\d{2}R/);
   });
 
+  test("with full ledger history the $ curve is the account balance, with net deposits", async ({ page }) => {
+    await page.goto("/dashboard?period=all");
+    const chart = page.getByRole("region", { name: "Equity curve" });
+    await expect(chart.getByRole("heading", { name: "Account balance" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Account balance and net deposits over time" })).toBeVisible();
+    const usd = async (id: string) => Number((await page.getByTestId(id).innerText()).replace(/[^0-9.-]/g, ""));
+    // demo flows: +25,000 +5,000 −3,001 −750
+    expect(await usd("balance-deposited")).toBeCloseTo(26_249, 0);
+    expect(Number.isFinite(await usd("balance-now"))).toBe(true);
+
+    // privacy mode blurs both figures
+    await page.getByRole("button", { name: "Hide amounts" }).click();
+    await expect(page.getByTestId("balance-now")).toHaveCSS("filter", /blur/);
+    await expect(page.getByTestId("balance-deposited")).toHaveCSS("filter", /blur/);
+    await page.getByRole("button", { name: "Show amounts" }).click();
+
+    // R mode keeps cumulative R
+    await page.goto("/dashboard?period=all&unit=r");
+    await expect(chart.getByRole("heading", { name: "Cumulative R" })).toBeVisible();
+    await expect(page.getByTestId("balance-now")).toHaveCount(0);
+  });
+
   test("privacy toggle blurs money everywhere and is remembered", async ({ page }) => {
     await page.goto("/dashboard?period=all");
     await page.waitForLoadState("networkidle");

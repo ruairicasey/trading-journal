@@ -43,6 +43,13 @@
       "when": 1794875412121,
       "tag": "0005_ledger_events",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794882390157,
+      "tag": "0006_wallet_backfill_flags",
+      "breakpoints": true
     }
   ]
 }

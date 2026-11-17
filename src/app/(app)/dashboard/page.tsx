@@ -9,7 +9,7 @@ import { PnlCalendar } from "@/components/dashboard/pnl-calendar";
 import { RecentTrades } from "@/components/dashboard/recent-trades";
 import { EmptyState } from "@/components/shell/empty-state";
 import { dayBoundsLocal, periodRange, PERIODS, type Period } from "@/lib/periods";
-import { calendarMonth, computeKpis, equityCurve } from "@/lib/stats";
+import { balanceCurve, calendarMonth, computeKpis, equityCurve, type BalancePoint } from "@/lib/stats";
 import { drawdownStats, sliceUnderwater, underwaterSeries } from "@/lib/drawdown";
 import { weekOf, weekScore } from "@/lib/weekly";
 import { DrawdownCard } from "@/components/dashboard/drawdown-card";
@@ -19,8 +19,9 @@ import { weeklyNote } from "@/server/trades/mutations";
 import { INCLUDE_FUNDING_KEY } from "@/server/funding/attribute";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
-import { closedTrades, openTrades } from "@/server/db/queries/dashboard";
+import { balanceInputs, closedTrades, openTrades } from "@/server/db/queries/dashboard";
 import { getActiveAccount, getSetting } from "@/server/db/queries/settings";
+import { fmtUsd } from "@/lib/format";
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -65,7 +66,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   const db = getDb();
-  const [all, open] = await Promise.all([closedTrades(db, active.id), openTrades(db, active.id)]);
+  const [all, open, bal] = await Promise.all([closedTrades(db, active.id), openTrades(db, active.id), balanceInputs(db, active.id)]);
   if (all.length === 0 && open.length === 0) {
     return (
       <div className="space-y-4">
@@ -80,7 +81,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
   const inRange = all.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end));
   const k = computeKpis(inRange);
-  const curve = equityCurve(end === null ? all : all.filter((t) => t.exitTime < end), active.startingBalance, start);
+  // $ mode: the real account balance when the ledger is synced; otherwise starting balance + realised P&L
+  const balanceView = unit === "usd" && bal !== null;
+  const curve = balanceView
+    ? balanceCurve(all, bal.flows, bal.cash, { from: start, to: end })
+    : equityCurve(end === null ? all : all.filter((t) => t.exitTime < end), active.startingBalance, start);
+  const lastPoint = curve.at(-1);
+  const deposited: number | null = balanceView && lastPoint ? (lastPoint as BalancePoint).deposited : null;
   const cal = calendarMonth(all, cy, cm, tz);
   const shift = (d: number) => {
     const m = cm + d;
@@ -139,9 +146,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="rounded-lg border p-4 lg:col-span-2" aria-label="Equity curve">
           <header className="mb-2 flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-medium">{unit === "r" ? "Cumulative R" : "Equity curve"}</h2>
-            <span className="text-muted-foreground text-xs">
-              {unit === "r" ? "Trades without a stop count as 0R" : <>from starting balance <span className="money">${active.startingBalance.toLocaleString()}</span></>}
+            <h2 className="text-sm font-medium">{unit === "r" ? "Cumulative R" : balanceView ? "Account balance" : "Equity curve"}</h2>
+            <span className="text-muted-foreground text-xs" data-testid="equity-subtitle">
+              {unit === "r" ? (
+                "Trades without a stop count as 0R"
+              ) : balanceView ? (
+                lastPoint && deposited !== null ? (
+                  <>
+                    <span className="money" data-testid="balance-now">{fmtUsd(lastPoint.equity)}</span> · net deposited{" "}
+                    <span className="money" data-testid="balance-deposited">{fmtUsd(deposited)}</span> (dashed) · open positions not marked to market
+                  </>
+                ) : (
+                  "deposits, withdrawals and transfers included"
+                )
+              ) : (
+                <>
+                  from starting balance <span className="money">${active.startingBalance.toLocaleString()}</span>
+                </>
+              )}
             </span>
           </header>
           <EquityChart points={curve} unit={unit} baseline={active.startingBalance} tz={tz} />

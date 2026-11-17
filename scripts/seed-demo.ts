@@ -93,6 +93,29 @@ async function main() {
   for (let i = 0; i < fundingRows.length; i += 200) await db.insert(s.fundingEvents).values(fundingRows.slice(i, i + 200)).onConflictDoNothing();
   const fundingResult = await attributeFunding(db, wallet.id);
 
+  // synthetic ledger: the starting deposit, a top-up, a withdrawal and a transfer out → the balance view
+  const t0 = history.fills[0]?.time ?? Date.now();
+  const span = Date.now() - t0;
+  const ledger = [
+    { at: t0 - 86_400_000, type: "deposit", kind: "deposit", usd: 25_000 },
+    { at: t0 + span * 0.35, type: "deposit", kind: "deposit", usd: 5_000 },
+    { at: t0 + span * 0.6, type: "withdraw", kind: "withdraw", usd: -3_001 },
+    { at: t0 + span * 0.8, type: "send", kind: "transfer_out", usd: -750 },
+  ];
+  await db.insert(s.ledgerEvents).values(
+    ledger.map((l, i) => ({
+      walletId: wallet.id,
+      uid: `demo-ledger-${i}`,
+      time: Math.round(l.at),
+      hash: "0x" + "0".repeat(64),
+      type: l.type,
+      delta: { type: l.type, usdc: String(Math.abs(l.usd)) },
+      kind: l.kind,
+      usd: l.usd,
+    })),
+  ).onConflictDoNothing();
+  await db.update(s.wallets).set({ ledgerCompletedAt: Date.now(), fundingCompletedAt: Date.now() }).where(eq(s.wallets.id, wallet.id));
+
   // synthetic trigger orders (stops, moves, targets) → SL/TP auto-detection, exactly as a real sync would
   const { demoOrders } = await import("../src/server/demo/orders");
   const { historyRows } = await import("../src/server/demo/hl-orders");

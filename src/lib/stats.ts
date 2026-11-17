@@ -15,6 +15,7 @@ export type ClosedTrade = {
   fees: number;
   /** attributed funding (negative = paid); 0 for manual trades */
   funding?: number | null;
+  source?: "hyperliquid" | "manual";
   notionalUsd: number | null;
   entryTime: number | null;
   exitTime: number;
@@ -128,6 +129,59 @@ export function equityCurve(all: ClosedTrade[], startingBalance: number, from: n
     cumR += t.r ?? 0;
     points.push({ t: t.exitTime, equity, cumR, trade: { id: t.id, pair: t.displayPair, net: t.netPnl, r: t.r } });
   }
+  return points;
+}
+
+export type BalanceFlow = { t: number; usd: number; kind: string };
+/** a cash movement from trading: a fill's realised P&L minus its fee, or a funding payment */
+export type BalanceCash = { t: number; usd: number };
+export type BalancePoint = EquityPoint & { deposited: number; flow?: { kind: string; usd: number } };
+
+/**
+ * The real account balance over time, from the exchange's own cash events rather than journal trades: net ledger
+ * flows (deposits, withdrawals, transfers, ledger fees) + every fill's realised P&L − fee + every funding payment.
+ * So partial closes of open positions, funding the journal can't attribute and trades hidden from the journal all
+ * count, and the funding-in-net setting doesn't matter. Open P&L is not included.
+ * Points sit at each flow and each closed-trade exit (for the tooltip), plus a final point if cash moved after
+ * the last of them. `deposited` is the running net of flows. Range is [from, to) by time; the first point is
+ * the period start. Same-millisecond order: flows, then cash, then the trade marker (so it includes its exit fill).
+ */
+export function balanceCurve(trades: ClosedTrade[], flows: BalanceFlow[], cash: BalanceCash[], o: { from: number | null; to: number | null }): BalancePoint[] {
+  type Ev = { t: number; order: number; usd: number; dep: number; trade?: ClosedTrade; flow?: BalanceFlow };
+  const evs: Ev[] = [
+    ...flows.map((f) => ({ t: f.t, order: 0, usd: f.usd, dep: f.usd, flow: f })),
+    ...cash.map((c) => ({ t: c.t, order: 1, usd: c.usd, dep: 0 })),
+    ...trades.filter((t) => t.source !== "manual").map((t) => ({ t: t.exitTime, order: 2, usd: 0, dep: 0, trade: t })),
+  ]
+    .filter((e) => o.to === null || e.t < o.to)
+    .sort((a, b) => a.t - b.t || a.order - b.order);
+  let balance = 0;
+  let deposited = 0;
+  let cumR = 0;
+  const inRange: Ev[] = [];
+  for (const e of evs) {
+    if (o.from !== null && e.t < o.from) {
+      balance += e.usd;
+      deposited += e.dep;
+    } else inRange.push(e);
+  }
+  if (!inRange.length) return [];
+  const points: BalancePoint[] = [{ t: o.from ?? inRange[0].t - 1, equity: balance, cumR, deposited }];
+  for (const e of inRange) {
+    balance += e.usd;
+    deposited += e.dep;
+    if (e.order === 1) continue; // cash moves the balance; the next point shows it
+    if (e.trade) cumR += e.trade.r ?? 0;
+    points.push({
+      t: e.t,
+      equity: balance,
+      cumR,
+      deposited,
+      ...(e.trade ? { trade: { id: e.trade.id, pair: e.trade.displayPair, net: e.trade.netPnl, r: e.trade.r } } : {}),
+      ...(e.flow ? { flow: { kind: e.flow.kind, usd: e.flow.usd } } : {}),
+    });
+  }
+  if (inRange[inRange.length - 1].order === 1) points.push({ t: inRange[inRange.length - 1].t, equity: balance, cumR, deposited });
   return points;
 }
 
