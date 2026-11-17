@@ -21,8 +21,13 @@ test.describe("Analytics: Setup (demo data)", () => {
 
   test("hiding a widget persists; the Widgets menu brings it back", async ({ page }) => {
     await page.goto("/analytics");
+    // a click before hydration does nothing (CI's first dev-mode compile is slow), so let the page settle first,
+    // and let the save land before reloading
+    await page.waitForLoadState("networkidle");
+    const saved = page.waitForResponse((r) => r.request().method() === "POST" && !!r.request().headers()["next-action"], { timeout: 30_000 });
     await page.getByTestId("widget-direction").getByRole("button", { name: "Hide Long vs short" }).click();
     await expect(page.getByTestId("widget-direction")).toHaveCount(0);
+    await saved;
     await page.reload();
     await expect(page.getByTestId("widget-direction")).toHaveCount(0);
     await page.getByRole("button", { name: /Widgets \(1 hidden\)/ }).click();
@@ -75,6 +80,7 @@ test.describe("Analytics: Setup (demo data)", () => {
     await expect(page.getByTestId("widget-daily").locator(".recharts-bar-rectangle").first()).toBeVisible();
     await expect(page.getByTestId("daily-summary")).toContainText("trading days");
     // custom widgets hide like the others
+    await page.waitForLoadState("networkidle");
     await page.getByTestId("widget-rolling").getByRole("button", { name: "Hide Rolling P&L" }).click();
     await expect(page.getByTestId("widget-rolling")).toHaveCount(0);
     await page.getByRole("button", { name: /Widgets \(1 hidden\)/ }).click();

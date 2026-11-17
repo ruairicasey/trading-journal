@@ -15,8 +15,11 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
 - ~~Funding attribution to trades~~ **done**; deposits, withdrawals and transfers are stored and drive the balance view.
 - ~~Stop-move history~~ **done**: your own stop moves alongside the ones read from exchange orders, each move classed
   (tightened, widened, to breakeven, trailing in profit) with the R it locks, and Analytics → Behaviour → Stop management.
-- Multiple wallets per account in the UI.
-- Manual trades for non-Hyperliquid accounts.
+- ~~Multiple wallets per account in the UI~~ **done**: a wallet picker scopes the dashboard, trades, analytics, search and
+  balance view to one wallet (transfers between your own wallets fold away in "All wallets"); wallet cards can be
+  renamed, retyped and moved to another account with their trades.
+- Manual trades for non-Hyperliquid accounts: a prop-firm account on cTrader, via the cTrader Open API plus CSV import
+  of cTrader's history export.
 - Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import.
 - Importer for Hyperliquid's trade-history CSV (the API only serves the 10,000 most recent fills).
 - CSV export; full-text search.
