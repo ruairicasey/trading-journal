@@ -6,7 +6,12 @@ import { getActiveAccount } from "@/server/db/queries/settings";
 import { createStrategy, saveTradeBasic, type SaveResult } from "@/server/trades/journal";
 import { revertToAuto } from "@/server/protection/apply";
 import { addStopMove, deleteStopMove, updateStopMove, type StopMoveResult } from "@/server/trades/stop-moves";
-import { deleteScreenshot, moveScreenshot, updateCaption } from "@/server/screenshots";
+import { deleteScreenshot, moveScreenshot, ScreenshotError, updateCaption } from "@/server/screenshots";
+import { importSnapshot } from "@/server/tradingview";
+import { getConfig } from "@/server/config";
+import { demoChartPng } from "@/server/demo/chart-png";
+import { createRng } from "@/server/demo/rng";
+import type { Shot } from "@/components/trade-form/screenshots";
 import { getStorage } from "@/server/storage";
 
 export async function saveTradeBasicAction(tradeId: string, input: unknown, base?: unknown): Promise<SaveResult> {
@@ -80,4 +85,19 @@ export async function deleteStopMoveAction(moveId: string): Promise<StopMoveResu
   const { active } = await getActiveAccount();
   if (!active) return { ok: false, error: "No account" };
   return afterStopMove(await deleteStopMove(getDb(), active.id, String(moveId)));
+}
+
+/** Paste a TradingView snapshot link. The demo never goes online: it stores a generated chart instead. */
+export async function importTradingViewAction(tradeId: string, link: string): Promise<{ ok: true; shot: Shot } | { ok: false; error: string }> {
+  try {
+    const demo = getConfig().isDemo
+      ? async () => demoChartPng(createRng(1), { entry: 100, stop: 98, target: 104, direction: "long" })
+      : undefined;
+    const shot = await importSnapshot(getDb(), getStorage(), { accountId: await accountId(), tradeId: String(tradeId), link: String(link).slice(0, 300) }, demo);
+    return { ok: true, shot };
+  } catch (e) {
+    if (e instanceof ScreenshotError) return { ok: false, error: e.message };
+    console.error("tradingview import failed:", e instanceof Error ? e.message : e);
+    return { ok: false, error: "Import failed" };
+  }
 }

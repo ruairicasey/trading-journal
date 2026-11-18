@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/shell/empty-state";
 import { NotesList, AddNoteButton } from "@/components/trades/notes-list";
 import { TradeList } from "@/components/trades/trade-list";
 import { TradesToolbar } from "@/components/trades/trades-toolbar";
+import { SavedFilters } from "@/components/trades/saved-filters";
+import { listSavedFilters, pickSaved } from "@/server/trades/saved-filters";
 import { cn } from "@/lib/utils";
 import { PERIOD_LABELS } from "@/lib/periods";
 import { getConfig } from "@/server/config";
@@ -38,11 +40,18 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
   if (!active) return <EmptyState icon={ListOrdered} title="No account" body="Create an account in Settings first." />;
 
   const db = getDb();
-  const [tz, sessions, options] = await Promise.all([
+  const [tz, sessions, options, savedFilters] = await Promise.all([
     getSetting("timezone", getConfig().timezone),
     getSessions(),
     filterOptions(db, active.id, walletId),
+    listSavedFilters(db),
   ]);
+  // the current filters as plain strings (no page): what "save filter" stores and "select all matching" re-runs
+  const current = pickSaved(filters);
+  const params = Object.fromEntries(Object.entries(current).map(([k, v]) => [k, String(v)]));
+  const sameAs = (f: Record<string, unknown>) =>
+    Object.keys(f).length === Object.keys(current).length && Object.entries(f).every(([k, v]) => params[k] === String(v));
+  const savedChips = savedFilters.map((sf) => ({ id: sf.id, name: sf.name, href: tradesHref(sf.filters), active: sameAs(sf.filters) }));
   const isNotes = filters.tab === "notes";
   const [trades, notesCount, notes] = await Promise.all([
     listTrades(db, active.id, isNotes ? { ...filters, page: 1 } : filters, { tz, walletId }),
@@ -120,6 +129,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
               </Link>
             );
           })}
+          <SavedFilters chips={savedChips} params={params} canSave={pills.length > 0 || !!filters.q} />
           {pills.length > 0 && <span className="bg-border mx-1 h-4 w-px" />}
           {pills.map((k) => (
             <Link
@@ -149,7 +159,13 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           />
         )
       ) : trades.rows.length ? (
-        <TradeList rows={trades.rows} tz={tz} walletLabels={wallets.length > 1 ? Object.fromEntries(wallets.map((w) => [w.id, w.label])) : undefined} />
+        <TradeList
+          key={JSON.stringify(params) + (walletId ?? "")}
+          rows={trades.rows}
+          tz={tz}
+          walletLabels={wallets.length > 1 ? Object.fromEntries(wallets.map((w) => [w.id, w.label])) : undefined}
+          bulk={{ total: trades.total, params, strategies: options.strategies }}
+        />
       ) : counts.all === 0 && !filters.q && pills.length === 0 ? (
         <EmptyState
           icon={ListOrdered}

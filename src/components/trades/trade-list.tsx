@@ -16,6 +16,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkBar } from "@/components/trades/bulk-bar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,9 +32,35 @@ import { fmtDateTime, fmtDuration, fmtPct, fmtPrice, fmtR, fmtSignedUsd, fmtSize
 import type { TradeRow } from "@/server/db/queries/trades";
 import { deleteTradeAction, duplicateTradeAction, restoreTradeAction } from "@/app/(app)/trades/actions";
 
-/** `walletLabels` is passed only when the account has two or more wallets: each row then says which one */
-export function TradeList({ rows, tz, walletLabels }: { rows: TradeRow[]; tz: string; walletLabels?: Record<string, string> }) {
+type BulkProps = { total: number; params: Record<string, string>; strategies: { id: string; label: string }[] };
+
+/**
+ * `walletLabels` is passed only when the account has two or more wallets: each row then says which one.
+ * `bulk` turns on row checkboxes and the bulk-action bar. The selection survives paging; the page re-keys the
+ * list when the filters change, which clears it.
+ */
+export function TradeList({ rows, tz, walletLabels, bulk }: { rows: TradeRow[]; tz: string; walletLabels?: Record<string, string>; bulk?: BulkProps }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const pageIds = rows.map((r) => r.id);
+  const pageAll = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const pageSome = pageIds.some((id) => selected.has(id));
+  const select = (id: string, on: boolean) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (on) n.add(id);
+      else n.delete(id);
+      return n;
+    });
+  const selectPage = (on: boolean) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      for (const id of pageIds) {
+        if (on) n.add(id);
+        else n.delete(id);
+      }
+      return n;
+    });
   const [confirm, setConfirm] = useState<TradeRow | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -69,6 +97,16 @@ export function TradeList({ rows, tz, walletLabels }: { rows: TradeRow[]; tz: st
 
   return (
     <>
+      {bulk && (
+        <label className="text-muted-foreground flex w-fit cursor-pointer items-center gap-2 px-3 text-xs">
+          <Checkbox
+            checked={pageAll ? true : pageSome ? "indeterminate" : false}
+            onCheckedChange={(v) => selectPage(v === true)}
+            aria-label="Select all trades on this page"
+          />
+          Select page
+        </label>
+      )}
       <ul className={cn("divide-y rounded-lg border", pending && "opacity-70")} data-testid="trade-list">
         {rows.map((r) => (
           <TradeItem
@@ -77,12 +115,17 @@ export function TradeList({ rows, tz, walletLabels }: { rows: TradeRow[]; tz: st
             tz={tz}
             walletLabel={walletLabels ? (r.walletId ? (walletLabels[r.walletId] ?? "Other wallet") : "Manual") : undefined}
             expanded={open.has(r.id)}
+            selected={bulk ? selected.has(r.id) : undefined}
+            onSelect={(on) => select(r.id, on)}
             onToggle={() => toggle(r.id)}
             onDuplicate={() => duplicate(r)}
             onDelete={() => setConfirm(r)}
           />
         ))}
       </ul>
+      {bulk && selected.size > 0 && (
+        <BulkBar selected={selected} setSelected={setSelected} pageIds={pageIds} total={bulk.total} params={bulk.params} strategies={bulk.strategies} />
+      )}
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -109,6 +152,8 @@ function TradeItem({
   tz,
   walletLabel,
   expanded,
+  selected,
+  onSelect,
   onToggle,
   onDuplicate,
   onDelete,
@@ -117,6 +162,9 @@ function TradeItem({
   tz: string;
   walletLabel?: string;
   expanded: boolean;
+  /** undefined: no checkbox */
+  selected?: boolean;
+  onSelect: (on: boolean) => void;
   onToggle: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -125,7 +173,10 @@ function TradeItem({
   const time = r.entryTime ?? null;
   return (
     <li data-testid="trade-row" data-trade-id={r.id}>
-      <div className="hover:bg-muted/30 flex items-center gap-2 px-3 py-2">
+      <div className={cn("hover:bg-muted/30 flex items-center gap-2 px-3 py-2", selected && "bg-primary/5")}>
+        {selected !== undefined && (
+          <Checkbox checked={selected} onCheckedChange={(v) => onSelect(v === true)} aria-label={`Select ${r.displayPair} trade`} data-testid="trade-select" />
+        )}
         <button
           type="button"
           onClick={onToggle}

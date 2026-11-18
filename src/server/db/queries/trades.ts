@@ -206,6 +206,19 @@ export async function listTrades(db: DB, accountId: string, f: TradeFilters, opt
   };
 }
 
+/** Every trade id the filters match (all pages, current tab), newest first, for "select all matching". */
+export async function matchingTradeIds(db: DB, accountId: string, f: TradeFilters, opts: { tz: string; now?: number; walletId?: string | null; limit: number }) {
+  const rows = await db
+    .select({ id: t.id })
+    .from(t)
+    .leftJoin(j, eq(j.tradeId, t.id))
+    .leftJoin(strategy, eq(strategy.id, j.strategyId))
+    .where(and(...baseConditions(accountId, opts.walletId ?? null), ...filterConditions(f, opts.tz, opts.now ?? Date.now()), ...tabCondition(f.tab)))
+    .orderBy(desc(sql`coalesce(${t.entryTime}, ${t.createdAt})`), desc(t.id))
+    .limit(opts.limit);
+  return rows.map((r) => r.id);
+}
+
 export async function listNotes(db: DB, accountId: string, f: Pick<TradeFilters, "q" | "page">) {
   const n = s.notes;
   const c: SQL[] = [or(eq(n.accountId, accountId), isNull(n.accountId))!];

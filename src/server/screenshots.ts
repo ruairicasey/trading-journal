@@ -21,6 +21,13 @@ export class ScreenshotError extends Error {
   }
 }
 
+/** Width and height from a PNG's IHDR chunk, or null. */
+export function pngSize(b: Uint8Array): { width: number; height: number } | null {
+  if (b.length < 24 || sniffImage(b)?.ext !== "png") return null;
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  return { width: v.getUint32(16), height: v.getUint32(20) };
+}
+
 /** Detect PNG / JPEG / WebP / GIF from the first bytes. */
 export function sniffImage(b: Uint8Array): { ext: string; mime: string } | null {
   const at = (i: number, ...xs: number[]) => xs.every((x, j) => b[i + j] === x);
@@ -53,7 +60,15 @@ async function ownedShot(db: DB, accountId: string, id: string) {
 export async function addScreenshot(
   db: DB,
   storage: BlobStorage,
-  input: { accountId: string; tradeId: string; bytes: Uint8Array; width?: number | null; height?: number | null; caption?: string | null },
+  input: {
+    accountId: string;
+    tradeId: string;
+    bytes: Uint8Array;
+    width?: number | null;
+    height?: number | null;
+    caption?: string | null;
+    sourceUrl?: string | null;
+  },
 ) {
   await ownedTrade(db, input.accountId, input.tradeId);
   if (input.bytes.byteLength === 0) throw new ScreenshotError("Empty file", 422);
@@ -76,6 +91,7 @@ export async function addScreenshot(
       tradeId: input.tradeId,
       storageKey: key,
       caption: input.caption?.trim().slice(0, 300) || null,
+      sourceUrl: input.sourceUrl ?? null,
       width: dim(input.width),
       height: dim(input.height),
       bytes: input.bytes.byteLength,

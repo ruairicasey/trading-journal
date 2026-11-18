@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
 import { MAX_SCREENSHOTS } from "@/lib/journal-options";
-import { deleteScreenshotAction, moveScreenshotAction, updateScreenshotCaptionAction } from "@/app/(app)/trades/[id]/actions";
+import { deleteScreenshotAction, importTradingViewAction, moveScreenshotAction, updateScreenshotCaptionAction } from "@/app/(app)/trades/[id]/actions";
+
+const TV_LINK = /^(https?:\/\/)?([a-z]{2,3}\.)?tradingview\.com\/x\/[A-Za-z0-9]{6,16}\/?$/i;
 
 export type Shot = { id: string; url: string; caption: string | null; width: number | null; height: number | null };
 type Pending = { key: string; name: string; error?: string };
@@ -63,17 +65,47 @@ export function Screenshots({ tradeId, initial, pasteEnabled }: { tradeId: strin
     [tradeId],
   );
 
+  const importLink = useCallback(
+    async (link: string) => {
+      if (count.current >= MAX_SCREENSHOTS) return void toast.error(`Up to ${MAX_SCREENSHOTS} screenshots per trade`);
+      count.current++;
+      const key = `${Date.now()}-${Math.random()}`;
+      setPending((p) => [...p, { key, name: "TradingView snapshot" }]);
+      const res = await importTradingViewAction(tradeId, link);
+      if (res.ok) {
+        setShots((s) => [...s, res.shot]);
+        setPending((p) => p.filter((x) => x.key !== key));
+        toast.success("TradingView snapshot added");
+        return true;
+      }
+      count.current--;
+      setPending((p) => p.map((x) => (x.key === key ? { ...x, error: res.error } : x)));
+      toast.error(res.error);
+      return false;
+    },
+    [tradeId],
+  );
+
   useEffect(() => {
     if (!pasteEnabled) return;
     const onPaste = (e: ClipboardEvent) => {
       const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith("image/"));
-      if (!files.length) return; // let text paste into fields normally
+      if (!files.length) {
+        // a TradingView snapshot link pasted outside a text field imports the chart; any other text pastes normally
+        const el = e.target as HTMLElement | null;
+        const text = e.clipboardData?.getData("text")?.trim() ?? "";
+        if (TV_LINK.test(text) && !(el && (["INPUT", "TEXTAREA"].includes(el.tagName) || el.isContentEditable))) {
+          e.preventDefault();
+          void importLink(text);
+        }
+        return;
+      }
       e.preventDefault();
       void upload(files);
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [pasteEnabled, upload]);
+  }, [pasteEnabled, upload, importLink]);
 
   const move = (i: number, dir: -1 | 1) => {
     const shot = shots[i];
@@ -137,6 +169,8 @@ export function Screenshots({ tradeId, initial, pasteEnabled }: { tradeId: strin
           }}
         />
       </div>
+
+      <TradingViewLink onImport={importLink} />
 
       {(shots.length > 0 || pending.length > 0) && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -219,5 +253,35 @@ function Caption({ shot, onSaved }: { shot: Shot; onSaved: (c: string | null) =>
       className="h-7 text-xs"
       aria-label="Screenshot caption"
     />
+  );
+}
+
+function TradingViewLink({ onImport }: { onImport: (link: string) => Promise<boolean | undefined> }) {
+  const [v, setV] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="flex gap-2"
+      data-testid="tradingview-import"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!v.trim() || busy) return;
+        setBusy(true);
+        if (await onImport(v.trim())) setV("");
+        setBusy(false);
+      }}
+    >
+      <Input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        placeholder="TradingView snapshot link (tradingview.com/x/…)"
+        className="h-8 text-xs"
+        aria-label="TradingView snapshot link"
+        maxLength={300}
+      />
+      <Button type="submit" variant="secondary" size="sm" className="h-8 shrink-0" disabled={!v.trim() || busy}>
+        {busy ? <Loader2 className="size-3.5 animate-spin" /> : null} Import
+      </Button>
+    </form>
   );
 }
