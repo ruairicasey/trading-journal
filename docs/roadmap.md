@@ -19,11 +19,14 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   balance view to one wallet (transfers between your own wallets fold away in "All wallets"); wallet cards can be
   renamed, retyped and moved to another account with their trades.
 - Manual trades for non-Hyperliquid accounts: a prop-firm account on cTrader, via the cTrader Open API plus CSV import
-  of cTrader's history export.
+  of cTrader's history export. **Parked** until the account exists (needs a real history export and an Open API app).
 - ~~Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import~~ **done**: select rows,
   a page or every matching trade, then add a tag, set grade or strategy, or delete with Undo; save the current filters
   as a chip; paste a `tradingview.com/x/…` link to store the chart as a screenshot.
-- Importer for Hyperliquid's trade-history CSV (the API only serves the 10,000 most recent fills).
+- Importer for Hyperliquid's trade-history CSV (the API only serves the 10,000 most recent fills). **Parked until
+  needed**: sync flags a wallet as truncated when it hits that window. Building it needs a real export file, because the
+  CSV lacks the fill id, order id, hash and start position that trade reconstruction uses; it must only add fills older
+  than the earliest API fill.
 - ~~CSV export; full-text search~~ **done**: CSV export lives on the Reports page; search matches every word across
   pair, notes, reflection, tags, strategy, confluences, mistakes, reasons, emotions, captions and stop-move notes, with
   highlighted snippets.
