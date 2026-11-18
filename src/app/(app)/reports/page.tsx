@@ -7,6 +7,9 @@ import { ScoresCard } from "@/components/analytics/scores-card";
 import { PrintButton } from "@/components/reports/print-button";
 import { insights } from "@/lib/analytics/insights";
 import { scores } from "@/lib/analytics/scores";
+import { computeRisk } from "@/lib/risk";
+import { RiskCard } from "@/components/analytics/risk-card";
+import { balanceInputs, closedTrades } from "@/server/db/queries/dashboard";
 import { computeKpis } from "@/lib/stats";
 import { fmtPct, fmtR, fmtSignedUsd, fmtUsd, pnlClass } from "@/lib/format";
 import { reportRange } from "@/lib/report-range";
@@ -43,9 +46,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const now = Date.now();
   const range = reportRange(sp, now, tz);
   const db = getDb();
-  const [all, rich] = await Promise.all([
+  const [all, rich, closed, bal] = await Promise.all([
     reportTrades(db, active.id, walletId),
     analyticsTrades(db, active.id, walletId, { light: true }),
+    closedTrades(db, active.id, walletId),
+    balanceInputs(db, active.id, walletId),
   ]);
   const trades = all.filter(range.inRange);
   const richIn = rich.filter(range.inRange);
@@ -121,6 +126,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             </Kpi>
           </section>
 
+          <RiskCard
+            m={computeRisk(closed, bal, walletId ? 0 : active.startingBalance, {
+              from: range.start,
+              to: range.end,
+              tz,
+              now,
+            })}
+            title="Risk-adjusted"
+          />
           <ScoresCard s={scores(richIn, rich, tz)} title="Scores" />
 
           <section className="rounded-lg border p-4" aria-label="Top leaks">

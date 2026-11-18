@@ -18,6 +18,8 @@ import { WeeklyCard } from "@/components/dashboard/weekly-card";
 import { InsightsList } from "@/components/analytics/insights-list";
 import { insights } from "@/lib/analytics/insights";
 import { scores } from "@/lib/analytics/scores";
+import { computeRisk } from "@/lib/risk";
+import { RiskCard } from "@/components/analytics/risk-card";
 import { ScoresCard } from "@/components/analytics/scores-card";
 import { analyticsTrades } from "@/server/db/queries/analytics";
 import { missingCounts } from "@/server/db/queries/trades";
@@ -36,7 +38,10 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const { active, walletId } = await getActiveScope();
-  if (!active) return <EmptyState icon={LayoutDashboard} title="No account" body="Create an account in Settings first." />;
+  if (!active)
+    return (
+      <EmptyState icon={LayoutDashboard} title="No account" body="Create an account in Settings first." />
+    );
   const tz = await getSetting("timezone", getConfig().timezone);
   const fundingInNet = (await getSetting<boolean>(INCLUDE_FUNDING_KEY, true)) !== false;
   const now = Date.now();
@@ -50,7 +55,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const unit = one(sp.unit) === "r" ? "r" : "usd";
   const localNow = new TZDate(now, tz);
   const monthParam = one(sp.month);
-  const [cy, cm] = monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam.split("-").map(Number) : [localNow.getFullYear(), localNow.getMonth() + 1];
+  const [cy, cm] =
+    monthParam && /^\d{4}-\d{2}$/.test(monthParam)
+      ? monthParam.split("-").map(Number)
+      : [localNow.getFullYear(), localNow.getMonth() + 1];
   const weekParam = one(sp.week);
   const params: DashParams = {
     period,
@@ -92,7 +100,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
     );
   }
-  const inRange = all.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end));
+  const inRange = all.filter(
+    (t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end),
+  );
   const k = computeKpis(inRange);
   // $ mode: the real account balance when the ledger is synced; otherwise starting balance + realised P&L
   const balanceView = unit === "usd" && bal !== null;
@@ -121,14 +131,27 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     week = weekOf(week.prev, now, tz);
     score = weekScore(all, week, tz);
   }
-  const [missing, note] = await Promise.all([missingCounts(db, active.id, week.start, week.end, walletId), weeklyNote(db, active.id, week.start, week.end)]);
-  const richInRange = rich.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end));
+  const [missing, note] = await Promise.all([
+    missingCounts(db, active.id, week.start, week.end, walletId),
+    weeklyNote(db, active.id, week.start, week.end),
+  ]);
+  const richInRange = rich.filter(
+    (t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end),
+  );
   const leaks = insights(richInRange, rich, tz).list.slice(0, 3);
   const sc = richInRange.length ? scores(richInRange, rich, tz) : null;
+  const risk = inRange.length ? computeRisk(all, bal, startBal, { from: start, to: end, tz, now }) : null;
 
   const recent = [...all].sort((a, b) => b.exitTime - a.exitTime).slice(0, 7);
-  const dateFmt = new Intl.DateTimeFormat("en-AU", { timeZone: tz, day: "numeric", month: "short", year: "numeric" });
-  const periodLabel = custom ? `${from} → ${params.to ?? "now"}` : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period);
+  const dateFmt = new Intl.DateTimeFormat("en-AU", {
+    timeZone: tz,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const periodLabel = custom
+    ? `${from} → ${params.to ?? "now"}`
+    : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -139,7 +162,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       <OpenTradesBanner trades={open} demo={getConfig().isDemo} />
 
-      <KpiCard k={k} unit={unit} periodLabel={periodLabel} sinceLabel={k.since ? dateFmt.format(k.since) : null} fundingInNet={fundingInNet} />
+      <KpiCard
+        k={k}
+        unit={unit}
+        periodLabel={periodLabel}
+        sinceLabel={k.since ? dateFmt.format(k.since) : null}
+        fundingInNet={fundingInNet}
+      />
+
+      {risk && <RiskCard m={risk} title={`Risk-adjusted · ${periodLabel}`} />}
 
       {sc && <ScoresCard s={sc} title={`Scores · ${periodLabel}`} />}
 
@@ -148,9 +179,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <header className="mb-2 flex items-baseline justify-between gap-2">
             <h2 className="text-sm font-medium">
               Top leaks · {periodLabel}
-              {unit === "r" && <span className="text-muted-foreground ml-2 text-xs font-normal">(in $; total R on the Insights page)</span>}
+              {unit === "r" && (
+                <span className="text-muted-foreground ml-2 text-xs font-normal">
+                  (in $; total R on the Insights page)
+                </span>
+              )}
             </h2>
-            <Link href={dashHref({ ...params, month: undefined, week: undefined }, { section: "insights" }, "/analytics", "all")} className="text-xs text-sky-400 hover:underline">
+            <Link
+              href={dashHref(
+                { ...params, month: undefined, week: undefined },
+                { section: "insights" },
+                "/analytics",
+                "all",
+              )}
+              className="text-xs text-sky-400 hover:underline"
+            >
               All insights →
             </Link>
           </header>
@@ -179,27 +222,34 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="rounded-lg border p-4 lg:col-span-2" aria-label="Equity curve">
           <header className="mb-2 flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-medium">{unit === "r" ? "Cumulative R" : balanceView ? "Account balance" : "Equity curve"}</h2>
+            <h2 className="text-sm font-medium">
+              {unit === "r" ? "Cumulative R" : balanceView ? "Account balance" : "Equity curve"}
+            </h2>
             <span className="text-muted-foreground text-xs" data-testid="equity-subtitle">
               {unit === "r" ? (
                 "Trades without a stop count as 0R"
               ) : balanceView ? (
                 lastPoint && deposited !== null ? (
                   <>
-                    <span className="money" data-testid="balance-now">{fmtUsd(lastPoint.equity)}</span> · net deposited{" "}
-                    <span className="money" data-testid="balance-deposited">{fmtUsd(deposited)}</span> (dashed) · open positions not marked to market
+                    <span className="money" data-testid="balance-now">
+                      {fmtUsd(lastPoint.equity)}
+                    </span>{" "}
+                    · net deposited{" "}
+                    <span className="money" data-testid="balance-deposited">
+                      {fmtUsd(deposited)}
+                    </span>{" "}
+                    (dashed) · open positions not marked to market
                   </>
                 ) : (
                   "deposits, withdrawals and transfers included"
                 )
+              ) : walletId ? (
+                "this wallet's realised P&L from $0 (the starting balance is the whole account's)"
               ) : (
-                walletId ? (
-                  "this wallet's realised P&L from $0 (the starting balance is the whole account's)"
-                ) : (
-                  <>
-                    from starting balance <span className="money">${active.startingBalance.toLocaleString()}</span>
-                  </>
-                )
+                <>
+                  from starting balance{" "}
+                  <span className="money">${active.startingBalance.toLocaleString()}</span>
+                </>
               )}
             </span>
           </header>
@@ -208,7 +258,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <RecentTrades trades={recent} tz={tz} unit={unit} />
       </div>
 
-      <PnlCalendar cal={cal} unit={unit} prevHref={dashHref(params, { month: shift(-1) })} nextHref={dashHref(params, { month: shift(1) })} />
+      <PnlCalendar
+        cal={cal}
+        unit={unit}
+        prevHref={dashHref(params, { month: shift(-1) })}
+        nextHref={dashHref(params, { month: shift(1) })}
+      />
     </div>
   );
 }
