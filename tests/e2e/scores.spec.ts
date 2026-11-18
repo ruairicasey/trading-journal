@@ -49,7 +49,10 @@ test("Scores: coverage and mistake cost reconcile with the journal; the dashboar
 
   for (const id of ["discipline", "coverage", "compliance"]) {
     const v = await card.getByTestId(`score-${id}`).getByTestId("score-value").innerText();
-    if (v !== "—") (expect(Number(v)).toBeGreaterThanOrEqual(0), expect(Number(v)).toBeLessThanOrEqual(100));
+    if (v !== "—") {
+      expect(Number(v)).toBeGreaterThanOrEqual(0);
+      expect(Number(v)).toBeLessThanOrEqual(100);
+    }
   }
   const values = await card.getByTestId("score-value").allInnerTexts();
 

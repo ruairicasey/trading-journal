@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   LayoutDashboard,
-  Lightbulb,
+  FileText,
   ListOrdered,
   Settings,
   type LucideIcon,
@@ -31,7 +31,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/trades", label: "Trades", icon: ListOrdered },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/insights", label: "Insights", icon: Lightbulb, soon: "P3" },
+  { href: "/reports", label: "Reports", icon: FileText },
 ];
 
 export function AppSidebar({
