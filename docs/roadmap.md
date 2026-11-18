@@ -37,5 +37,7 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   Insights and a Top leaks card on the dashboard; nine rules, judged on what you knew at entry; `npm run debug:insights`.
 - ~~Discipline, review-coverage, compliance and mistake-cost scores~~ **done**: a Scores card on the dashboard and atop
   Analytics → Insights; discipline uses the Insights habits, coverage the weekly card's "Not reviewed" definition.
+- ~~Risk-adjusted metrics~~ **done**: Sharpe, Sortino, time-weighted return, drawdowns, Calmar, recovery factor,
+  expectancy, payoff and SQN on the dashboard, Analytics → Risk and Reports; daily returns net of deposits/withdrawals.
 - ~~Exportable reports (CSV/PDF)~~ **done**: Reports page (KPIs, scores, top leaks, by month / pair / direction, every
   trade) with Print / Save as PDF, and trades and monthly CSVs pinned to the moment the page was built.
