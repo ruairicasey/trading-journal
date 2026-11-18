@@ -28,18 +28,46 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { fmtDateTime, fmtDuration, fmtPct, fmtPrice, fmtR, fmtSignedUsd, fmtSize, fmtUsd, pnlClass } from "@/lib/format";
+import { firstSnippet, type Seg } from "@/lib/search";
+import {
+  fmtDateTime,
+  fmtDuration,
+  fmtPct,
+  fmtPrice,
+  fmtR,
+  fmtSignedUsd,
+  fmtSize,
+  fmtUsd,
+  pnlClass,
+} from "@/lib/format";
 import type { TradeRow } from "@/server/db/queries/trades";
 import { deleteTradeAction, duplicateTradeAction, restoreTradeAction } from "@/app/(app)/trades/actions";
 
-type BulkProps = { total: number; params: Record<string, string>; strategies: { id: string; label: string }[] };
+type BulkProps = {
+  total: number;
+  params: Record<string, string>;
+  strategies: { id: string; label: string }[];
+};
 
 /**
  * `walletLabels` is passed only when the account has two or more wallets: each row then says which one.
  * `bulk` turns on row checkboxes and the bulk-action bar. The selection survives paging; the page re-keys the
  * list when the filters change, which clears it.
  */
-export function TradeList({ rows, tz, walletLabels, bulk }: { rows: TradeRow[]; tz: string; walletLabels?: Record<string, string>; bulk?: BulkProps }) {
+export function TradeList({
+  rows,
+  tz,
+  walletLabels,
+  bulk,
+  terms = [],
+}: {
+  rows: TradeRow[];
+  tz: string;
+  walletLabels?: Record<string, string>;
+  bulk?: BulkProps;
+  /** search terms: each row shows where its text matched */
+  terms?: string[];
+}) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const pageIds = rows.map((r) => r.id);
@@ -113,9 +141,16 @@ export function TradeList({ rows, tz, walletLabels, bulk }: { rows: TradeRow[]; 
             key={r.id}
             row={r}
             tz={tz}
-            walletLabel={walletLabels ? (r.walletId ? (walletLabels[r.walletId] ?? "Other wallet") : "Manual") : undefined}
+            walletLabel={
+              walletLabels
+                ? r.walletId
+                  ? (walletLabels[r.walletId] ?? "Other wallet")
+                  : "Manual"
+                : undefined
+            }
             expanded={open.has(r.id)}
             selected={bulk ? selected.has(r.id) : undefined}
+            terms={terms}
             onSelect={(on) => select(r.id, on)}
             onToggle={() => toggle(r.id)}
             onDuplicate={() => duplicate(r)}
@@ -124,20 +159,31 @@ export function TradeList({ rows, tz, walletLabels, bulk }: { rows: TradeRow[]; 
         ))}
       </ul>
       {bulk && selected.size > 0 && (
-        <BulkBar selected={selected} setSelected={setSelected} pageIds={pageIds} total={bulk.total} params={bulk.params} strategies={bulk.strategies} />
+        <BulkBar
+          selected={selected}
+          setSelected={setSelected}
+          pageIds={pageIds}
+          total={bulk.total}
+          params={bulk.params}
+          strategies={bulk.strategies}
+        />
       )}
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this trade?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirm?.displayPair} {confirm?.direction} from {fmtDateTime(confirm?.entryTime, tz)}. It&apos;s hidden from
-              lists and stats, and a re-sync won&apos;t bring it back. You can undo right after deleting.
+              {confirm?.displayPair} {confirm?.direction} from {fmtDateTime(confirm?.entryTime, tz)}.
+              It&apos;s hidden from lists and stats, and a re-sync won&apos;t bring it back. You can undo
+              right after deleting.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirm && remove(confirm)} className="bg-destructive text-white hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={() => confirm && remove(confirm)}
+              className="bg-destructive hover:bg-destructive/90 text-white"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -153,6 +199,7 @@ function TradeItem({
   walletLabel,
   expanded,
   selected,
+  terms,
   onSelect,
   onToggle,
   onDuplicate,
@@ -164,6 +211,7 @@ function TradeItem({
   expanded: boolean;
   /** undefined: no checkbox */
   selected?: boolean;
+  terms: string[];
   onSelect: (on: boolean) => void;
   onToggle: () => void;
   onDuplicate: () => void;
@@ -175,7 +223,12 @@ function TradeItem({
     <li data-testid="trade-row" data-trade-id={r.id}>
       <div className={cn("hover:bg-muted/30 flex items-center gap-2 px-3 py-2", selected && "bg-primary/5")}>
         {selected !== undefined && (
-          <Checkbox checked={selected} onCheckedChange={(v) => onSelect(v === true)} aria-label={`Select ${r.displayPair} trade`} data-testid="trade-select" />
+          <Checkbox
+            checked={selected}
+            onCheckedChange={(v) => onSelect(v === true)}
+            aria-label={`Select ${r.displayPair} trade`}
+            data-testid="trade-select"
+          />
         )}
         <button
           type="button"
@@ -184,7 +237,12 @@ function TradeItem({
           data-testid="trade-expand"
           className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 text-left focus-visible:outline-none sm:flex-nowrap"
         >
-          <ChevronDown className={cn("text-muted-foreground size-4 shrink-0 transition-transform", expanded && "rotate-180")} />
+          <ChevronDown
+            className={cn(
+              "text-muted-foreground size-4 shrink-0 transition-transform",
+              expanded && "rotate-180",
+            )}
+          />
           <span className="truncate text-sm font-medium">{r.displayPair}</span>
           {walletLabel && (
             <span className="text-muted-foreground max-w-24 truncate text-[11px]" data-testid="trade-wallet">
@@ -200,8 +258,12 @@ function TradeItem({
           >
             {r.direction}
           </Badge>
-          {r.status === "open" && <Badge className="h-5 bg-sky-500/15 px-1.5 text-[10px] text-sky-300">Open</Badge>}
-          {r.status === "planned" && <Badge className="h-5 bg-violet-500/15 px-1.5 text-[10px] text-violet-300">Planned</Badge>}
+          {r.status === "open" && (
+            <Badge className="h-5 bg-sky-500/15 px-1.5 text-[10px] text-sky-300">Open</Badge>
+          )}
+          {r.status === "planned" && (
+            <Badge className="h-5 bg-violet-500/15 px-1.5 text-[10px] text-violet-300">Planned</Badge>
+          )}
           <span className="text-muted-foreground w-full truncate pl-6 text-[11px] sm:w-auto sm:pl-0 sm:text-xs">
             {time ? fmtDateTime(time, tz) : "Not entered"}
           </span>
@@ -209,12 +271,19 @@ function TradeItem({
 
         <div className="flex shrink-0 items-center gap-3">
           <div className="text-right tabular-nums">
-            <div className={cn("money text-sm font-medium", pnlClass(r.netPnl))}>{r.status === "planned" ? "—" : fmtSignedUsd(r.netPnl)}</div>
-            <div className={cn("text-[11px]", pnlClass(r.netPnl))}>{r.status === "planned" ? "" : fmtPct(r.returnPct)}</div>
+            <div className={cn("money text-sm font-medium", pnlClass(r.netPnl))}>
+              {r.status === "planned" ? "—" : fmtSignedUsd(r.netPnl)}
+            </div>
+            <div className={cn("text-[11px]", pnlClass(r.netPnl))}>
+              {r.status === "planned" ? "" : fmtPct(r.returnPct)}
+            </div>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="text-muted-foreground" aria-label={synced ? "Synced from Hyperliquid" : "Manual trade"}>
+              <span
+                className="text-muted-foreground"
+                aria-label={synced ? "Synced from Hyperliquid" : "Manual trade"}
+              >
                 {synced ? <RefreshCw className="size-3.5" /> : <PenLine className="size-3.5" />}
               </span>
             </TooltipTrigger>
@@ -244,6 +313,7 @@ function TradeItem({
         </div>
       </div>
 
+      {terms.length > 0 && <MatchLine row={r} terms={terms} />}
       {expanded && <TradeDetails row={r} tz={tz} />}
     </li>
   );
@@ -267,12 +337,19 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
           {fmtDateTime(r.entryTime, tz)}
           <br />→ {r.status === "open" ? "open" : fmtDateTime(r.exitTime, tz)}
         </Field>
-        <Field label="Duration">{r.status === "open" && r.entryTime ? fmtDuration(Date.now() - r.entryTime) + " (open)" : fmtDuration(r.durationMs)}</Field>
+        <Field label="Duration">
+          {r.status === "open" && r.entryTime
+            ? fmtDuration(Date.now() - r.entryTime) + " (open)"
+            : fmtDuration(r.durationMs)}
+        </Field>
         <Field label="Entry / exit price">
           {fmtPrice(entry)} / {fmtPrice(r.avgExit)}
         </Field>
         <Field label="Size">
-          {fmtSize(r.sizeUnits)} {r.notionalUsd ? <span className="money text-muted-foreground">({fmtUsd(r.notionalUsd, 0)})</span> : null}
+          {fmtSize(r.sizeUnits)}{" "}
+          {r.notionalUsd ? (
+            <span className="money text-muted-foreground">({fmtUsd(r.notionalUsd, 0)})</span>
+          ) : null}
         </Field>
         <Field label="Net P&L">
           <span className={cn("money", pnlClass(r.netPnl))}>
@@ -283,16 +360,32 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
           <span className="money">{fmtUsd(r.fees)}</span>
         </Field>
         <Field label="Funding">
-          <span className={cn("money", pnlClass(r.funding))}>{r.funding ? fmtSignedUsd(r.funding) : "—"}</span>
+          <span className={cn("money", pnlClass(r.funding))}>
+            {r.funding ? fmtSignedUsd(r.funding) : "—"}
+          </span>
         </Field>
-        <Field label="R multiple">{r.stopLoss === null ? <span className="text-muted-foreground">add a stop to see R</span> : fmtR(r.r)}</Field>
+        <Field label="R multiple">
+          {r.stopLoss === null ? (
+            <span className="text-muted-foreground">add a stop to see R</span>
+          ) : (
+            fmtR(r.r)
+          )}
+        </Field>
         <Field label="Setup">
           {[r.strategyLabel, r.grade && `Grade ${r.grade}`, r.session].filter(Boolean).join(" · ") || "—"}
         </Field>
       </dl>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        {r.entryTimeframe && <Badge variant="secondary" className="text-[10px]">{r.entryTimeframe}</Badge>}
-        {r.timeframeClass && <Badge variant="secondary" className="text-[10px]">{r.timeframeClass}</Badge>}
+        {r.entryTimeframe && (
+          <Badge variant="secondary" className="text-[10px]">
+            {r.entryTimeframe}
+          </Badge>
+        )}
+        {r.timeframeClass && (
+          <Badge variant="secondary" className="text-[10px]">
+            {r.timeframeClass}
+          </Badge>
+        )}
         <Badge variant="outline" className="text-[10px]">
           {r.source === "hyperliquid" ? "hyperliquid auto-sync" : "manual"}
         </Badge>
@@ -308,7 +401,10 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
         ))}
       </div>
       {r.rationale && <p className="text-muted-foreground mt-2 line-clamp-2 max-w-3xl">{r.rationale}</p>}
-      <Link href={`/trades/${r.id}`} className="text-primary mt-2 inline-block text-xs font-medium hover:underline">
+      <Link
+        href={`/trades/${r.id}`}
+        className="text-primary mt-2 inline-block text-xs font-medium hover:underline"
+      >
         Edit trade →
       </Link>
     </div>
@@ -321,5 +417,42 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="tabular-nums">{children}</dd>
     </div>
+  );
+}
+
+/** Where a search hit: the first matching text field, with the terms highlighted. */
+function MatchLine({ row: r, terms }: { row: TradeRow; terms: string[] }) {
+  const m = firstSnippet(
+    [
+      ["Notes", r.rationale],
+      ["Review", r.postNotes],
+      ...Object.values(r.reflection ?? {}).map((v) => ["Reflection", v] as [string, string]),
+      ["Tags", r.tags.map((t) => `#${t}`).join(" ")],
+      ["Strategy", r.strategyLabel],
+    ],
+    terms,
+  );
+  if (!m) return null;
+  return (
+    <p className="text-muted-foreground -mt-1 truncate px-3 pb-2 pl-9 text-[11px]" data-testid="trade-match">
+      <span className="mr-1 font-medium">{m.label}:</span>
+      <Highlight segs={m.segs} />
+    </p>
+  );
+}
+
+export function Highlight({ segs }: { segs: Seg[] }) {
+  return (
+    <>
+      {segs.map((x, i) =>
+        x.hit ? (
+          <mark key={i} className="text-foreground rounded-sm bg-amber-500/25 px-0.5">
+            {x.text}
+          </mark>
+        ) : (
+          <span key={i}>{x.text}</span>
+        ),
+      )}
+    </>
   );
 }

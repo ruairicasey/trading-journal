@@ -9,7 +9,13 @@ import { DEMO_ADDRESS, generateDemoHistory } from "@/server/demo/generate";
 import { seedDemoJournal } from "@/server/demo/journal";
 import { createRng } from "@/server/demo/rng";
 import { insertFills, rebuildTrades } from "@/server/reconstruct/persist";
-import { listNotes, listTrades, filterOptions, missingCounts } from "@/server/db/queries/trades";
+import {
+  listNotes,
+  listTrades,
+  filterOptions,
+  matchingTradeIds,
+  missingCounts,
+} from "@/server/db/queries/trades";
 import { MISSING_KINDS } from "@/lib/missing";
 import { analyticsTrades } from "@/server/db/queries/analytics";
 import { weekOf } from "@/lib/weekly";
@@ -71,7 +77,11 @@ describe("tabs, counts and pagination", () => {
 describe("filters", () => {
   test("outcome partitions closed trades using the shared BE band", async () => {
     const closed = (await allRows({ tab: "closed" })).rows;
-    const [w, l, b] = await Promise.all([allRows({ outcome: "win" }), allRows({ outcome: "loss" }), allRows({ outcome: "be" })]);
+    const [w, l, b] = await Promise.all([
+      allRows({ outcome: "win" }),
+      allRows({ outcome: "loss" }),
+      allRows({ outcome: "be" }),
+    ]);
     expect(w.total + l.total + b.total).toBe(closed.length);
     for (const r of w.rows) expect(outcomeOf(r.netPnl, r.notionalUsd)).toBe("win");
     for (const r of l.rows) expect(outcomeOf(r.netPnl, r.notionalUsd)).toBe("loss");
@@ -113,7 +123,17 @@ describe("filters", () => {
     const mk = async (iso: string) => {
       const [row] = await db
         .insert(s.trades)
-        .values({ accountId, source: "manual", coin: "DSTTEST", displayPair: "DSTTEST/USD", direction: "long", status: "closed", entryTime: Date.parse(iso), netPnl: 1, flags: {} })
+        .values({
+          accountId,
+          source: "manual",
+          coin: "DSTTEST",
+          displayPair: "DSTTEST/USD",
+          direction: "long",
+          status: "closed",
+          entryTime: Date.parse(iso),
+          netPnl: 1,
+          flags: {},
+        })
         .returning({ id: s.trades.id });
       return row.id;
     };
@@ -121,26 +141,154 @@ describe("filters", () => {
     const late = await mk("2026-10-04T12:30:00Z"); // 4 Oct 23:30 AEDT
     const next = await mk("2026-10-04T13:10:00Z"); // 5 Oct 00:10 AEDT
     const before = await mk("2026-10-03T13:50:00Z"); // 3 Oct 23:50 AEST
-    const ids = (await allRows({ pair: "DSTTEST", from: "2026-10-04", to: "2026-10-04" })).rows.map((r) => r.id);
+    const ids = (await allRows({ pair: "DSTTEST", from: "2026-10-04", to: "2026-10-04" })).rows.map(
+      (r) => r.id,
+    );
     expect(ids.sort()).toEqual([early, late].sort());
     expect(ids).not.toContain(next);
     expect(ids).not.toContain(before);
     // dateBy=exit filters on the exit day instead (P&L calendar links)
-    await db.update(s.trades).set({ exitTime: Date.parse("2026-10-05T01:00:00Z") }).where(eq(s.trades.id, early)); // exits 5 Oct
-    const byExit = (await allRows({ pair: "DSTTEST", from: "2026-10-05", to: "2026-10-05", dateBy: "exit" })).rows.map((r) => r.id);
+    await db
+      .update(s.trades)
+      .set({ exitTime: Date.parse("2026-10-05T01:00:00Z") })
+      .where(eq(s.trades.id, early)); // exits 5 Oct
+    const byExit = (
+      await allRows({ pair: "DSTTEST", from: "2026-10-05", to: "2026-10-05", dateBy: "exit" })
+    ).rows.map((r) => r.id);
     expect(byExit).toEqual([early]);
     for (const id of [early, late, next, before]) await softDeleteTrade(db, accountId, id);
   });
 
   test("search covers pair, tag, rationale and strategy; LIKE wildcards are literal", async () => {
-    expect((await allRows({ q: "spx" })).rows.every((r) => r.coin === "xyz:SPX" || /spx/i.test(r.rationale ?? ""))).toBe(true);
+    expect(
+      (await allRows({ q: "spx" })).rows.every((r) => r.coin === "xyz:SPX" || /spx/i.test(r.rationale ?? "")),
+    ).toBe(true);
     expect((await allRows({ q: "spx" })).total).toBeGreaterThan(0);
     const tagged = (await allRows({ q: "a-setup" })).rows;
     expect(tagged.length).toBeGreaterThan(0);
     expect(tagged.every((r) => r.tags.includes("a-setup") || /a-setup/i.test(r.rationale ?? ""))).toBe(true);
     expect((await allRows({ q: "anchored VWAP" })).total).toBeGreaterThan(0); // rationale text
-    expect((await list({ q: "%" })).total).toBe(0);
+    // "%" and "_" are literal: as LIKE wildcards "x%y" would match "xyz:SPX" and "x_z" would too
+    expect((await list({ q: "x%y" })).total).toBe(0);
+    expect((await list({ q: "x_z" })).total).toBe(0);
     expect((await list({ q: "_" })).total).toBe(0);
+  });
+
+  test("full text: every term must match (any field), quoted phrases stay together", async () => {
+    const db = getDb();
+    const [a, b, c, d] = (await allRows({ tab: "closed" })).rows;
+    const before = await db.query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, a.id) });
+    const beforeD = await db.query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, d.id) });
+    const lesson = { lesson: "Waited for the Retest like planned" };
+    await db
+      .insert(s.tradeJournal)
+      .values({ tradeId: a.id, reflection: lesson })
+      .onConflictDoUpdate({ target: s.tradeJournal.tradeId, set: { reflection: lesson } });
+    await db
+      .insert(s.screenshots)
+      .values({ tradeId: b.id, storageKey: "x", caption: "Zebra wick at the open" });
+    const [mv] = await db
+      .insert(s.stopMoves)
+      .values({ tradeId: c.id, time: 1, price: 1, note: "Quokka trail" })
+      .returning();
+    try {
+      expect((await allRows({ q: "retest planned" })).rows.map((r) => r.id)).toContain(a.id); // reflection text
+      expect((await allRows({ q: '"retest like planned"' })).rows.map((r) => r.id)).toEqual([a.id]);
+      expect((await allRows({ q: '"planned like retest"' })).total).toBe(0); // phrase order matters
+      expect((await allRows({ q: "zebra" })).rows.map((r) => r.id)).toEqual([b.id]); // screenshot caption
+      expect((await allRows({ q: `zebra ${b.displayPair}` })).rows.map((r) => r.id)).toEqual([b.id]); // AND across fields
+      expect((await allRows({ q: "zebra retest" })).total).toBe(0); // AND: no trade has both
+      expect((await allRows({ q: "quokka" })).rows.map((r) => r.id)).toEqual([c.id]); // stop-move note
+
+      // the list, its counts and "select all matching" agree for a multi-term query
+      for (const q of ['zebra "wick at"', "retest planned", `quokka ${c.displayPair}`]) {
+        const r = await list({ q });
+        const ids = await matchingTradeIds(db, accountId, f({ q }), { tz: TZ, now: END, limit: 10_000 });
+        expect(ids.length, q).toBe(r.total);
+        expect(r.counts.all, q).toBe(r.total);
+      }
+
+      // a quoted phrase of a vocab label: the confluence "80% rule (VA rotation)", literal % included
+      const withRule = (await allRows({ q: '"80% rule (va rotation)"' })).rows;
+      const ruleIds = (
+        await db
+          .select({ id: s.tradeVocab.tradeId })
+          .from(s.tradeVocab)
+          .innerJoin(s.vocabItems, eq(s.vocabItems.id, s.tradeVocab.itemId))
+          .where(eq(s.vocabItems.label, "80% rule (VA rotation)"))
+      ).map((r) => r.id);
+      const live = new Set((await allRows({})).rows.map((r) => r.id));
+      expect(ruleIds.length).toBeGreaterThan(0);
+      expect(withRule.map((r) => r.id).sort()).toEqual(
+        [...new Set(ruleIds)].filter((id) => live.has(id)).sort(),
+      );
+
+      // exit reason and emotions (journal ids → vocab labels), and the session
+      const [exitItem] = await db
+        .select()
+        .from(s.vocabItems)
+        .where(eq(s.vocabItems.kind, "exit_reason"))
+        .limit(1);
+      const [emo] = await db.select().from(s.vocabItems).where(eq(s.vocabItems.kind, "emotion")).limit(1);
+      const exitRows = (await allRows({ q: `"${exitItem.label.toLowerCase()}"` })).rows.map((r) => r.id);
+      const withExit = (
+        await db
+          .select({ id: s.tradeJournal.tradeId })
+          .from(s.tradeJournal)
+          .where(eq(s.tradeJournal.exitReasonId, exitItem.id))
+      ).map((r) => r.id);
+      for (const id of withExit.filter((x) => live.has(x))) expect(exitRows).toContain(id);
+      await db
+        .insert(s.tradeJournal)
+        .values({ tradeId: d.id, emotionBeforeId: emo.id, session: "Kangaroo hours" })
+        .onConflictDoUpdate({
+          target: s.tradeJournal.tradeId,
+          set: { emotionBeforeId: emo.id, session: "Kangaroo hours" },
+        });
+      expect((await allRows({ q: "kangaroo" })).rows.map((r) => r.id)).toEqual([d.id]);
+      expect((await allRows({ q: `kangaroo "${emo.label.toLowerCase()}"` })).rows.map((r) => r.id)).toEqual([
+        d.id,
+      ]);
+    } finally {
+      await db.delete(s.screenshots).where(eq(s.screenshots.tradeId, b.id));
+      await db.delete(s.stopMoves).where(eq(s.stopMoves.id, mv.id));
+      if (before)
+        await db
+          .update(s.tradeJournal)
+          .set({ reflection: before.reflection })
+          .where(eq(s.tradeJournal.tradeId, a.id));
+      else await db.delete(s.tradeJournal).where(eq(s.tradeJournal.tradeId, a.id));
+      if (beforeD)
+        await db
+          .update(s.tradeJournal)
+          .set({ emotionBeforeId: beforeD.emotionBeforeId, session: beforeD.session })
+          .where(eq(s.tradeJournal.tradeId, d.id));
+      else await db.delete(s.tradeJournal).where(eq(s.tradeJournal.tradeId, d.id));
+    }
+  });
+
+  test("full text: a trade with no journal row still matches on its pair, and json_each(NULL) is harmless", async () => {
+    const db = getDb();
+    const [w] = await db.select().from(s.wallets).limit(1);
+    const [t] = await db
+      .insert(s.trades)
+      .values({
+        accountId,
+        walletId: w.id,
+        source: "manual",
+        coin: "WOMBAT",
+        displayPair: "WOMBAT-USD",
+        direction: "long",
+        status: "planned",
+        flags: {},
+      })
+      .returning();
+    try {
+      expect((await allRows({ q: "wombat" })).rows.map((r) => r.id)).toEqual([t.id]);
+      expect((await allRows({ q: "wombat lesson" })).total).toBe(0);
+    } finally {
+      await db.delete(s.trades).where(eq(s.trades.id, t.id));
+    }
   });
 
   test("invalid params are ignored rather than erroring", async () => {
@@ -170,7 +318,13 @@ describe("missing context (weekly reflection)", () => {
       const closedInWeek = await allRows({ tab: "closed", from: w.monday, to: w.sunday, dateBy: "exit" });
       expect(counts.total).toBe(closedInWeek.total);
       for (const kind of MISSING_KINDS) {
-        const r = await allRows({ tab: "closed", from: w.monday, to: w.sunday, dateBy: "exit", missing: kind });
+        const r = await allRows({
+          tab: "closed",
+          from: w.monday,
+          to: w.sunday,
+          dateBy: "exit",
+          missing: kind,
+        });
         expect({ kind, n: r.total }).toEqual({ kind, n: counts[kind] });
         checked += counts[kind];
       }
@@ -199,7 +353,9 @@ describe("analytics query", () => {
     expect(rows.length).toBe(closed.total);
     const links = await db.select().from(s.tradeVocab).where(eq(s.tradeVocab.kind, "confluence"));
     const live = new Set(rows.map((r) => r.id));
-    expect(rows.reduce((a, r) => a + r.confluences.length, 0)).toBe(links.filter((l) => live.has(l.tradeId)).length);
+    expect(rows.reduce((a, r) => a + r.confluences.length, 0)).toBe(
+      links.filter((l) => live.has(l.tradeId)).length,
+    );
     expect(rows.some((r) => r.grade && r.strategy && r.htf.length)).toBe(true);
     expect(rows.every((r, i) => i === 0 || r.exitTime >= rows[i - 1].exitTime)).toBe(true);
   });
@@ -227,23 +383,41 @@ describe("mutations", () => {
     const planned = await list({ tab: "planned" });
     expect(planned.rows.map((r) => r.id)).toContain(newId);
     const copy = planned.rows.find((r) => r.id === newId)!;
-    expect(copy).toMatchObject({ source: "manual", status: "planned", coin: src.coin, direction: src.direction, stopLoss: src.stopLoss });
+    expect(copy).toMatchObject({
+      source: "manual",
+      status: "planned",
+      coin: src.coin,
+      direction: src.direction,
+      stopLoss: src.stopLoss,
+    });
     expect(copy.grade).toBeNull(); // review fields are not copied
     expect(copy.netPnl).toBeNull();
     const journal = await db.query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, newId) });
     expect(journal?.rationale).toBeNull();
     expect(journal?.manualEntry).toBe(src.avgEntry);
-    const kinds = (await db.select().from(s.tradeVocab).where(eq(s.tradeVocab.tradeId, newId))).map((v) => v.kind);
+    const kinds = (await db.select().from(s.tradeVocab).where(eq(s.tradeVocab.tradeId, newId))).map(
+      (v) => v.kind,
+    );
     expect(kinds.every((k) => ["confluence", "sl_reason", "tp_reason"].includes(k))).toBe(true);
     expect(await duplicateAsPlanned(db, "other-account", src.id)).toBeNull();
   });
 
   test("notes are searchable and paginated", async () => {
     const db = getDb();
-    await createNote(db, accountId, { title: "Weekly review", body: "Too many reactive entries in Asia.", date: END });
-    await createNote(db, accountId, { title: null, body: "FOMC next week, size down.", date: END - 86_400_000 });
+    await createNote(db, accountId, {
+      title: "Weekly review",
+      body: "Too many reactive entries in Asia.",
+      date: END,
+    });
+    await createNote(db, accountId, {
+      title: null,
+      body: "FOMC next week, size down.",
+      date: END - 86_400_000,
+    });
     expect((await listNotes(db, accountId, { page: 1 })).total).toBe(2);
     const hit = await listNotes(db, accountId, { q: "fomc", page: 1 });
+    // every term must be in the note (title or body); unknown terms rule it out
+    expect((await listNotes(db, accountId, { q: "fomc zzzqqq", page: 1 })).total).toBe(0);
     expect(hit.rows.map((r) => r.body)).toEqual(["FOMC next week, size down."]);
   });
 });

@@ -1,0 +1,1 @@
+CREATE INDEX `stop_moves_trade_idx` ON `stop_moves` (`trade_id`);

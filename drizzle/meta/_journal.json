@@ -50,6 +50,13 @@
       "when": 1794882390157,
       "tag": "0006_wallet_backfill_flags",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794975228999,
+      "tag": "0007_stop_moves_trade_idx",
+      "breakpoints": true
     }
   ]
 }

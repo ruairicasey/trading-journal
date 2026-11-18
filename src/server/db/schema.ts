@@ -11,15 +11,7 @@
  * booleans as integer {mode:"boolean"}, JSON as text {mode:"json"}.
  */
 import { sql } from "drizzle-orm";
-import {
-  index,
-  integer,
-  primaryKey,
-  real,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { nanoid } from "nanoid";
 
 const id = () =>
@@ -244,7 +236,10 @@ export const orders = sqliteTable(
     endedAt: integer("ended_at"),
     raw: text("raw", { mode: "json" }).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.walletId, t.oid] }), index("orders_wallet_coin_placed_idx").on(t.walletId, t.coin, t.placedAt)],
+  (t) => [
+    primaryKey({ columns: [t.walletId, t.oid] }),
+    index("orders_wallet_coin_placed_idx").on(t.walletId, t.coin, t.placedAt),
+  ],
 );
 
 // ─── [X] ledger_events: deposits, withdrawals, transfers, vault flows (never deleted) ─────
@@ -265,7 +260,10 @@ export const ledgerEvents = sqliteTable(
     /** signed effect on the trading collateral, USD */
     usd: real("usd").notNull(),
   },
-  (t) => [primaryKey({ columns: [t.walletId, t.uid] }), index("ledger_wallet_time_idx").on(t.walletId, t.time)],
+  (t) => [
+    primaryKey({ columns: [t.walletId, t.uid] }),
+    index("ledger_wallet_time_idx").on(t.walletId, t.time),
+  ],
 );
 
 // ─── trades ([X] for source=hyperliquid; [U] for source=manual) ─────────────────────
@@ -451,18 +449,23 @@ export const tradePartials = sqliteTable("trade_partials", {
   sort: integer("sort").notNull().default(0),
 });
 
-export const stopMoves = sqliteTable("stop_moves", {
-  id: id(),
-  tradeId: text("trade_id")
-    .notNull()
-    .references(() => trades.id),
-  time: integer("time").notNull(),
-  price: real("price").notNull(),
-  note: text("note"),
-  /** "auto" rows mirror your exchange stop orders and are rebuilt by sync; "user" rows are yours */
-  source: text("source", { enum: ORDER_PROTECTION_SOURCES }).notNull().default("user"),
-  oid: integer("oid"),
-});
+export const stopMoves = sqliteTable(
+  "stop_moves",
+  {
+    id: id(),
+    tradeId: text("trade_id")
+      .notNull()
+      .references(() => trades.id),
+    time: integer("time").notNull(),
+    price: real("price").notNull(),
+    note: text("note"),
+    /** "auto" rows mirror your exchange stop orders and are rebuilt by sync; "user" rows are yours */
+    source: text("source", { enum: ORDER_PROTECTION_SOURCES }).notNull().default("user"),
+    oid: integer("oid"),
+  },
+  // per-trade lookups (analytics, search) without scanning every move
+  (t) => [index("stop_moves_trade_idx").on(t.tradeId)],
+);
 
 export const notes = sqliteTable(
   "notes",

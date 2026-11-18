@@ -27,12 +27,16 @@ function parseCsv(text: string): string[][] {
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (q) {
-      if (c === '"' && text[i + 1] === '"') ((cell += '"'), i++);
-      else if (c === '"') q = false;
+      if (c === '"' && text[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (c === '"') q = false;
       else cell += c;
     } else if (c === '"') q = true;
-    else if (c === ",") (row.push(cell), (cell = ""));
-    else if (c === "\r" && text[i + 1] === "\n") {
+    else if (c === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (c === "\r" && text[i + 1] === "\n") {
       row.push(cell);
       rows.push(row);
       row = [];

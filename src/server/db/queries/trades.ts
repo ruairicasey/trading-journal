@@ -8,6 +8,7 @@ import { BE_MIN_USD, BE_NOTIONAL_FRACTION } from "../../../lib/outcome";
 import { MISSING_KINDS, type MissingKind } from "../../../lib/missing";
 import { dayBoundsLocal, periodRange } from "../../../lib/periods";
 import { PAGE_SIZE, type TradeFilters } from "../../trades/filters";
+import { parseSearch } from "../../../lib/search";
 import type { DB } from "../client";
 import * as s from "../schema";
 
@@ -25,6 +26,29 @@ const band = sql`max(${sql.raw(String(BE_MIN_USD))}, abs(coalesce(${t.notionalUs
 
 const likePattern = (q: string) => `%${q.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 const like = (col: SQLWrapper, p: string) => sql`lower(coalesce(${col}, '')) like ${p} escape '\\'`;
+
+/** One search term against every text a trade carries: pair, journal notes and reflection, strategy, session, tags,
+ * every linked vocab label (confluences, reasons, mistakes, checklist), exit reason and emotions, screenshot captions
+ * and stop-move notes. Case folding is SQLite's (ASCII only: "über" won't find "Über"). */
+function tradeTextMatch(p: string): SQL {
+  return or(
+    like(t.displayPair, p),
+    like(t.coin, p),
+    like(sql`${j.rationale}`, p),
+    like(sql`${j.postNotes}`, p),
+    like(sql`${j.session}`, p),
+    like(sql`${strategy.label}`, p),
+    sql`exists (select 1 from json_each(${j.reflection}) je where lower(je.value) like ${p} escape '\\')`,
+    sql`exists (select 1 from ${s.tradeTags} tt join ${s.tags} g on g.id = tt.tag_id
+      where tt.trade_id = ${t.id} and lower(g.name) like ${p} escape '\\')`,
+    sql`exists (select 1 from ${s.tradeVocab} tv join ${s.vocabItems} vi on vi.id = tv.item_id
+      where tv.trade_id = ${t.id} and lower(vi.label) like ${p} escape '\\')`,
+    sql`exists (select 1 from ${s.vocabItems} vi where vi.id in (${j.exitReasonId}, ${j.emotionBeforeId}, ${j.emotionAfterId})
+      and lower(vi.label) like ${p} escape '\\')`,
+    sql`exists (select 1 from ${s.screenshots} sc where sc.trade_id = ${t.id} and lower(coalesce(sc.caption, '')) like ${p} escape '\\')`,
+    sql`exists (select 1 from ${s.stopMoves} sm where sm.trade_id = ${t.id} and lower(coalesce(sm.note, '')) like ${p} escape '\\')`,
+  )!;
+}
 
 const tagNames = sql<string | null>`(select group_concat(g.name, ',') from ${s.tradeTags} tt
   join ${s.tags} g on g.id = tt.tag_id where tt.trade_id = ${t.id})`;
@@ -101,20 +125,8 @@ function filterConditions(f: TradeFilters, tz: string, now: number): SQL[] {
   if (f.missing) c.push(eq(t.status, "closed"), missingCondition(f.missing));
   if (f.minR !== undefined) c.push(sql`${rExpr} >= ${f.minR}`);
   if (f.maxR !== undefined) c.push(sql`${rExpr} <= ${f.maxR}`);
-  if (f.q) {
-    const p = likePattern(f.q);
-    c.push(
-      or(
-        like(t.displayPair, p),
-        like(t.coin, p),
-        like(sql`${j.rationale}`, p),
-        like(sql`${j.postNotes}`, p),
-        like(sql`${strategy.label}`, p),
-        sql`exists (select 1 from ${s.tradeTags} tt join ${s.tags} g on g.id = tt.tag_id
-          where tt.trade_id = ${t.id} and lower(g.name) like ${p} escape '\\')`,
-      )!,
-    );
-  }
+  // full-text: every term must appear in some field (see src/lib/search.ts)
+  for (const term of parseSearch(f.q)) c.push(tradeTextMatch(likePattern(term)));
   return c;
 }
 
@@ -160,6 +172,8 @@ export async function listTrades(db: DB, accountId: string, f: TradeFilters, opt
         entryTimeframe: j.entryTimeframe,
         timeframeClass: j.timeframeClass,
         rationale: j.rationale,
+        postNotes: j.postNotes,
+        reflection: j.reflection,
         manualEntry: j.manualEntry,
         strategyLabel: strategy.label,
         tags: tagNames,
@@ -222,8 +236,8 @@ export async function matchingTradeIds(db: DB, accountId: string, f: TradeFilter
 export async function listNotes(db: DB, accountId: string, f: Pick<TradeFilters, "q" | "page">) {
   const n = s.notes;
   const c: SQL[] = [or(eq(n.accountId, accountId), isNull(n.accountId))!];
-  if (f.q) {
-    const p = likePattern(f.q);
+  for (const term of parseSearch(f.q)) {
+    const p = likePattern(term);
     c.push(or(like(sql`${n.title}`, p), like(sql`${n.body}`, p))!);
   }
   const page = f.page ?? 1;

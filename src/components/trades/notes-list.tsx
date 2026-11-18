@@ -1,5 +1,8 @@
 "use client";
 
+import { snippet } from "@/lib/search";
+import { Highlight } from "@/components/trades/trade-list";
+
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { NotebookPen, Pencil, Plus, Trash2 } from "lucide-react";
@@ -25,7 +28,7 @@ export function AddNoteButton() {
   );
 }
 
-export function NotesList({ notes, tz }: { notes: Note[]; tz: string }) {
+export function NotesList({ notes, tz, terms = [] }: { notes: Note[]; tz: string; terms?: string[] }) {
   const [editing, setEditing] = useState<Note | null>(null);
   const [pending, start] = useTransition();
   if (!notes.length) return null;
@@ -40,10 +43,25 @@ export function NotesList({ notes, tz }: { notes: Note[]; tz: string }) {
                 <span className="truncate text-sm font-medium">{n.title || "Untitled note"}</span>
                 <span className="text-muted-foreground shrink-0 text-xs">{fmtDateTime(n.date, tz)}</span>
               </div>
-              <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-line">{n.body}</p>
+              {(() => {
+                const m = terms.length ? snippet(n.body, terms) : null;
+                return m ? (
+                  <p className="text-muted-foreground line-clamp-2 text-xs" data-testid="note-match">
+                    <Highlight segs={m} />
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-line">{n.body}</p>
+                );
+              })()}
             </div>
             <div className="flex shrink-0 items-start opacity-60 group-hover:opacity-100">
-              <Button variant="ghost" size="icon" className="size-7" aria-label="Edit note" onClick={() => setEditing(n)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                aria-label="Edit note"
+                onClick={() => setEditing(n)}
+              >
                 <Pencil className="size-3.5" />
               </Button>
               <Button
@@ -113,7 +131,12 @@ export function NoteDialog({
           onSubmit={(e) => {
             e.preventDefault();
             start(async () => {
-              await saveNoteAction({ id: note?.id, title: title || null, body, date: new Date(when).getTime() });
+              await saveNoteAction({
+                id: note?.id,
+                title: title || null,
+                body,
+                date: new Date(when).getTime(),
+              });
               toast.success(note ? "Note saved" : "Note added");
               onOpenChange(false);
               if (!note) {
@@ -125,7 +148,12 @@ export function NoteDialog({
         >
           <div className="grid gap-1.5">
             <Label className="text-muted-foreground text-xs">Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Weekly review, market notes…" maxLength={200} />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Weekly review, market notes…"
+              maxLength={200}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label className="text-muted-foreground text-xs">Date</Label>
@@ -133,7 +161,13 @@ export function NoteDialog({
           </div>
           <div className="grid gap-1.5">
             <Label className="text-muted-foreground text-xs">Note</Label>
-            <Textarea aria-label="Note" value={body} onChange={(e) => setBody(e.target.value)} rows={draft ? 14 : 8} required />
+            <Textarea
+              aria-label="Note"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={draft ? 14 : 8}
+              required
+            />
           </div>
         </form>
         <DialogFooter>

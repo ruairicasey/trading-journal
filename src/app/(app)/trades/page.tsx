@@ -8,6 +8,7 @@ import { TradeList } from "@/components/trades/trade-list";
 import { TradesToolbar } from "@/components/trades/trades-toolbar";
 import { SavedFilters } from "@/components/trades/saved-filters";
 import { listSavedFilters, pickSaved } from "@/server/trades/saved-filters";
+import { parseSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { PERIOD_LABELS } from "@/lib/periods";
 import { getConfig } from "@/server/config";
@@ -150,7 +151,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
 
       {isNotes ? (
         notes!.rows.length ? (
-          <NotesList notes={notes!.rows} tz={tz} />
+          <NotesList notes={notes!.rows} tz={tz} terms={parseSearch(filters.q)} />
         ) : (
           <EmptyState
             icon={filters.q ? SearchX : ListOrdered}
@@ -165,6 +166,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           tz={tz}
           walletLabels={wallets.length > 1 ? Object.fromEntries(wallets.map((w) => [w.id, w.label])) : undefined}
           bulk={{ total: trades.total, params, strategies: options.strategies }}
+          terms={parseSearch(filters.q)}
         />
       ) : counts.all === 0 && !filters.q && pills.length === 0 ? (
         <EmptyState
