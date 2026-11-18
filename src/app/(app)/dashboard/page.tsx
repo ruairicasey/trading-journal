@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { TZDate } from "@date-fns/tz";
 import { DashboardControls } from "@/components/dashboard/controls";
@@ -14,6 +15,9 @@ import { drawdownStats, sliceUnderwater, underwaterSeries } from "@/lib/drawdown
 import { weekOf, weekScore } from "@/lib/weekly";
 import { DrawdownCard } from "@/components/dashboard/drawdown-card";
 import { WeeklyCard } from "@/components/dashboard/weekly-card";
+import { InsightsList } from "@/components/analytics/insights-list";
+import { insights } from "@/lib/analytics/insights";
+import { analyticsTrades } from "@/server/db/queries/analytics";
 import { missingCounts } from "@/server/db/queries/trades";
 import { weeklyNote } from "@/server/trades/mutations";
 import { INCLUDE_FUNDING_KEY } from "@/server/funding/attribute";
@@ -68,7 +72,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // the starting balance is the whole account's: one wallet on its own starts from $0 (realised P&L only)
   const startBal = walletId ? 0 : active.startingBalance;
   const db = getDb();
-  const [all, open, bal] = await Promise.all([closedTrades(db, active.id, walletId), openTrades(db, active.id, walletId), balanceInputs(db, active.id, walletId)]);
+  const [all, open, bal, rich] = await Promise.all([
+    closedTrades(db, active.id, walletId),
+    openTrades(db, active.id, walletId),
+    balanceInputs(db, active.id, walletId),
+    analyticsTrades(db, active.id, walletId, { light: true }),
+  ]);
   if (all.length === 0 && open.length === 0) {
     return (
       <div className="space-y-4">
@@ -111,6 +120,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     score = weekScore(all, week, tz);
   }
   const [missing, note] = await Promise.all([missingCounts(db, active.id, week.start, week.end, walletId), weeklyNote(db, active.id, week.start, week.end)]);
+  const leaks = insights(
+    rich.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end)),
+    rich,
+    tz,
+  ).list.slice(0, 3);
 
   const recent = [...all].sort((a, b) => b.exitTime - a.exitTime).slice(0, 7);
   const dateFmt = new Intl.DateTimeFormat("en-AU", { timeZone: tz, day: "numeric", month: "short", year: "numeric" });
@@ -126,6 +140,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <OpenTradesBanner trades={open} demo={getConfig().isDemo} />
 
       <KpiCard k={k} unit={unit} periodLabel={periodLabel} sinceLabel={k.since ? dateFmt.format(k.since) : null} fundingInNet={fundingInNet} />
+
+      {leaks.length > 0 && (
+        <section className="rounded-lg border p-4" aria-label="Top leaks" data-testid="leaks-card">
+          <header className="mb-2 flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-medium">
+              Top leaks · {periodLabel}
+              {unit === "r" && <span className="text-muted-foreground ml-2 text-xs font-normal">(in $; total R on the Insights page)</span>}
+            </h2>
+            <Link href={dashHref({ ...params, month: undefined, week: undefined }, { section: "insights" }, "/analytics", "all")} className="text-xs text-sky-400 hover:underline">
+              All insights →
+            </Link>
+          </header>
+          <InsightsList items={leaks} tz={tz} compact />
+        </section>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">

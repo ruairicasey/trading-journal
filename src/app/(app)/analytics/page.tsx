@@ -9,6 +9,8 @@ import { setupBreakdowns, SETUP_WIDGETS } from "@/lib/analytics/setup";
 import { TIMING_WIDGETS, timingBreakdowns } from "@/lib/analytics/timing";
 import { RISK_WIDGETS, riskBreakdowns } from "@/lib/analytics/risk";
 import { BEHAVIOUR_WIDGETS, behaviourBreakdowns, dailySeries, rolling, streaks } from "@/lib/analytics/behaviour";
+import { InsightsList } from "@/components/analytics/insights-list";
+import { insights, INSIGHT_RULES } from "@/lib/analytics/insights";
 import { DailyWidget, RollingWidget, StreaksWidget } from "@/components/analytics/behaviour-widgets";
 import { localDateKey } from "@/lib/periods";
 import { fmtUsd } from "@/lib/format";
@@ -30,6 +32,7 @@ const SECTIONS = [
   { id: "timing", label: "Timing" },
   { id: "risk", label: "Risk & execution" },
   { id: "behaviour", label: "Behaviour" },
+  { id: "insights", label: "Insights" },
 ] as const;
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -47,7 +50,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const period = custom ? "custom" : (PERIODS as readonly string[]).includes(rawPeriod) ? rawPeriod : "all";
   const unit = one(sp.unit) === "r" ? "r" : "usd";
   const rawSection = one(sp.section);
-  const section = rawSection === "timing" || rawSection === "risk" || rawSection === "behaviour" ? rawSection : "setup";
+  const section = rawSection === "timing" || rawSection === "risk" || rawSection === "behaviour" || rawSection === "insights" ? rawSection : "setup";
   const params: DashParams = {
     period,
     from: custom ? from : undefined,
@@ -98,6 +101,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <span className="text-foreground tabular-nums">{hours(tb.holdLoss)}</span>
       </span>
     );
+  } else if (section === "insights") {
+    widgets = [];
+    data = {};
   } else if (section === "behaviour") {
     widgets = BEHAVIOUR_WIDGETS;
     const inPeriod = (t: (typeof all)[number]) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end);
@@ -159,7 +165,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <h1 className="text-lg font-semibold">Analytics</h1>
         <div className="flex flex-wrap items-center gap-2">
           <DashboardControls params={params} base="/analytics" defaultPeriod="all" />
-          <CustomizeWidgets widgets={widgets} hidden={hidden} />
+          {section !== "insights" && <CustomizeWidgets widgets={widgets} hidden={hidden} />}
         </div>
       </div>
 
@@ -186,10 +192,13 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       </nav>
 
       <p className="text-muted-foreground text-xs" data-testid="analytics-summary">
-        {trades.length} closed trade{trades.length === 1 ? "" : "s"} · {periodLabel} · by exit time{section === "timing" ? ` · day, hour and session by entry time (${tz})` : ""} · bars show {unit === "r" ? "average R (trades with a stop)" : "net P&L"}
+        {trades.length} closed trade{trades.length === 1 ? "" : "s"} · {periodLabel} · by exit time{section === "timing" ? ` · day, hour and session by entry time (${tz})` : ""}
+        {section === "insights" ? " · ranked by net P&L, with total R alongside" : ` · bars show ${unit === "r" ? "average R (trades with a stop)" : "net P&L"}`}
       </p>
 
-      {trades.length === 0 ? (
+      {section === "insights" && trades.length > 0 ? (
+        <InsightsSection list={insights(trades, all, tz).list} tz={tz} />
+      ) : trades.length === 0 ? (
         <EmptyState icon={BarChart3} title="No closed trades in this period" body="Pick a longer period, or sync your wallet." />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -203,6 +212,34 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           {visible.length === 0 && <p className="text-muted-foreground text-sm">All widgets are hidden. Use “Widgets” to show them again.</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+function InsightsSection({ list, tz }: { list: ReturnType<typeof insights>["list"]; tz: string }) {
+  return (
+    <div className="grid gap-3">
+      <p className="text-muted-foreground text-xs">
+        Patterns that lost money in this period, worst first ({INSIGHT_RULES.length} rules checked; 3+ trades each). A trade can match several, so the
+        amounts overlap and don&apos;t add up to your total.
+      </p>
+      {list.length ? (
+        <InsightsList items={list} tz={tz} />
+      ) : (
+        <p className="rounded-lg border p-4 text-sm" data-testid="insights-none">
+          No losing patterns found in this period.
+        </p>
+      )}
+      <details className="text-muted-foreground text-xs">
+        <summary className="cursor-pointer">The rules</summary>
+        <ul className="mt-1 grid gap-0.5">
+          {INSIGHT_RULES.map((r) => (
+            <li key={r.id}>
+              <span className="text-foreground">{r.title}:</span> {r.rule}
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }

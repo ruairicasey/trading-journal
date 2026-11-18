@@ -48,6 +48,6 @@ When you stop, end with the question as the last line, so the push notification 
 
 ## Commands
 - Checks: `npm run lint` · `npm run typecheck` · `npm test` · `npm run test:e2e` · `npm run build`
-- Probes: `npm run debug:orders` · `npm run debug:r` · `npm run debug:ledger` (add `-- --remote` for production) · `npm run verify:sync`
+- Probes: `npm run debug:orders` · `npm run debug:r` · `npm run debug:ledger` · `npm run debug:insights` (add `-- --remote` for production) · `npm run verify:sync`
 - Backup: `npm run backup -- --remote`
 - Worker: `cd workers/sync-cron && npm run deploy`

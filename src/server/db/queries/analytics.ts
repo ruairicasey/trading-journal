@@ -10,8 +10,17 @@ const t = s.trades;
 const j = s.tradeJournal;
 const strategy = alias(s.vocabItems, "strategy");
 
-/** Closed, live trades with the journal fields the analytics page groups by (computed in JS). */
-export async function analyticsTrades(db: DB, accountId: string, walletId: string | null = null): Promise<AnalyticsTrade[]> {
+/**
+ * Closed, live trades with the journal fields the analytics page groups by (computed in JS).
+ * `light` (the dashboard's insights) skips the confluence/reason links and the exit-fill join: those trades come back
+ * with empty links and exitBy "manual", so don't use them for the Setup or Risk sections.
+ */
+export async function analyticsTrades(
+  db: DB,
+  accountId: string,
+  walletId: string | null = null,
+  opts: { light?: boolean } = {},
+): Promise<AnalyticsTrade[]> {
   const rows = await db
     .select({
       id: t.id,
@@ -59,36 +68,68 @@ export async function analyticsTrades(db: DB, accountId: string, walletId: strin
 
   const ids = rows.map((r) => r.id);
   type Item = { id: string; label: string };
-  const linked = { confluence: new Map<string, Item[]>(), sl_reason: new Map<string, Item[]>(), tp_reason: new Map<string, Item[]>() };
+  const linked = {
+    confluence: new Map<string, Item[]>(),
+    sl_reason: new Map<string, Item[]>(),
+    tp_reason: new Map<string, Item[]>(),
+  };
   // final exit leg per trade, with the order behind it (if it was one of your trigger orders)
   const lastExit = new Map<string, { time: number; orderType: string | null; isTrigger: boolean | null }>();
   const moves = new Map<string, { id: string; time: number; price: number }[]>();
   for (let i = 0; i < ids.length; i += 400) {
     const chunk = ids.slice(i, i + 400);
-    const links = await db
-      .select({ tradeId: s.tradeVocab.tradeId, kind: s.tradeVocab.kind, id: s.vocabItems.id, label: s.vocabItems.label })
-      .from(s.tradeVocab)
-      .innerJoin(s.vocabItems, eq(s.vocabItems.id, s.tradeVocab.itemId))
-      .where(and(inArray(s.tradeVocab.tradeId, chunk), inArray(s.tradeVocab.kind, ["confluence", "sl_reason", "tp_reason"])));
+    const links = opts.light
+      ? []
+      : await db
+          .select({
+            tradeId: s.tradeVocab.tradeId,
+            kind: s.tradeVocab.kind,
+            id: s.vocabItems.id,
+            label: s.vocabItems.label,
+          })
+          .from(s.tradeVocab)
+          .innerJoin(s.vocabItems, eq(s.vocabItems.id, s.tradeVocab.itemId))
+          .where(
+            and(
+              inArray(s.tradeVocab.tradeId, chunk),
+              inArray(s.tradeVocab.kind, ["confluence", "sl_reason", "tp_reason"]),
+            ),
+          );
     for (const l of links) {
       const m = linked[l.kind as keyof typeof linked];
       m.set(l.tradeId, [...(m.get(l.tradeId) ?? []), { id: l.id, label: l.label }]);
     }
-    const exits = await db
-      .select({ tradeId: s.tradeFills.tradeId, time: s.tradeFills.time, orderType: s.orders.orderType, isTrigger: s.orders.isTrigger })
-      .from(s.tradeFills)
-      .innerJoin(s.fills, and(eq(s.fills.walletId, s.tradeFills.walletId), eq(s.fills.tid, s.tradeFills.tid)))
-      .leftJoin(s.orders, and(eq(s.orders.walletId, s.fills.walletId), eq(s.orders.oid, s.fills.oid)))
-      .where(and(inArray(s.tradeFills.tradeId, chunk), eq(s.tradeFills.role, "exit")));
+    const exits = opts.light
+      ? []
+      : await db
+          .select({
+            tradeId: s.tradeFills.tradeId,
+            time: s.tradeFills.time,
+            orderType: s.orders.orderType,
+            isTrigger: s.orders.isTrigger,
+          })
+          .from(s.tradeFills)
+          .innerJoin(
+            s.fills,
+            and(eq(s.fills.walletId, s.tradeFills.walletId), eq(s.fills.tid, s.tradeFills.tid)),
+          )
+          .leftJoin(s.orders, and(eq(s.orders.walletId, s.fills.walletId), eq(s.orders.oid, s.fills.oid)))
+          .where(and(inArray(s.tradeFills.tradeId, chunk), eq(s.tradeFills.role, "exit")));
     for (const m of await db
-      .select({ id: s.stopMoves.id, tradeId: s.stopMoves.tradeId, time: s.stopMoves.time, price: s.stopMoves.price })
+      .select({
+        id: s.stopMoves.id,
+        tradeId: s.stopMoves.tradeId,
+        time: s.stopMoves.time,
+        price: s.stopMoves.price,
+      })
       .from(s.stopMoves)
       .where(inArray(s.stopMoves.tradeId, chunk))
       .orderBy(asc(s.stopMoves.time), asc(s.stopMoves.id)))
       moves.set(m.tradeId, [...(moves.get(m.tradeId) ?? []), { id: m.id, time: m.time, price: m.price }]);
     for (const e of exits) {
       const cur = lastExit.get(e.tradeId);
-      if (!cur || e.time >= cur.time) lastExit.set(e.tradeId, { time: e.time, orderType: e.orderType, isTrigger: e.isTrigger });
+      if (!cur || e.time >= cur.time)
+        lastExit.set(e.tradeId, { time: e.time, orderType: e.orderType, isTrigger: e.isTrigger });
     }
   }
   const exitBy = (id: string, liquidated: boolean | undefined): AnalyticsTrade["exitBy"] => {
@@ -109,6 +150,9 @@ export async function analyticsTrades(db: DB, accountId: string, walletId: strin
     slReasons: linked.sl_reason.get(r.id) ?? [],
     tpReasons: linked.tp_reason.get(r.id) ?? [],
     exitBy: exitBy(r.id, flags?.liquidated),
-    stopClass: stopLoss != null && avgEntry ? classifyStopMoves(r.direction, avgEntry, stopLoss, moves.get(r.id) ?? []).cls : null,
+    stopClass:
+      stopLoss != null && avgEntry
+        ? classifyStopMoves(r.direction, avgEntry, stopLoss, moves.get(r.id) ?? []).cls
+        : null,
   }));
 }
