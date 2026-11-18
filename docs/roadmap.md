@@ -20,7 +20,9 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   renamed, retyped and moved to another account with their trades.
 - Manual trades for non-Hyperliquid accounts: a prop-firm account on cTrader, via the cTrader Open API plus CSV import
   of cTrader's history export.
-- Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import.
+- ~~Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import~~ **done**: select rows,
+  a page or every matching trade, then add a tag, set grade or strategy, or delete with Undo; save the current filters
+  as a chip; paste a `tradingview.com/x/…` link to store the chart as a screenshot.
 - Importer for Hyperliquid's trade-history CSV (the API only serves the 10,000 most recent fills).
 - CSV export; full-text search.
 
