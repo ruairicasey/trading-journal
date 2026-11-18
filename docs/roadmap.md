@@ -28,6 +28,7 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
 
 ## Phase 3: insights and reports
 
-- Rule-based insights (revenge trades, tilt, worst hour/day, missing stops…) ranked by $ impact.
+- ~~Rule-based insights (revenge trades, tilt, worst hour/day, missing stops…) ranked by $ impact~~ **done**: Analytics →
+  Insights and a Top leaks card on the dashboard; nine rules, judged on what you knew at entry; `npm run debug:insights`.
 - Discipline, review-coverage, compliance and mistake-cost scores.
 - Exportable reports (CSV/PDF).
