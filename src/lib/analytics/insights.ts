@@ -147,20 +147,11 @@ function worstBucket(period: AnalyticsTrade[], key: (t: AnalyticsTrade) => strin
 }
 
 /**
- * @param period trades exited in the selected period (what is judged)
- * @param context every closed trade (for sequences), a superset of `period`
+ * The sequence habits per trade in `period`, judged over `context` (all trades). Shared by Insights and Scores.
+ * Revenge and tilt look at the results you had SEEN when you entered: the exits at or before the entry time (≤ so
+ * a position flipped in the same millisecond counts), never the trade itself.
  */
-export function insights(
-  period: AnalyticsTrade[],
-  context: AnalyticsTrade[],
-  tz: string,
-): { list: Insight[]; checked: number } {
-  const all: Insight[] = [];
-  const add = (i: Insight | null) => i && all.push(i);
-  const pick = (fn: (t: AnalyticsTrade) => boolean) => period.filter(fn);
-
-  // Revenge and tilt look at the results you had SEEN when you entered: the exits at or before the entry time (≤ so
-  // a position flipped in the same millisecond counts), never the trade itself.
+export function habitFlags(period: AnalyticsTrade[], context: AnalyticsTrade[], tz: string) {
   const exits = [...context].sort((a, b) => a.exitTime - b.exitTime || a.id.localeCompare(b.id));
   const res = exits.map((x) => outcomeOf(x.netPnl, x.notionalUsd) ?? "be");
   // losses in a row after each exit (breakevens neither extend nor break a run; ties in the same ms go by id)
@@ -197,6 +188,39 @@ export function insights(
     if (lost && t.entryTime - ms < REVENGE_MS) revenge.add(t.id);
     if (lossRun[i] >= TILT_RUN) tilt.add(t.id);
   }
+  // nth trade of the entry day (local), over all trades
+  const byEntry = context
+    .filter((t) => t.entryTime !== null)
+    .sort((a, b) => a.entryTime! - b.entryTime! || a.id.localeCompare(b.id));
+  const nth = new Map<string, number>();
+  const perDay = new Map<string, number>();
+  for (const t of byEntry) {
+    const d = localDateKey(t.entryTime!, tz);
+    perDay.set(d, (perDay.get(d) ?? 0) + 1);
+    nth.set(t.id, perDay.get(d)!);
+  }
+  return {
+    revenge,
+    tilt,
+    nth,
+    overtrading: new Set(period.filter((t) => (nth.get(t.id) ?? 0) >= OVERTRADE_NTH).map((t) => t.id)),
+  };
+}
+
+/**
+ * @param period trades exited in the selected period (what is judged)
+ * @param context every closed trade (for sequences), a superset of `period`
+ */
+export function insights(
+  period: AnalyticsTrade[],
+  context: AnalyticsTrade[],
+  tz: string,
+): { list: Insight[]; checked: number } {
+  const all: Insight[] = [];
+  const add = (i: Insight | null) => i && all.push(i);
+  const pick = (fn: (t: AnalyticsTrade) => boolean) => period.filter(fn);
+
+  const { revenge, tilt, overtrading } = habitFlags(period, context, tz);
   add(
     summarise(
       "revenge",
@@ -216,23 +240,12 @@ export function insights(
     ),
   );
 
-  // nth trade of the entry day (local), over all trades
-  const byEntry = context
-    .filter((t) => t.entryTime !== null)
-    .sort((a, b) => a.entryTime! - b.entryTime! || a.id.localeCompare(b.id));
-  const nth = new Map<string, number>();
-  const perDay = new Map<string, number>();
-  for (const t of byEntry) {
-    const d = localDateKey(t.entryTime!, tz);
-    perDay.set(d, (perDay.get(d) ?? 0) + 1);
-    nth.set(t.id, perDay.get(d)!);
-  }
   add(
     summarise(
       "overtrading",
       `Your ${OVERTRADE_NTH}th or later entry of the day.`,
       `Cap yourself at ${OVERTRADE_NTH - 1} trades a day.`,
-      pick((t) => (nth.get(t.id) ?? 0) >= OVERTRADE_NTH),
+      pick((t) => overtrading.has(t.id)),
       period,
     ),
   );

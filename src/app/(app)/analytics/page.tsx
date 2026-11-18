@@ -11,6 +11,8 @@ import { RISK_WIDGETS, riskBreakdowns } from "@/lib/analytics/risk";
 import { BEHAVIOUR_WIDGETS, behaviourBreakdowns, dailySeries, rolling, streaks } from "@/lib/analytics/behaviour";
 import { InsightsList } from "@/components/analytics/insights-list";
 import { insights, INSIGHT_RULES } from "@/lib/analytics/insights";
+import { scores } from "@/lib/analytics/scores";
+import { ScoresCard } from "@/components/analytics/scores-card";
 import { DailyWidget, RollingWidget, StreaksWidget } from "@/components/analytics/behaviour-widgets";
 import { localDateKey } from "@/lib/periods";
 import { fmtUsd } from "@/lib/format";
@@ -197,7 +199,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       </p>
 
       {section === "insights" && trades.length > 0 ? (
-        <InsightsSection list={insights(trades, all, tz).list} tz={tz} />
+        <div className="grid gap-4">
+          <ScoresCard s={scores(trades, all, tz)} title={`Scores · ${periodLabel}`} />
+          <InsightsSection list={insights(trades, all, tz).list} tz={tz} />
+        </div>
       ) : trades.length === 0 ? (
         <EmptyState icon={BarChart3} title="No closed trades in this period" body="Pick a longer period, or sync your wallet." />
       ) : (

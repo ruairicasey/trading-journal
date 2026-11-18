@@ -23,6 +23,12 @@ export type AnalyticsTrade = ClosedTrade & {
   tpReasons: { id: string; label: string }[];
   /** what closed the final exit: your take-profit order, your stop order, a manual/limit exit, or liquidation */
   exitBy: "tp" | "stop" | "manual" | "liquidated";
+  /** review fields (src/lib/missing.ts): reviewed_at set, exit reason set, both emotions set */
+  reviewed: boolean;
+  hasExitReason: boolean;
+  hasEmotions: boolean;
+  /** mistakes you tagged */
+  mistakes: { id: string; label: string }[];
   /** what you did with the stop (see src/lib/stop-moves.ts); null without a stop loss */
   stopClass: StopClass | null;
 };

@@ -37,6 +37,10 @@ function tr(entry: number, exit: number, net: number, o: Partial<AnalyticsTrade>
     tpReasons: [],
     exitBy: "manual",
     stopClass: "never_moved",
+    reviewed: false,
+    hasExitReason: false,
+    hasEmotions: false,
+    mistakes: [],
     ...o,
   };
 }

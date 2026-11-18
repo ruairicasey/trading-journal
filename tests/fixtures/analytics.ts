@@ -34,6 +34,10 @@ export function atr(net: number, o: Partial<AnalyticsTrade> = {}): AnalyticsTrad
     slReasons: [],
     tpReasons: [],
     exitBy: "manual",
+    reviewed: false,
+    hasExitReason: false,
+    hasEmotions: false,
+    mistakes: [],
     ...o,
   };
 }

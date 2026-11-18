@@ -17,6 +17,8 @@ import { DrawdownCard } from "@/components/dashboard/drawdown-card";
 import { WeeklyCard } from "@/components/dashboard/weekly-card";
 import { InsightsList } from "@/components/analytics/insights-list";
 import { insights } from "@/lib/analytics/insights";
+import { scores } from "@/lib/analytics/scores";
+import { ScoresCard } from "@/components/analytics/scores-card";
 import { analyticsTrades } from "@/server/db/queries/analytics";
 import { missingCounts } from "@/server/db/queries/trades";
 import { weeklyNote } from "@/server/trades/mutations";
@@ -120,11 +122,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     score = weekScore(all, week, tz);
   }
   const [missing, note] = await Promise.all([missingCounts(db, active.id, week.start, week.end, walletId), weeklyNote(db, active.id, week.start, week.end)]);
-  const leaks = insights(
-    rich.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end)),
-    rich,
-    tz,
-  ).list.slice(0, 3);
+  const richInRange = rich.filter((t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end));
+  const leaks = insights(richInRange, rich, tz).list.slice(0, 3);
+  const sc = richInRange.length ? scores(richInRange, rich, tz) : null;
 
   const recent = [...all].sort((a, b) => b.exitTime - a.exitTime).slice(0, 7);
   const dateFmt = new Intl.DateTimeFormat("en-AU", { timeZone: tz, day: "numeric", month: "short", year: "numeric" });
@@ -140,6 +140,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <OpenTradesBanner trades={open} demo={getConfig().isDemo} />
 
       <KpiCard k={k} unit={unit} periodLabel={periodLabel} sinceLabel={k.since ? dateFmt.format(k.since) : null} fundingInNet={fundingInNet} />
+
+      {sc && <ScoresCard s={sc} title={`Scores · ${periodLabel}`} />}
 
       {leaks.length > 0 && (
         <section className="rounded-lg border p-4" aria-label="Top leaks" data-testid="leaks-card">

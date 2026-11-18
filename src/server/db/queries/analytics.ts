@@ -12,8 +12,8 @@ const strategy = alias(s.vocabItems, "strategy");
 
 /**
  * Closed, live trades with the journal fields the analytics page groups by (computed in JS).
- * `light` (the dashboard's insights) skips the confluence/reason links and the exit-fill join: those trades come back
- * with empty links and exitBy "manual", so don't use them for the Setup or Risk sections.
+ * `light` (the dashboard's insights and scores) loads only mistake links and skips the exit-fill join: those trades
+ * come back with empty confluences/reasons and exitBy "manual", so don't use them for the Setup or Risk sections.
  */
 export async function analyticsTrades(
   db: DB,
@@ -47,6 +47,10 @@ export async function analyticsTrades(
       entryRetests: j.entryRetests,
       rulesFollowed: j.rulesFollowed,
       processCompliant: j.processCompliant,
+      reviewedAt: j.reviewedAt,
+      exitReasonId: j.exitReasonId,
+      emotionBeforeId: j.emotionBeforeId,
+      emotionAfterId: j.emotionAfterId,
       stopLoss: j.stopLoss,
       avgEntry: t.avgEntry,
     })
@@ -72,29 +76,31 @@ export async function analyticsTrades(
     confluence: new Map<string, Item[]>(),
     sl_reason: new Map<string, Item[]>(),
     tp_reason: new Map<string, Item[]>(),
+    mistake: new Map<string, Item[]>(),
   };
   // final exit leg per trade, with the order behind it (if it was one of your trigger orders)
   const lastExit = new Map<string, { time: number; orderType: string | null; isTrigger: boolean | null }>();
   const moves = new Map<string, { id: string; time: number; price: number }[]>();
   for (let i = 0; i < ids.length; i += 400) {
     const chunk = ids.slice(i, i + 400);
-    const links = opts.light
-      ? []
-      : await db
-          .select({
-            tradeId: s.tradeVocab.tradeId,
-            kind: s.tradeVocab.kind,
-            id: s.vocabItems.id,
-            label: s.vocabItems.label,
-          })
-          .from(s.tradeVocab)
-          .innerJoin(s.vocabItems, eq(s.vocabItems.id, s.tradeVocab.itemId))
-          .where(
-            and(
-              inArray(s.tradeVocab.tradeId, chunk),
-              inArray(s.tradeVocab.kind, ["confluence", "sl_reason", "tp_reason"]),
-            ),
-          );
+    const links = await db
+      .select({
+        tradeId: s.tradeVocab.tradeId,
+        kind: s.tradeVocab.kind,
+        id: s.vocabItems.id,
+        label: s.vocabItems.label,
+      })
+      .from(s.tradeVocab)
+      .innerJoin(s.vocabItems, eq(s.vocabItems.id, s.tradeVocab.itemId))
+      .where(
+        and(
+          inArray(s.tradeVocab.tradeId, chunk),
+          inArray(
+            s.tradeVocab.kind,
+            opts.light ? ["mistake"] : ["confluence", "sl_reason", "tp_reason", "mistake"],
+          ),
+        ),
+      );
     for (const l of links) {
       const m = linked[l.kind as keyof typeof linked];
       m.set(l.tradeId, [...(m.get(l.tradeId) ?? []), { id: l.id, label: l.label }]);
@@ -138,21 +144,27 @@ export async function analyticsTrades(
     if (!e?.isTrigger || !e.orderType) return "manual";
     return e.orderType.toLowerCase().includes("take profit") ? "tp" : "stop";
   };
-  return rows.map(({ flags, stopLoss, avgEntry, ...r }) => ({
-    ...r,
-    netPnl: r.netPnl ?? 0,
-    fees: r.fees ?? 0,
-    exitTime: r.exitTime!,
-    r: r.r === null ? null : Number(r.r),
-    riskUsd: r.riskUsd === null ? null : Number(r.riskUsd),
-    htf: (r.htf ?? []) as string[],
-    confluences: linked.confluence.get(r.id) ?? [],
-    slReasons: linked.sl_reason.get(r.id) ?? [],
-    tpReasons: linked.tp_reason.get(r.id) ?? [],
-    exitBy: exitBy(r.id, flags?.liquidated),
-    stopClass:
-      stopLoss != null && avgEntry
-        ? classifyStopMoves(r.direction, avgEntry, stopLoss, moves.get(r.id) ?? []).cls
-        : null,
-  }));
+  return rows.map(
+    ({ flags, stopLoss, avgEntry, reviewedAt, exitReasonId, emotionBeforeId, emotionAfterId, ...r }) => ({
+      ...r,
+      reviewed: reviewedAt != null,
+      hasExitReason: exitReasonId != null,
+      hasEmotions: emotionBeforeId != null && emotionAfterId != null,
+      mistakes: linked.mistake.get(r.id) ?? [],
+      netPnl: r.netPnl ?? 0,
+      fees: r.fees ?? 0,
+      exitTime: r.exitTime!,
+      r: r.r === null ? null : Number(r.r),
+      riskUsd: r.riskUsd === null ? null : Number(r.riskUsd),
+      htf: (r.htf ?? []) as string[],
+      confluences: linked.confluence.get(r.id) ?? [],
+      slReasons: linked.sl_reason.get(r.id) ?? [],
+      tpReasons: linked.tp_reason.get(r.id) ?? [],
+      exitBy: exitBy(r.id, flags?.liquidated),
+      stopClass:
+        stopLoss != null && avgEntry
+          ? classifyStopMoves(r.direction, avgEntry, stopLoss, moves.get(r.id) ?? []).cls
+          : null,
+    }),
+  );
 }
