@@ -24,7 +24,9 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   a page or every matching trade, then add a tag, set grade or strategy, or delete with Undo; save the current filters
   as a chip; paste a `tradingview.com/x/…` link to store the chart as a screenshot.
 - Importer for Hyperliquid's trade-history CSV (the API only serves the 10,000 most recent fills).
-- CSV export; full-text search.
+- ~~CSV export; full-text search~~ **done**: CSV export lives on the Reports page; search matches every word across
+  pair, notes, reflection, tags, strategy, confluences, mistakes, reasons, emotions, captions and stop-move notes, with
+  highlighted snippets.
 
 ## Phase 3: insights and reports
 
