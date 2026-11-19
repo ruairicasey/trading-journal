@@ -24,7 +24,7 @@ test("Reports: totals match the dashboard, every table adds up, CSVs reconcile",
 
   const net = cents(await page.getByTestId("report-net").innerText());
   expect(net).toBe(dashNet);
-  const count = Number((await page.getByTestId("report-count").innerText()).match(/(\d+) \(/)![1]);
+  const count = Number((await page.getByTestId("report-count").innerText()).match(/(\d+)/)![1]);
   await expect(page.getByTestId("report-meta")).toContainText(`${count} closed trades`);
 
   // each breakdown's rows add up to the total, in trades and net

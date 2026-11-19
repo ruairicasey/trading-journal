@@ -59,7 +59,9 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   Every $ hint in the form now blurs in privacy mode.
   Cycle 5 Analytics **done**: underlined section tabs, widgets on hairline rules, plain risk and scores, insights as
   ruled rows with a leak bar scaled to the worst pattern (dashboard and Reports too); no sideways scroll on phones.
-  Next: cycle 6, Reports.
+  Cycle 6 Reports **done**: report title and meta, a ruled figures strip (one row in print), plain risk, scores and
+  leaks, tables on hairline rules; Print / Save as PDF still prints just the report on white.
+  Next: cycle 7, Settings and login.
 
 ## Phase 3: insights and reports
 
