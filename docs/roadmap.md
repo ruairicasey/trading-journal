@@ -57,7 +57,9 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   Cycle 4 trade detail **done**: header with pair, direction, status pill, source and the net figure; underlined
   Basic / Analysis / Notes tabs in a one-row sticky bar with Save; form sections on hairline rules; plain fills table.
   Every $ hint in the form now blurs in privacy mode.
-  Next: cycle 5, Analytics and Insights.
+  Cycle 5 Analytics **done**: underlined section tabs, widgets on hairline rules, plain risk and scores, insights as
+  ruled rows with a leak bar scaled to the worst pattern (dashboard and Reports too); no sideways scroll on phones.
+  Next: cycle 6, Reports.
 
 ## Phase 3: insights and reports
 

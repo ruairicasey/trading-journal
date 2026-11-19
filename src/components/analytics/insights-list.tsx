@@ -15,52 +15,58 @@ export function InsightsList({
   tz: string;
   compact?: boolean;
 }) {
+  // the bar compares each pattern's cost with the worst one
+  const max = Math.max(...items.map((i) => Math.abs(i.impact)), 0);
   return (
-    <ol className="grid gap-3" data-testid="insights">
-      {items.map((i, k) => (
+    <ol className="flex flex-col" data-testid="insights">
+      {items.map((i) => (
         <li
           key={i.id}
           data-testid="insight"
           data-insight={i.id}
-          className={cn("rounded-lg border", compact ? "px-3 py-2" : "p-4")}
+          className={cn("border-rule-faint flex flex-col gap-2 border-b", compact ? "py-3.5" : "py-5")}
         >
           <div className="flex items-baseline justify-between gap-3">
-            <div className="min-w-0">
-              <span className="text-muted-foreground mr-2 text-xs tabular-nums">{k + 1}.</span>
-              <span className="font-medium">{i.title}</span>
-              <span className="text-muted-foreground ml-2 text-xs tabular-nums" data-testid="insight-n">
+            <div className="text-15 min-w-0">
+              <span className="font-medium">{i.title}</span>{" "}
+              <span className="text-muted-foreground" data-testid="insight-n">
                 {i.n} trade{i.n === 1 ? "" : "s"}
               </span>
             </div>
             <span
-              className={cn("money shrink-0 font-semibold tabular-nums", pnlClass(i.impact))}
+              className={cn("money text-15 shrink-0 font-medium tabular-nums", pnlClass(i.impact))}
               data-testid="insight-impact"
             >
               {fmtSignedUsd(i.impact)}
             </span>
           </div>
+          <span className="bg-hover block h-1.5 overflow-hidden rounded-full" aria-hidden="true">
+            <span
+              className="bg-leak block h-full rounded-full"
+              style={{ width: `${max > 0 ? Math.max(2, Math.round((Math.abs(i.impact) / max) * 100)) : 0}%` }}
+            />
+          </span>
+          {compact && <p className="text-muted-foreground text-13">{i.detail}</p>}
           {!compact && (
             <>
-              <p className="text-muted-foreground mt-1 text-sm">{i.detail}</p>
-              <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+              <p className="text-muted-foreground text-sm">{i.detail}</p>
+              <dl className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
                 <Stat label="Win rate">{pct(i.winRate)}</Stat>
                 <Stat label="Avg trade">
                   <span className="money">{fmtSignedUsd(i.avg)}</span>
                 </Stat>
                 <Stat label="Other trades avg">
-                  <span className="money">
-                    {i.avgOthers === null ? "—" : fmtSignedUsd(i.avgOthers)}
-                  </span>
+                  <span className="money">{i.avgOthers === null ? "—" : fmtSignedUsd(i.avgOthers)}</span>
                 </Stat>
                 <Stat label="Total R">
                   {i.totalR === null ? "—" : `${fmtR(i.totalR)} (${i.rCount} with a stop)`}
                 </Stat>
               </dl>
-              <p className="mt-2 text-sm">
+              <p className="text-sm">
                 <span className="text-muted-foreground">Try: </span>
                 {i.advice}
               </p>
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
                 <span className="text-muted-foreground">Worst:</span>
                 {i.worst.map((w) => (
                   <Link key={w.id} href={`/trades/${w.id}`} className="hover:underline">

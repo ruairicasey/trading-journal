@@ -261,10 +261,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const visible = widgets.filter((w) => !hidden.includes(w.id));
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">Analytics</h1>
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="mx-auto max-w-[1180px] space-y-7">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-22 font-semibold">Analytics</h1>
+        <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
           <DashboardControls
             params={params}
             base="/analytics"
@@ -275,7 +275,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
 
-      <nav aria-label="Analytics sections" className="flex flex-wrap gap-1 border-b">
+      <nav aria-label="Analytics sections" className="flex gap-6 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--rule)]">
         {SECTIONS.map((s) =>
           "soon" in s && s.soon ? (
             <span
@@ -296,10 +296,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
               )}
               aria-current={section === s.id ? "page" : undefined}
               className={cn(
-                "-mb-px border-b-2 px-3 py-1.5 text-sm",
+                "shrink-0 pb-3 text-sm",
                 section === s.id
-                  ? "border-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground border-transparent",
+                  ? "text-ink font-medium shadow-[inset_0_-2px_0_var(--ink)]"
+                  : "text-ink-2 hover:text-ink",
               )}
             >
               {s.label}
@@ -308,7 +308,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         )}
       </nav>
 
-      <p className="text-muted-foreground text-xs" data-testid="analytics-summary">
+      <p className="text-muted-foreground text-13" data-testid="analytics-summary">
         {trades.length} closed trade{trades.length === 1 ? "" : "s"}, {periodLabel}, by exit time
         {section === "timing" ? `, day, hour and session by entry time (${tz})` : ""}
         {section === "insights"
@@ -318,7 +318,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
       {risk && (
         <>
-          {trades.length > 0 && <RiskCard m={risk.metrics} title={`Risk-adjusted, ${periodLabel}`} />}
+          {trades.length > 0 && <RiskCard m={risk.metrics} title={`Risk-adjusted, ${periodLabel}`} plain />}
           {/* the current drawdown includes earlier history, so it shows even without exits in the period */}
           <DrawdownCard
             stats={risk.dd}
@@ -331,8 +331,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       )}
 
       {section === "insights" && trades.length > 0 ? (
-        <div className="grid gap-4">
-          <ScoresCard s={scores(trades, all, tz)} title={`Scores, ${periodLabel}`} />
+        <div className="grid gap-10">
+          <ScoresCard s={scores(trades, all, tz)} title={`Scores, ${periodLabel}`} plain wide />
           <InsightsSection list={insights(trades, all, tz).list} tz={tz} />
         </div>
       ) : trades.length === 0 ? (
@@ -342,7 +342,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           body="Pick a longer period, or sync your wallet."
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
           {visible.map((w) =>
             customWidgets[w.id] ? (
               <div key={w.id}>{customWidgets[w.id]}</div>
@@ -373,18 +373,19 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 function InsightsSection({ list, tz }: { list: ReturnType<typeof insights>["list"]; tz: string }) {
   return (
     <div className="grid gap-3">
-      <p className="text-muted-foreground text-xs">
+      <h2 className="text-17 font-semibold tracking-[-0.01em]">Where you lose the most</h2>
+      <p className="text-muted-foreground text-13">
         Patterns that lost money in this period, worst first ({INSIGHT_RULES.length} rules checked; 3+ trades
         each). A trade can match several, so the amounts overlap and don&apos;t add up to your total.
       </p>
       {list.length ? (
         <InsightsList items={list} tz={tz} />
       ) : (
-        <p className="rounded-lg border p-4 text-sm" data-testid="insights-none">
+        <p className="text-sm" data-testid="insights-none">
           No losing patterns found in this period.
         </p>
       )}
-      <details className="text-muted-foreground text-xs">
+      <details className="text-muted-foreground text-13">
         <summary className="cursor-pointer">The rules</summary>
         <ul className="mt-1 grid gap-0.5">
           {INSIGHT_RULES.map((r) => (

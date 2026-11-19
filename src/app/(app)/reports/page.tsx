@@ -72,7 +72,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     <div className="report-print mx-auto max-w-5xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2" data-print="hide">
         <h1 className="text-lg font-semibold">Reports</h1>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
           <DashboardControls
             params={range.params}
             base="/reports"

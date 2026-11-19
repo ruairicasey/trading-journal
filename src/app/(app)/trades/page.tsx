@@ -129,14 +129,14 @@ export default async function TradesPage({
         </div>
       </header>
 
-      <nav className="border-rule flex gap-6 overflow-x-auto border-b" aria-label="Trade tabs">
+      <nav className="flex gap-6 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--rule)]" aria-label="Trade tabs">
         {TABS.map((tab) => (
           <Link
             key={tab}
             href={tradesHref(filters, { tab })}
             aria-current={filters.tab === tab ? "page" : undefined}
             className={cn(
-              "-mb-px flex shrink-0 items-center gap-1.5 pb-3 text-sm",
+              "flex shrink-0 items-center gap-1.5 pb-3 text-sm",
               filters.tab === tab
                 ? "text-ink font-medium shadow-[inset_0_-2px_0_var(--ink)]"
                 : "text-ink-2 hover:text-ink",

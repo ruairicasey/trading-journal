@@ -38,11 +38,11 @@ export function BreakdownWidget({
   const fmt = (v: number | null) => (r ? fmtR(v) : fmtSignedUsd(v));
 
   return (
-    <section className="rounded-lg border p-4" aria-label={title} data-testid={`widget-${id}`}>
+    <section className="border-rule border-t pt-5" aria-label={title} data-testid={`widget-${id}`}>
       <header className="mb-3 flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-medium">{title}</h2>
-          <p className="text-muted-foreground text-xs">{description}</p>
+          <h2 className="text-17 font-semibold tracking-[-0.01em]">{title}</h2>
+          <p className="text-muted-foreground text-13 mt-0.5">{description}</p>
         </div>
         <div className="bg-muted/40 inline-flex shrink-0 rounded-md border p-0.5">
           <button

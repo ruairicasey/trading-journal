@@ -9,12 +9,23 @@ const show = (s: number | null) => (s === null ? "—" : String(Math.round(s)));
 const pct = (x: number, of: number) => (of ? `${Math.round((x / of) * 100)}%` : "—");
 
 /** Four tiles: discipline, review coverage, compliance (0–100) and mistake cost ($). */
-export function ScoresCard({ s, title, plain = false }: { s: Scores; title: string; plain?: boolean }) {
+export function ScoresCard({
+  s,
+  title,
+  plain = false,
+  wide = false,
+}: {
+  s: Scores;
+  title: string;
+  plain?: boolean;
+  /** plain but full width (Analytics): four columns on large screens */
+  wide?: boolean;
+}) {
   const c = s.discipline.checks;
   return (
     <section className={plain ? SECTION : CARD} aria-label="Scores" data-testid="scores">
       <h2 className={plain ? H2 : cn("mb-3", CARD_H2)}>{title}</h2>
-      <div className={cn("grid grid-cols-2 gap-4", !plain && "lg:grid-cols-4")}>
+      <div className={cn("grid grid-cols-2 gap-4", (!plain || wide) && "lg:grid-cols-4")}>
         <Tile
           id="discipline"
           label="Discipline"
