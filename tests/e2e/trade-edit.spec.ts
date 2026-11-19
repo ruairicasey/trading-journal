@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const saved = (page: Page) => expect(page.getByTestId("save-status")).toContainText("Saved", { timeout: 10_000 });
+const saved = (page: Page) =>
+  expect(page.getByTestId("save-status")).toContainText("Saved", { timeout: 10_000 });
 
 async function openClosedSyncedTrade(page: Page, index = 5) {
   await page.goto("/trades?tab=closed");
@@ -12,7 +13,9 @@ async function openClosedSyncedTrade(page: Page, index = 5) {
 }
 
 test.describe("Edit trade, Basic tab (demo data)", () => {
-  test("synced trade: exchange fields are locked, stop loss unlocks R, autosave persists", async ({ page }) => {
+  test("synced trade: exchange fields are locked, stop loss unlocks R, autosave persists", async ({
+    page,
+  }) => {
     await openClosedSyncedTrade(page);
     await expect(page.getByText(/Synced from Hyperliquid: pair, direction/)).toBeVisible();
     await expect(page.getByLabel("Entry price")).toHaveCount(0); // locked display, not an input
@@ -20,7 +23,7 @@ test.describe("Edit trade, Basic tab (demo data)", () => {
 
     const entryText = await page.locator("text=Entry").first().locator("xpath=..").innerText();
     const entry = Number(entryText.replace(/[^\d.]/g, ""));
-    const short = await page.getByText("SHORT", { exact: true }).first().isVisible();
+    const short = await page.locator(`[data-direction="short"]`).first().isVisible();
     const stop = short ? entry * 1.01 : entry * 0.99;
 
     // clear any seeded stop first, then set ours
@@ -44,7 +47,9 @@ test.describe("Edit trade, Basic tab (demo data)", () => {
     if (!(await page.getByRole("checkbox", { name: "Risk calculated" }).isVisible())) {
       await page.getByRole("button", { name: /More details/ }).click();
     }
-    await expect(page.getByRole("checkbox", { name: "Risk calculated" })).toBeChecked({ checked: !wasChecked });
+    await expect(page.getByRole("checkbox", { name: "Risk calculated" })).toBeChecked({
+      checked: !wasChecked,
+    });
   });
 
   test("take-profit split must total 100%; ⌘S saves immediately", async ({ page }) => {

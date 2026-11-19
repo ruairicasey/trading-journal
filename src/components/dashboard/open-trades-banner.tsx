@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtPct, fmtPrice, fmtSignedUsd, fmtSize, pnlClass } from "@/lib/format";
+import { fmtPct, fmtPrice, fmtSignedUsd, fmtSize } from "@/lib/format";
 import type { OpenTradeRow } from "@/server/db/queries/dashboard";
 import type { LivePosition } from "@/app/api/positions/route";
+import { Direction } from "@/components/trades/direction";
 
 type Live = { live: boolean; reason?: string; at?: number; positions: LivePosition[] };
 const REFRESH_MS = 30_000;
@@ -68,7 +69,7 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
           {upnl !== null ? (
             <>
               unrealised{" "}
-              <span className={cn("money font-medium tabular-nums", pnlClass(upnl))}>
+              <span className="money font-medium tabular-nums">
                 {fmtSignedUsd(upnl)}
               </span>
             </>
@@ -103,22 +104,14 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
                 return (
                   <tr key={trade?.id ?? `pos-${i}`}>
                     <td className="px-4 py-1.5">
-                      {trade?.displayPair ?? pos?.displayPair}{" "}
-                      <span
-                        className={cn(
-                          "text-[10px] font-semibold uppercase",
-                          dir === "long" ? "text-long" : "text-short",
-                        )}
-                      >
-                        {dir}
-                      </span>
+                      {trade?.displayPair ?? pos?.displayPair} <Direction dir={dir} />
                     </td>
                     <td className="px-4 py-1.5">{fmtSize(pos ? Math.abs(pos.size) : trade?.sizeUnits)}</td>
                     <td className="px-4 py-1.5">{fmtPrice(pos?.entryPx ?? trade?.avgEntry)}</td>
-                    <td className={cn("money px-4 py-1.5", pnlClass(pos?.unrealizedPnl))}>
+                    <td className="money px-4 py-1.5">
                       {pos ? fmtSignedUsd(pos.unrealizedPnl) : "—"}
                     </td>
-                    <td className={cn("px-4 py-1.5", pnlClass(pos?.returnOnEquity))}>
+                    <td className="px-4 py-1.5">
                       {pos?.returnOnEquity != null ? fmtPct(pos.returnOnEquity * 100) : "—"}
                     </td>
                     <td className="px-4 py-1.5">{fmtPrice(pos?.liquidationPx ?? trade?.liqPx)}</td>
@@ -132,7 +125,7 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
                     <td className="px-4 py-1.5 text-right">
                       {trade ? (
                         <Link href={`/trades/${trade.id}`} className="text-primary hover:underline">
-                          Journal →
+                          Journal
                         </Link>
                       ) : (
                         <span className="text-gold-ink" title="Not in your journal yet: run Sync now">

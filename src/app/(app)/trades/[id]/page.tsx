@@ -11,6 +11,7 @@ import { getDb } from "@/server/db/client";
 import { getActiveScope, getSessions, getSetting } from "@/server/db/queries/settings";
 import * as s from "@/server/db/schema";
 import { loadTradeForEdit } from "@/server/trades/journal";
+import { Direction } from "@/components/trades/direction";
 
 export default async function TradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,12 +37,7 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
       </Link>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold">{trade.displayPair}</h1>
-        <Badge
-          variant="outline"
-          className={trade.direction === "long" ? "border-long/40 text-long" : "border-short/40 text-short"}
-        >
-          {trade.direction.toUpperCase()}
-        </Badge>
+        <Direction dir={trade.direction} className="text-sm" />
         <Badge variant="secondary" className="capitalize">
           {trade.status}
         </Badge>

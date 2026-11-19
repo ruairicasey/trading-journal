@@ -42,6 +42,7 @@ import {
 } from "@/lib/format";
 import type { TradeRow } from "@/server/db/queries/trades";
 import { deleteTradeAction, duplicateTradeAction, restoreTradeAction } from "@/app/(app)/trades/actions";
+import { Direction } from "@/components/trades/direction";
 
 type BulkProps = {
   total: number;
@@ -173,7 +174,7 @@ export function TradeList({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this trade?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirm?.displayPair} {confirm?.direction} from {fmtDateTime(confirm?.entryTime, tz)}.
+              {confirm?.displayPair} {confirm?.direction === "short" ? "short" : "long"} from {fmtDateTime(confirm?.entryTime, tz)}.
               It&apos;s hidden from lists and stats, and a re-sync won&apos;t bring it back. You can undo
               right after deleting.
             </AlertDialogDescription>
@@ -249,15 +250,7 @@ function TradeItem({
               {walletLabel}
             </span>
           )}
-          <Badge
-            variant="outline"
-            className={cn(
-              "h-5 px-1.5 text-[10px] font-semibold uppercase",
-              r.direction === "long" ? "border-long/40 text-long" : "border-short/40 text-short",
-            )}
-          >
-            {r.direction}
-          </Badge>
+          <Direction dir={r.direction} className="text-xs" />
           {r.status === "open" && (
             <Badge className="h-5 bg-gold-tint px-1.5 text-[10px] text-gold-ink">Open</Badge>
           )}
@@ -339,9 +332,9 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
   return (
     <div className="bg-muted/20 border-t px-4 py-3 pl-9 text-xs" data-testid="trade-details">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
-        <Field label="Entry → exit">
+        <Field label="Entry and exit">
           {fmtDateTime(r.entryTime, tz)}
-          <br />→ {r.status === "open" ? "open" : fmtDateTime(r.exitTime, tz)}
+          <br />to {r.status === "open" ? "open" : fmtDateTime(r.exitTime, tz)}
         </Field>
         <Field label="Duration">
           {r.status === "open" && r.entryTime
@@ -378,7 +371,7 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
           )}
         </Field>
         <Field label="Setup">
-          {[r.strategyLabel, r.grade && `Grade ${r.grade}`, r.session].filter(Boolean).join(" · ") || "—"}
+          {[r.strategyLabel, r.grade && `Grade ${r.grade}`, r.session].filter(Boolean).join(", ") || "—"}
         </Field>
       </dl>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -415,7 +408,7 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
         href={`/trades/${r.id}`}
         className="text-primary mt-2 inline-block text-xs font-medium hover:underline"
       >
-        Edit trade →
+        Edit trade
       </Link>
     </div>
   );

@@ -10,21 +10,21 @@ test.describe("Dashboard (demo data)", () => {
   }) => {
     await page.goto("/dashboard?period=all");
     const net = page.getByTestId("kpi-net");
-    await expect(net).toContainText("Net P&L · All");
+    await expect(net).toContainText("Net P&L, all time");
     const all = await tradeCount(await net.innerText());
     expect(all).toBeGreaterThan(100);
     await expect(page.getByTestId("equity-chart").locator("svg.recharts-surface")).toBeVisible();
     await expect(page.getByTestId("recent-trades").getByRole("link")).toHaveCount(7);
-    await expect(page.getByTestId("kpi-winrate")).toContainText(/\d+W \/ \d+L \/ \d+BE/);
+    await expect(page.getByTestId("kpi-winrate")).toContainText(/\d+ won, \d+ lost, \d+ even/);
 
     await page.getByRole("navigation", { name: "Period" }).getByRole("link", { name: "7D" }).click();
     await expect(page).toHaveURL(/period=7d/);
-    await expect(net).toContainText("Net P&L · 7D");
+    await expect(net).toContainText("Net P&L, 7 days");
     expect(await tradeCount(await net.innerText())).toBeLessThan(all);
 
     await page.getByRole("navigation", { name: "Units" }).getByRole("link", { name: "R" }).click();
     await expect(page).toHaveURL(/unit=r/);
-    await expect(net).toContainText("Total R · 7D");
+    await expect(net).toContainText("Total R, 7 days");
     await expect(net).toContainText(/[+-]?\d+\.\d{2}R/);
   });
 
@@ -144,7 +144,7 @@ test.describe("Dashboard (demo data)", () => {
     await expect(banner).toContainText(`${openCount} open position`);
     await expect(banner).toContainText("live P&L unavailable for demo data");
     await banner.getByRole("button").first().click();
-    await expect(banner.getByRole("link", { name: "Journal →" })).toHaveCount(openCount);
+    await expect(banner.getByRole("link", { name: "Journal" })).toHaveCount(openCount);
   });
 
   test("custom date range", async ({ page }) => {
@@ -154,6 +154,6 @@ test.describe("Dashboard (demo data)", () => {
     await page.getByLabel("To (optional)").fill("2026-09-30");
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page).toHaveURL(/period=custom&from=2026-09-01&to=2026-09-30/);
-    await expect(page.getByTestId("kpi-net")).toContainText("2026-09-01 → 2026-09-30");
+    await expect(page.getByTestId("kpi-net")).toContainText("2026-09-01 to 2026-09-30");
   });
 });

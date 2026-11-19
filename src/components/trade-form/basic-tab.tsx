@@ -29,6 +29,7 @@ import { Field, Locked, NumberInput, Section, Segmented } from "./fields";
 import { PartialsHint, ProtectionHint } from "./protection";
 import { StopMoveHistory } from "./stop-move-history";
 import type { Draft, FormProps, ProtectionField, ProtectionState, Row } from "./types";
+import { Direction } from "@/components/trades/direction";
 
 const NONE = "__none";
 
@@ -162,13 +163,13 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
                 value={m!.direction}
                 onChange={(v) => v && updateManual({ direction: v })}
                 options={[
-                  { value: "long", label: "Long", className: "text-long" },
-                  { value: "short", label: "Short", className: "text-short" },
+                  { value: "long", label: "↗ Long" },
+                  { value: "short", label: "↘ Short" },
                 ]}
               />
             ) : (
               <Locked>
-                <span className={dir === "long" ? "text-long" : "text-short"}>{dir.toUpperCase()}</span>
+                <Direction dir={dir} />
               </Locked>
             )}
           </Field>

@@ -55,7 +55,7 @@ export function PnlCalendar({
         </div>
         <div className="flex-1" />
         <span className="text-muted-foreground text-13 tabular-nums">
-          {cal.count} trade{cal.count === 1 ? "" : "s"} ·{" "}
+          {cal.count} trade{cal.count === 1 ? "" : "s"},{" "}
           <span
             className={cn(!r && "money", monthTotal > 0 ? "text-profit" : monthTotal < 0 ? "text-loss" : "")}
           >

@@ -8,10 +8,13 @@ async function query<T>(sql: string): Promise<T[]> {
   db.close();
   return r.rows as unknown as T[];
 }
-const LIVE = "t.deleted_at is null and coalesce(json_extract(t.flags, '$.superseded'), 0) = 0 and t.status = 'closed' and t.exit_time is not null and t.net_pnl is not null";
+const LIVE =
+  "t.deleted_at is null and coalesce(json_extract(t.flags, '$.superseded'), 0) = 0 and t.status = 'closed' and t.exit_time is not null and t.net_pnl is not null";
 const money = (s: string) => Math.round(Number(s.replace(/[^0-9.-]/g, "")) * 100);
 
-test("Insights: losing patterns ranked worst first, counts match the journal, dashboard shows the top 3", async ({ page }) => {
+test("Insights: losing patterns ranked worst first, counts match the journal, dashboard shows the top 3", async ({
+  page,
+}) => {
   await page.goto("/analytics?section=insights&period=all");
   const cards = page.getByTestId("insight");
   await expect(cards.first()).toBeVisible();

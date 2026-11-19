@@ -14,8 +14,10 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { fmtDateTime, fmtSignedUsd, pnlClass } from "@/lib/format";
 import { commandSearchAction } from "@/app/(app)/trades/actions";
+import { Direction } from "@/components/trades/direction";
 
 type Results = Awaited<ReturnType<typeof commandSearchAction>>;
 
@@ -27,7 +29,31 @@ const NAV = [
   { label: "Wallets & sync", href: "/settings/wallets", icon: Wallet },
 ];
 
-/** Global ⌘K / Ctrl+K palette: navigation plus live trade and note search. */
+const OPEN_SEARCH = "tj:open-search";
+
+/** The sidebar's Search item: opens the palette (mounted once in the layout) and closes the phone sheet. */
+export function SearchItem({ className }: { className?: string }) {
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenuButton
+      onClick={() => {
+        if (isMobile) setOpenMobile(false);
+        window.dispatchEvent(new Event(OPEN_SEARCH));
+      }}
+      tooltip="Search (⌘K)"
+      aria-label="Search (Ctrl+K)"
+      className={className}
+    >
+      <Search />
+      <span>Search</span>
+      <kbd className="text-muted-foreground border-rule-ring ml-auto rounded border px-1 text-[11px] group-data-[collapsible=icon]:hidden">
+        ⌘K
+      </kbd>
+    </SidebarMenuButton>
+  );
+}
+
+/** Global ⌘K / Ctrl+K palette: navigation plus live trade and note search. Mounted once, in the app layout. */
 export function CommandPalette({ tz, disabled = false }: { tz: string; disabled?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -42,8 +68,13 @@ export function CommandPalette({ tz, disabled = false }: { tz: string; disabled?
         setOpen((o) => !o);
       }
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_SEARCH, onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_SEARCH, onOpen);
+    };
   }, []);
 
   useEffect(() => {
@@ -63,16 +94,6 @@ export function CommandPalette({ tz, disabled = false }: { tz: string; disabled?
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-7 items-center gap-2 rounded-md border px-2 text-xs"
-        aria-label="Search (Ctrl+K)"
-      >
-        <Search className="size-3.5" />
-        <span className="hidden sm:inline">Search</span>
-        <kbd className="hidden rounded border px-1 text-[10px] sm:inline">⌘K</kbd>
-      </button>
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
@@ -103,7 +124,7 @@ export function CommandPalette({ tz, disabled = false }: { tz: string; disabled?
                   >
                     <ListOrdered />
                     <span className="flex-1 truncate">
-                      {t.displayPair} <span className="text-muted-foreground uppercase">{t.direction}</span>{" "}
+                      {t.displayPair} <Direction dir={t.direction} />{" "}
                       <span className="text-muted-foreground">
                         {t.entryTime ? fmtDateTime(t.entryTime, tz) : t.status}
                       </span>

@@ -9,7 +9,7 @@ test("Reports: totals match the dashboard, every table adds up, CSVs reconcile",
 
   await page.goto("/reports");
   await page.waitForLoadState("networkidle");
-  await expect(page.getByRole("heading", { name: /Trading report · Month/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Trading report, this month/ })).toBeVisible();
   await expect(page.getByTestId("export-trades")).toHaveAttribute(
     "href",
     /^\/api\/export\/trades\.csv\?at=\d+$/,

@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Analytics: Setup (demo data)", () => {
-  test("widgets render with sample sizes; table view; R mode; periods stay on /analytics", async ({ page }) => {
+  test("widgets render with sample sizes; table view; R mode; periods stay on /analytics", async ({
+    page,
+  }) => {
     await page.goto("/analytics");
-    await expect(page.getByTestId("analytics-summary")).toContainText("closed trades · All");
+    await expect(page.getByTestId("analytics-summary")).toContainText("closed trades, all time");
     const grade = page.getByTestId("widget-grade");
     await expect(grade.getByText("A+", { exact: true })).toBeVisible();
     await grade.getByRole("button", { name: "Table view" }).click();
@@ -16,7 +18,7 @@ test.describe("Analytics: Setup (demo data)", () => {
 
     await page.getByRole("link", { name: "30D" }).click();
     await expect(page).toHaveURL(/\/analytics\?.*period=30d/);
-    await expect(page.getByTestId("analytics-summary")).toContainText("30D");
+    await expect(page.getByTestId("analytics-summary")).toContainText("30 days");
   });
 
   test("hiding a widget persists; the Widgets menu brings it back", async ({ page }) => {
@@ -24,7 +26,10 @@ test.describe("Analytics: Setup (demo data)", () => {
     // a click before hydration does nothing (CI's first dev-mode compile is slow), so let the page settle first,
     // and let the save land before reloading
     await page.waitForLoadState("networkidle");
-    const saved = page.waitForResponse((r) => r.request().method() === "POST" && !!r.request().headers()["next-action"], { timeout: 30_000 });
+    const saved = page.waitForResponse(
+      (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
+      { timeout: 30_000 },
+    );
     await page.getByTestId("widget-direction").getByRole("button", { name: "Hide Long vs short" }).click();
     await expect(page.getByTestId("widget-direction")).toHaveCount(0);
     await saved;
@@ -35,11 +40,14 @@ test.describe("Analytics: Setup (demo data)", () => {
     await expect(page.getByTestId("widget-direction")).toBeVisible();
   });
 
-  test("Timing tab: six widgets, hold averages, and the section survives period / unit changes", async ({ page }) => {
+  test("Timing tab: six widgets, hold averages, and the section survives period / unit changes", async ({
+    page,
+  }) => {
     await page.goto("/analytics");
     await page.getByRole("link", { name: "Timing" }).click();
     await expect(page).toHaveURL(/section=timing/);
-    for (const id of ["weekday", "hour", "session", "hold", "nth-of-day", "gap"]) await expect(page.getByTestId(`widget-${id}`)).toBeVisible();
+    for (const id of ["weekday", "hour", "session", "hold", "nth-of-day", "gap"])
+      await expect(page.getByTestId(`widget-${id}`)).toBeVisible();
     await expect(page.getByTestId("widget-weekday").getByText("Mon", { exact: true })).toBeVisible();
     await expect(page.getByTestId("hold-avg")).toContainText(/winners \d/);
     await expect(page.getByTestId("session-hours")).toContainText("New York 08:00–16:00 New York time");
@@ -52,9 +60,22 @@ test.describe("Analytics: Setup (demo data)", () => {
     await expect(page.getByTestId("analytics-summary")).toContainText("by entry time");
   });
 
-  test("Risk & execution tab: risk size vs typical risk, how trades ended, loser and capture footers", async ({ page }) => {
+  test("Risk & execution tab: risk size vs typical risk, how trades ended, loser and capture footers", async ({
+    page,
+  }) => {
     await page.goto("/analytics?section=risk");
-    for (const id of ["risk-size", "risk-multiplier", "sl-reason", "tp-reason", "exit-by", "loser-max-r", "capture", "retests", "rules", "process"])
+    for (const id of [
+      "risk-size",
+      "risk-multiplier",
+      "sl-reason",
+      "tp-reason",
+      "exit-by",
+      "loser-max-r",
+      "capture",
+      "retests",
+      "rules",
+      "process",
+    ])
       await expect(page.getByTestId(`widget-${id}`)).toBeVisible();
     await expect(page.getByTestId("typical-risk")).toContainText("Typical (median) risk $");
     const ended = page.getByTestId("widget-exit-by");
@@ -66,9 +87,12 @@ test.describe("Analytics: Setup (demo data)", () => {
     await expect(page.getByTestId("typical-risk").locator(".money")).toHaveCount(1);
   });
 
-  test("Behaviour tab: streaks, after-a-run, rolling (7D/30D), daily bars, overtrading, stacking", async ({ page }) => {
+  test("Behaviour tab: streaks, after-a-run, rolling (7D/30D), daily bars, overtrading, stacking", async ({
+    page,
+  }) => {
     await page.goto("/analytics?section=behaviour");
-    for (const id of ["streaks", "after-streak", "rolling", "daily", "per-day", "stacking"]) await expect(page.getByTestId(`widget-${id}`)).toBeVisible();
+    for (const id of ["streaks", "after-streak", "rolling", "daily", "per-day", "stacking"])
+      await expect(page.getByTestId(`widget-${id}`)).toBeVisible();
     await expect(page.getByTestId("streak-win")).toContainText(/\d+ wins?/);
     await expect(page.getByTestId("streak-loss")).toContainText(/\d+ loss(es)?/);
     await expect(page.getByTestId("widget-after-streak").getByText(/^After 1 loss$/)).toBeVisible();

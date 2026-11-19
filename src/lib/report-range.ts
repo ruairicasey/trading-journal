@@ -2,7 +2,7 @@
  * The period a report or export covers: the same `period` / `from` / `to` params (and the same exit-time range) as the
  * dashboard and analytics, so a report always matches what those pages show for the same period.
  */
-import { DASH_PERIODS, type DashParams } from "./dashboard-params";
+import { periodPhrase, type DashParams } from "./dashboard-params";
 import { dayBoundsLocal, periodRange, PERIODS, type Period } from "./periods";
 import { clampStart, journalFloor } from "./journal-start";
 
@@ -37,9 +37,7 @@ export function reportRange(
   } else start = periodRange(period as Period, now, tz).from;
   const floor = journalFloor(journalStart, period);
   start = clampStart(start, floor);
-  const label = custom
-    ? `${from} → ${params.to ?? "now"}`
-    : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period);
+  const label = periodPhrase({ period, from, to: params.to });
   /** query string for the export links (empty for the default) */
   const qs = new URLSearchParams(
     Object.entries({

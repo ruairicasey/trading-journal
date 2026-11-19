@@ -47,7 +47,10 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   Cycle 2b dashboard **done**: a hero (balance or what the curve shows, period net, net deposits, open positions, the
   curve), a ruled figures strip, then the calendar and week beside leaks, scores and recent trades; risk and drawdown
   below. Calendar keeps its week totals, so it takes the wide column.
-  Next: cycle 3, the Trades page (the second board on the design canvas).
+  Cycle 2c spec fixes **done**: balance chart scaled to the balance (net deposits drawn when in range, else behind a
+  toggle; no fill); red/green only for realised money; no middle-dot labels or link arrows; direction as an arrow and
+  word; risk and drawdown moved to Analytics → Risk; no desktop top bar (search and privacy in the sidebar).
+  Next: cycle 3, the Trades page (the second board on the design canvas), including HIP-3 pair labels without a dot.
 
 ## Phase 3: insights and reports
 

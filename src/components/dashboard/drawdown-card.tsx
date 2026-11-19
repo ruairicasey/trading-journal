@@ -61,7 +61,7 @@ export function DrawdownCard({
     <section className={SECTION} aria-label="Drawdown" data-testid="drawdown-card">
       <header className="mb-3 flex items-baseline justify-between gap-2">
         <h2 className={H2}>Drawdown</h2>
-        <span className="text-muted-foreground text-xs">trading P&L only · deposits excluded</span>
+        <span className="text-muted-foreground text-xs">trading P&L only, deposits excluded</span>
       </header>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -88,18 +88,18 @@ export function DrawdownCard({
           </dd>
           <dd className="text-muted-foreground text-[11px]">
             {c.dd < 0
-              ? `${c.daysInDrawdown} day${c.daysInDrawdown === 1 ? "" : "s"} · ${c.tradesSincePeak} trade${c.tradesSincePeak === 1 ? "" : "s"} since the peak`
+              ? `${c.daysInDrawdown} day${c.daysInDrawdown === 1 ? "" : "s"}, ${c.tradesSincePeak} trade${c.tradesSincePeak === 1 ? "" : "s"} since the peak`
               : "nothing to recover"}
           </dd>
         </div>
         <div className="col-span-2" data-testid="dd-max">
-          <dt className="text-muted-foreground text-xs">Max drawdown · {periodLabel}</dt>
+          <dt className="text-muted-foreground text-xs">Max drawdown, {periodLabel}</dt>
           {r ? (
             <>
               <dd className="mt-0.5 font-semibold tabular-nums">{stats.maxR ? fmtR(stats.maxR.ddR) : "—"}</dd>
               {stats.maxR && (
                 <dd className="text-muted-foreground text-[11px]">
-                  peak {d(stats.maxR.peakAt)} → trough {d(stats.maxR.troughAt)}
+                  peak {d(stats.maxR.peakAt)}, trough {d(stats.maxR.troughAt)}
                 </dd>
               )}
             </>
@@ -117,12 +117,12 @@ export function DrawdownCard({
               </dd>
               {stats.max && (
                 <dd className="text-muted-foreground text-[11px]">
-                  peak {d(stats.max.peakAt)} → trough {d(stats.max.troughAt)} ·{" "}
+                  peak {d(stats.max.peakAt)}, trough {d(stats.max.troughAt)},{" "}
                   {stats.max.recoveredAt ? `recovered ${d(stats.max.recoveredAt)}` : "not recovered yet"}
                   {stats.maxPct !== null &&
                     stats.max.ddPct !== null &&
                     stats.maxPct < stats.max.ddPct - 0.05 &&
-                    ` · deepest in %: ${pct(stats.maxPct)}`}
+                    `, deepest in %: ${pct(stats.maxPct)}`}
                 </dd>
               )}
             </>

@@ -88,7 +88,7 @@ export function GeneralForm({ timezone, sessions, includeFunding }: { timezone: 
         <Label>Sessions</Label>
         <p className="text-muted-foreground text-xs">
           Hours are in the session&apos;s own time zone, so they follow daylight saving (New York&apos;s session moves an hour in
-          UTC when the US changes clocks). Start is inclusive, end exclusive; a range may wrap past midnight (22:00 → 03:00), and
+          UTC when the US changes clocks). Start is inclusive, end exclusive; a range may wrap past midnight (22:00 to 03:00), and
           00:00 as the end means midnight. Sessions are checked in order and the first match wins.
         </p>
         <div className="space-y-1.5" data-testid="sessions">
@@ -111,7 +111,7 @@ export function GeneralForm({ timezone, sessions, includeFunding }: { timezone: 
                 ))}
               </select>
               <span className="text-muted-foreground text-xs tabular-nums" title="Today, in UTC and in your timezone">
-                now {sessionHoursIn(s, Date.now(), "UTC")} UTC · {sessionHoursIn(s, Date.now(), tz)} yours
+                now {sessionHoursIn(s, Date.now(), "UTC")} UTC, {sessionHoursIn(s, Date.now(), tz)} yours
               </span>
               <Button
                 type="button"

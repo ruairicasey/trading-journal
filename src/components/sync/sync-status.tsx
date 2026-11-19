@@ -243,7 +243,7 @@ export function SyncStatus({ layout = "row" }: { layout?: "row" | "stack" | "ico
       )}
       <span className="text-muted-foreground hidden sm:inline" title={error ?? undefined}>
         {error && !syncing ? <span className="text-destructive">Sync failed</span> : line}
-        {!syncing && autoEnabled && <span className="opacity-60"> · next in {mmss(nextIn)}</span>}
+        {!syncing && autoEnabled && <span className="opacity-60">, next in {mmss(nextIn)}</span>}
       </span>
       <Button
         size="sm"

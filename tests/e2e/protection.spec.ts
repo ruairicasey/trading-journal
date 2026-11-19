@@ -2,7 +2,8 @@ import { createClient } from "@libsql/client";
 import { expect, test, type Page } from "@playwright/test";
 import { DEMO_DB_FILE } from "../../scripts/demo-env";
 
-const saved = (page: Page) => expect(page.getByTestId("save-status")).toContainText("Saved", { timeout: 10_000 });
+const saved = (page: Page) =>
+  expect(page.getByTestId("save-status")).toContainText("Saved", { timeout: 10_000 });
 
 /** A demo trade whose stop loss was auto-detected from (synthetic) stop orders and moved at least once. */
 async function autoTradeWithMoves() {

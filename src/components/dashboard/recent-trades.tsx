@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { fmtDateTime, fmtR, fmtSignedUsd, pnlClass } from "@/lib/format";
 import type { ClosedTrade } from "@/lib/stats";
 import { H2, SECTION } from "@/lib/ui";
+import { Direction } from "@/components/trades/direction";
 
 export function RecentTrades({ trades, tz, unit }: { trades: ClosedTrade[]; tz: string; unit: "usd" | "r" }) {
   return (
@@ -10,7 +11,7 @@ export function RecentTrades({ trades, tz, unit }: { trades: ClosedTrade[]; tz: 
       <header className="mb-2 flex items-center justify-between">
         <h2 className={H2}>Recent trades</h2>
         <Link href="/trades?tab=closed" className="text-muted-foreground hover:text-foreground text-xs">
-          View all →
+          View all
         </Link>
       </header>
       {trades.length === 0 ? (
@@ -25,15 +26,7 @@ export function RecentTrades({ trades, tz, unit }: { trades: ClosedTrade[]; tz: 
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">
-                    {t.displayPair}{" "}
-                    <span
-                      className={cn(
-                        "text-[10px] font-semibold uppercase",
-                        t.direction === "long" ? "text-long" : "text-short",
-                      )}
-                    >
-                      {t.direction}
-                    </span>
+                    {t.displayPair} <Direction dir={t.direction} className="text-xs" />
                   </span>
                   <span className="text-muted-foreground block text-[11px]">
                     {fmtDateTime(t.exitTime, tz)}

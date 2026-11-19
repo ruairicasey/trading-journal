@@ -3,8 +3,8 @@ import { CARD, CARD_H2, H2, SECTION } from "@/lib/ui";
 import { fmtSignedUsd, pnlClass } from "@/lib/format";
 import { DISCIPLINE_CHECKS, type Scores } from "@/lib/analytics/scores";
 
-const band = (s: number | null) =>
-  s === null ? "text-muted-foreground" : s >= 80 ? "text-profit" : s >= 60 ? "text-gold-ink" : "text-loss";
+// scores are read in ink; only the mistake cost (realised money) is red
+const band = (s: number | null) => (s === null ? "text-muted-foreground" : "");
 const show = (s: number | null) => (s === null ? "—" : String(Math.round(s)));
 const pct = (x: number, of: number) => (of ? `${Math.round((x / of) * 100)}%` : "—");
 

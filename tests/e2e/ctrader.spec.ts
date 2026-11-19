@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("cTrader settings: reachable from the nav, inert in the demo, OAuth routes bounce back safely", async ({ page }) => {
+test("cTrader settings: reachable from the nav, inert in the demo, OAuth routes bounce back safely", async ({
+  page,
+}) => {
   await page.goto("/settings");
   await page.getByRole("link", { name: "cTrader" }).click();
   await expect(page).toHaveURL(/\/settings\/ctrader$/);

@@ -154,7 +154,7 @@ export function Screenshots({ tradeId, initial, pasteEnabled }: { tradeId: strin
           Drop images, click to choose, or paste with <kbd className="rounded border px-1">⌘/Ctrl V</kbd>
         </span>
         <span className="opacity-70">
-          {shots.length}/{MAX_SCREENSHOTS} · compressed automatically
+          {shots.length}/{MAX_SCREENSHOTS}, compressed automatically
         </span>
         <input
           ref={input}

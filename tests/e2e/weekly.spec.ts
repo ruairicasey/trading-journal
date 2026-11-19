@@ -12,13 +12,15 @@ async function weekWithGaps(page: import("@playwright/test").Page) {
 }
 
 test.describe("Weekly reflection and drawdown (demo data)", () => {
-  test("drawdown card shows current and max drawdown with an underwater chart", async ({ page }) => {
-    await page.goto("/dashboard?period=all");
+  test("drawdown card (Analytics → Risk) shows current and max drawdown with an underwater chart", async ({
+    page,
+  }) => {
+    await page.goto("/analytics?section=risk&period=all");
     const card = page.getByTestId("drawdown-card");
     await expect(card.getByTestId("dd-current")).toContainText("Current");
     await expect(card.getByTestId("dd-max")).toContainText("peak");
     await expect(card.locator(".recharts-area-curve")).toBeVisible();
-    await page.goto("/dashboard?period=all&unit=r");
+    await page.goto("/analytics?section=risk&period=all&unit=r");
     await expect(page.getByTestId("dd-max")).toContainText("R");
   });
 
@@ -29,7 +31,7 @@ test.describe("Weekly reflection and drawdown (demo data)", () => {
     for (let i = 0; i < n; i++) {
       const link = links.nth(i);
       const text = await link.innerText();
-      const count = Number(/(\d+)\s*(→|unreviewed)/.exec(text)?.[1] ?? /Review the (\d+)/.exec(text)?.[1]);
+      const count = Number(/(\d+)\s*$/.exec(text)?.[1] ?? /Review the (\d+)/.exec(text)?.[1]);
       const href = (await link.getAttribute("href"))!;
       const back = page.url();
       await page.goto(href);
@@ -44,14 +46,18 @@ test.describe("Weekly reflection and drawdown (demo data)", () => {
     await page.getByTestId("weekly-note").click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("textbox", { name: "Note", exact: true })).toHaveValue(/What went well\?/);
-    await dialog.getByRole("textbox", { name: "Note", exact: true }).fill("E2E weekly note: cut size after two losses.");
+    await dialog
+      .getByRole("textbox", { name: "Note", exact: true })
+      .fill("E2E weekly note: cut size after two losses.");
     await dialog.getByRole("button", { name: "Save" }).click();
     await expect(dialog).toBeHidden();
     await page.reload();
     await expect(page.getByTestId("weekly-range")).toHaveText(range);
     await expect(page.getByTestId("weekly-note")).toHaveText(/Open weekly note/);
     await page.getByTestId("weekly-note").click();
-    await expect(page.getByRole("dialog").getByRole("textbox", { name: "Note", exact: true })).toHaveValue("E2E weekly note: cut size after two losses.");
+    await expect(page.getByRole("dialog").getByRole("textbox", { name: "Note", exact: true })).toHaveValue(
+      "E2E weekly note: cut size after two losses.",
+    );
     await page.keyboard.press("Escape");
     await page.getByRole("link", { name: "Previous week" }).click();
     await expect(page.getByTestId("weekly-range")).not.toHaveText(range);

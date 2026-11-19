@@ -9,7 +9,13 @@ async function query<T>(sql: string, args: (string | number | null)[] = []): Pro
   return r.rows as unknown as T[];
 }
 const tabCount = async (page: Page, tab: string) =>
-  Number(await page.getByRole("navigation", { name: "Trade tabs" }).getByRole("link", { name: new RegExp(`^${tab}`) }).locator("span").innerText());
+  Number(
+    await page
+      .getByRole("navigation", { name: "Trade tabs" })
+      .getByRole("link", { name: new RegExp(`^${tab}`) })
+      .locator("span")
+      .innerText(),
+  );
 const TAG = "e2e-bulk";
 /** wait for hydration before clicking client-side controls */
 const open = async (page: Page, url: string) => {
@@ -76,10 +82,30 @@ test("bulk: select all matching, add a tag, set a grade, delete and undo", async
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete 3 trades" }).click();
     await expect(page.getByText("3 trades deleted")).toBeVisible();
     await expect(page.getByTestId("bulk-bar")).toHaveCount(0);
-    await expect.poll(async () => (await query<{ n: number }>(`select count(*) as n from trades where id in (?, ?, ?) and deleted_at is not null`, ids))[0].n).toBe(3);
+    await expect
+      .poll(
+        async () =>
+          (
+            await query<{ n: number }>(
+              `select count(*) as n from trades where id in (?, ?, ?) and deleted_at is not null`,
+              ids,
+            )
+          )[0].n,
+      )
+      .toBe(3);
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByText("3 trades restored")).toBeVisible();
-    await expect.poll(async () => (await query<{ n: number }>(`select count(*) as n from trades where id in (?, ?, ?) and deleted_at is null`, ids))[0].n).toBe(3);
+    await expect
+      .poll(
+        async () =>
+          (
+            await query<{ n: number }>(
+              `select count(*) as n from trades where id in (?, ?, ?) and deleted_at is null`,
+              ids,
+            )
+          )[0].n,
+      )
+      .toBe(3);
     await page.goto("/trades");
     expect(await tabCount(page, "All")).toBe(total);
   } finally {
@@ -133,7 +159,9 @@ test("TradingView: a snapshot link becomes a screenshot with its source link", a
     const form = page.getByTestId("tradingview-import");
     await form.getByLabel("TradingView snapshot link").fill("https://example.com/x/E2eTest1/");
     await form.getByRole("button", { name: "Import" }).click();
-    await expect(page.getByText("That isn't a TradingView snapshot link", { exact: false }).first()).toBeVisible();
+    await expect(
+      page.getByText("That isn't a TradingView snapshot link", { exact: false }).first(),
+    ).toBeVisible();
     await expect(shots).toHaveCount(before);
 
     await form.getByLabel("TradingView snapshot link").fill(link);

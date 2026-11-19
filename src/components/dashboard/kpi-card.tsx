@@ -43,7 +43,7 @@ export function NetFigure({
   return (
     <div className="flex min-w-0 flex-col gap-1.5" data-testid="kpi-net">
       <div className="text-muted-foreground text-sm">
-        {r ? "Total R" : "Net P&L"} · {periodLabel}
+        {r ? "Total R" : "Net P&L"}, {periodLabel}
       </div>
       <div
         className={cn("text-26 font-medium tracking-[-0.02em] tabular-nums", !r && "money", pnlClass(head))}
@@ -53,13 +53,13 @@ export function NetFigure({
       <div className="text-muted-foreground text-13">
         {k.count} closed trade{k.count === 1 ? "" : "s"}
         {sinceLabel ? ` since ${sinceLabel}` : ""}
-        {r && k.count > 0 && ` · R from ${k.rCount} with a stop`}
+        {r && k.count > 0 && `, R from ${k.rCount} with a stop`}
       </div>
     </div>
   );
 }
 
-/** Win rate, profit factor, R, average trade, fees and funding: a ruled strip under the hero. */
+/** Win rate, profit factor, R, average trade, fees and funding: a ruled strip under the hero. Ink throughout. */
 export function KpiStrip({
   k,
   unit,
@@ -72,56 +72,50 @@ export function KpiStrip({
   const r = unit === "r";
   const pf = k.profitFactor === null ? "—" : k.profitFactor === Infinity ? "∞" : k.profitFactor.toFixed(2);
   const pct = (x: number | null) => (x === null ? "—" : `${(x * 100).toFixed(1)}%`);
+  const sameMedian = k.medianR === null || k.avgR === null || fmtR(k.medianR) === fmtR(k.avgR);
+  const withStop = k.rCount
+    ? `${k.rCount} trade${k.rCount === 1 ? "" : "s"} with a stop`
+    : "add stops to see R";
   return (
     <section
       aria-label="Performance summary"
-      className="border-rule grid grid-cols-1 border-y sm:grid-cols-2 sm:gap-x-5 lg:grid-cols-[repeat(auto-fit,minmax(170px,1fr))] [&>*:last-child]:border-0"
+      className="border-rule grid grid-cols-1 border-y sm:grid-cols-2 sm:gap-x-5 lg:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] [&>*:last-child]:border-0"
     >
-      <Stat label="Win rate" testId="kpi-winrate" sub={`${k.wins}W / ${k.losses}L / ${k.breakeven}BE`}>
+      <Stat
+        label="Win rate"
+        testId="kpi-winrate"
+        sub={`${k.wins} won, ${k.losses} lost, ${k.breakeven} even`}
+      >
         {pct(k.winRate)}
       </Stat>
-      <Stat label="Profit factor" sub="gross win ÷ gross loss">
+      <Stat label="Profit factor" sub="gross won ÷ gross lost">
         {pf}
       </Stat>
       <Stat
-        label="Avg R · median"
+        label="Average R"
         testId="kpi-r"
-        sub={k.rCount ? `${k.rCount} trade${k.rCount === 1 ? "" : "s"} with a stop` : "add stops to see R"}
+        sub={sameMedian ? withStop : `median ${fmtR(k.medianR)}, ${withStop}`}
       >
-        <span className={pnlClass(k.avgR)}>{fmtR(k.avgR)}</span>
-        <span className="text-muted-foreground"> · </span>
-        <span
-          className={cn("text-17", pnlClass(k.medianR))}
-          title="Median R: half your trades with a stop did better, half worse"
-        >
-          {fmtR(k.medianR)}
-        </span>
+        {fmtR(k.avgR)}
       </Stat>
       <Stat
-        label="Avg trade"
+        label="Average trade"
         sub={
           r ? undefined : (
             <span className="money">
-              win {fmtUsd(k.avgWin)} / loss {fmtUsd(k.avgLoss)}
+              won {fmtUsd(k.avgWin)}, lost {fmtUsd(k.avgLoss)}
             </span>
           )
         }
       >
-        {r ? (
-          <span className={pnlClass(k.avgR)}>{fmtR(k.avgR)}</span>
-        ) : (
-          <span className={cn("money", pnlClass(k.avgTrade))}>{fmtSignedUsd(k.avgTrade)}</span>
-        )}
+        {r ? fmtR(k.avgR) : <span className="money">{fmtSignedUsd(k.avgTrade)}</span>}
       </Stat>
-      <Stat
-        label="Fees · funding"
-        testId="kpi-fees"
-        sub={<>maker rebates net off · funding {fundingInNet ? "in" : "not in"} net</>}
-      >
+      <Stat label="Fees" testId="kpi-fees" sub="after maker rebates">
         <span className="money">{fmtUsd(k.fees)}</span>
-        <span className="text-muted-foreground"> · </span>
+      </Stat>
+      <Stat label="Funding" sub={`${fundingInNet ? "included" : "not included"} in net P&L`}>
         <span
-          className={cn("money text-17", pnlClass(k.funding))}
+          className="money"
           data-testid="kpi-funding"
           title="Funding attributed to these trades (negative = you paid)"
         >

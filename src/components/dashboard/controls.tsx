@@ -62,7 +62,7 @@ export function DashboardControls({
             >
               <CalendarRange className="size-3.5" />
               {params.period === "custom" && params.from
-                ? `${params.from} → ${params.to || "now"}`
+                ? `${params.from} to ${params.to || "now"}`
                 : "Custom"}
             </button>
           </PopoverTrigger>

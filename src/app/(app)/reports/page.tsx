@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Direction } from "@/components/trades/direction";
 import { Download, FileText } from "lucide-react";
 import { DashboardControls } from "@/components/dashboard/controls";
 import { EmptyState } from "@/components/shell/empty-state";
@@ -64,7 +65,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const dirs = groupNet(trades, (t) => t.direction);
   // pin the export to the moment this page was built, so "7D" or "this week" downloads the trades shown here
   const q = `?${range.qs ? `${range.qs}&` : ""}at=${now}`;
-  const scope = `${active.name}${wallet ? ` · ${wallet.label}` : ""}`;
+  const scope = `${active.name}${wallet ? `, ${wallet.label}` : ""}`;
   const generated = localStamp(now, tz);
 
   return (
@@ -102,9 +103,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </div>
 
       <header className="border-b pb-2">
-        <h2 className="text-xl font-semibold">Trading report · {range.label}</h2>
+        <h2 className="text-xl font-semibold">Trading report, {range.label}</h2>
         <p className="text-muted-foreground text-xs" data-testid="report-meta">
-          {scope} · {trades.length} closed trade{trades.length === 1 ? "" : "s"} by exit time · generated{" "}
+          {scope}, {trades.length} closed trade{trades.length === 1 ? "" : "s"} by exit time, generated{" "}
           {generated} ({tz})
         </p>
       </header>
@@ -124,15 +125,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <Kpi label="Trades" id="count">
               {k.count}{" "}
               <span className="text-muted-foreground text-xs">
-                ({k.wins}W / {k.losses}L / {k.breakeven}BE)
+                ({k.wins} won, {k.losses} lost, {k.breakeven} even)
               </span>
             </Kpi>
             <Kpi label="Win rate" id="winrate">
               {k.winRate === null ? "—" : fmtPct(k.winRate * 100, 0).replace("+", "")}
             </Kpi>
-            <Kpi label="Fees · funding" id="costs">
-              <span className="money">{fmtUsd(k.fees)}</span> ·{" "}
-              <span className={cn("money", pnlClass(k.funding))}>{fmtSignedUsd(k.funding)}</span>
+            <Kpi label="Fees" id="costs">
+              <span className="money">{fmtUsd(k.fees)}</span>
+            </Kpi>
+            <Kpi label="Funding" id="funding">
+              <span className="money">{fmtSignedUsd(k.funding)}</span>
             </Kpi>
           </section>
 
@@ -175,7 +178,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <span key="f" className="money">
                 {fmtUsd(m.fees)}
               </span>,
-              <span key="u" className={cn("money", pnlClass(m.funding))}>
+              <span key="u" className="money">
                 {fmtSignedUsd(m.funding)}
               </span>,
               <span key="n" className={cn("money", pnlClass(m.net))} data-net={m.net}>
@@ -190,7 +193,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <span key="f" className="money">
                 {fmtUsd(k.fees)}
               </span>,
-              <span key="u" className={cn("money", pnlClass(k.funding))}>
+              <span key="u" className="money">
                 {fmtSignedUsd(k.funding)}
               </span>,
               <span key="n" className={cn("money", pnlClass(k.net))}>
@@ -252,7 +255,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <Link key="p" href={`/trades/${t.id}`} className="hover:underline">
                 {t.displayPair}
               </Link>,
-              t.direction,
+              <Direction key="d" dir={t.direction} />,
               <span key="n" className={cn("money", pnlClass(t.netPnl))}>
                 {fmtSignedUsd(t.netPnl)}
               </span>,

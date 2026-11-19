@@ -1,13 +1,13 @@
 import { cn } from "@/lib/utils";
 import { CARD, CARD_H2, H2, SECTION } from "@/lib/ui";
-import { fmtR, fmtSignedUsd, pnlClass } from "@/lib/format";
+import { fmtR, fmtSignedUsd } from "@/lib/format";
 import { MIN_SAMPLE, type RiskMetrics } from "@/lib/risk";
 
 const num = (x: number | null, dp = 2) => (x === null || !Number.isFinite(x) ? "—" : x.toFixed(dp));
 const pct = (x: number | null) =>
   x === null || !Number.isFinite(x) ? "—" : `${x > 0 ? "+" : ""}${(x * 100).toFixed(1)}%`;
-const tone = (x: number | null) =>
-  x === null ? "text-muted-foreground" : x > 0 ? "text-profit" : x < 0 ? "text-loss" : "";
+// ratios, returns and drawdowns are read in ink with their sign: red/green is kept for realised money
+const tone = (x: number | null) => (x === null ? "text-muted-foreground" : "");
 
 /** Sharpe, Sortino, returns and drawdowns from daily returns; expectancy, payoff and SQN from trades. */
 export function RiskCard({
@@ -26,8 +26,8 @@ export function RiskCard({
       <header className={cn("flex flex-wrap items-baseline justify-between gap-2", !plain && "mb-3")}>
         <h2 className={plain ? H2 : CARD_H2}>{title}</h2>
         <span className="text-muted-foreground text-xs" data-testid="risk-sample">
-          {n} day{n === 1 ? "" : "s"} with capital · {m.trades} trade{m.trades === 1 ? "" : "s"}
-          {m.smallDays || m.smallTrades ? ` · small sample (under ${MIN_SAMPLE}): read with care` : ""}
+          {n} day{n === 1 ? "" : "s"} with capital, {m.trades} trade{m.trades === 1 ? "" : "s"}
+          {m.smallDays || m.smallTrades ? `, small sample (under ${MIN_SAMPLE}): read with care` : ""}
         </span>
       </header>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -40,7 +40,7 @@ export function RiskCard({
         <Stat
           id="return"
           label="Return"
-          sub={m.annualised === null ? "time-weighted" : `time-weighted · ${pct(m.annualised)} a year`}
+          sub={m.annualised === null ? "time-weighted" : `time-weighted, ${pct(m.annualised)} a year`}
           cls={tone(m.totalReturn)}
         >
           {pct(m.totalReturn)}
@@ -74,9 +74,7 @@ export function RiskCard({
           }
           cls={tone(m.expectancy)}
         >
-          <span className={cn("money", pnlClass(m.expectancy))}>
-            {m.expectancy === null ? "—" : fmtSignedUsd(m.expectancy)}
-          </span>
+          <span className="money">{m.expectancy === null ? "—" : fmtSignedUsd(m.expectancy)}</span>
         </Stat>
         <Stat id="payoff" label="Payoff ratio" sub="avg win ÷ avg loss" cls="">
           {num(m.payoff)}

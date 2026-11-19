@@ -7,7 +7,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { setAnalyticsHiddenAction } from "@/app/(app)/analytics/actions";
 
-export function CustomizeWidgets({ widgets, hidden }: { widgets: { id: string; title: string }[]; hidden: string[] }) {
+export function CustomizeWidgets({
+  widgets,
+  hidden,
+}: {
+  widgets: { id: string; title: string }[];
+  hidden: string[];
+}) {
   const [pending, start] = useTransition();
   const n = widgets.filter((w) => hidden.includes(w.id)).length;
   return (
@@ -27,7 +33,9 @@ export function CustomizeWidgets({ widgets, hidden }: { widgets: { id: string; t
                   checked={!hidden.includes(w.id)}
                   disabled={pending}
                   onCheckedChange={(on) =>
-                    start(() => setAnalyticsHiddenAction(on ? hidden.filter((h) => h !== w.id) : [...hidden, w.id]))
+                    start(() =>
+                      setAnalyticsHiddenAction(on ? hidden.filter((h) => h !== w.id) : [...hidden, w.id]),
+                    )
                   }
                 />
                 {w.title}

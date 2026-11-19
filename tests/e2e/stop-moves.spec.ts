@@ -68,31 +68,45 @@ test("add, validate, edit and delete your own stop move; each move is classed", 
 });
 
 test("exchange stop moves are shown classed and can't be edited", async ({ page }) => {
-  const [t] = await query<{ id: string }>(`select distinct trade_id as id from stop_moves where source = 'auto' limit 1`);
+  const [t] = await query<{ id: string }>(
+    `select distinct trade_id as id from stop_moves where source = 'auto' limit 1`,
+  );
   await page.goto(`/trades/${t.id}`);
   const rows = page.getByTestId("stop-move-row");
   await expect(rows.first()).toContainText("from your exchange orders");
-  await expect(rows.first().getByTestId("stop-move-kind")).toHaveText(/tightened|widened|to breakeven|trailing in profit|re-placed/);
+  await expect(rows.first().getByTestId("stop-move-kind")).toHaveText(
+    /tightened|widened|to breakeven|trailing in profit|re-placed/,
+  );
   await expect(page.getByRole("button", { name: "Edit stop move" })).toHaveCount(0);
 });
 
-test("Stop management widget: every trade with a stop in exactly one class; counts and net reconcile", async ({ page }) => {
+test("Stop management widget: every trade with a stop in exactly one class; counts and net reconcile", async ({
+  page,
+}) => {
   await page.goto("/analytics?section=behaviour&period=all");
   const w = page.getByTestId("widget-stop-management");
   await expect(w).toBeVisible();
-  const titles = await w.locator("li[title]").evaluateAll((els) => els.map((e) => e.getAttribute("title") ?? ""));
+  const titles = await w
+    .locator("li[title]")
+    .evaluateAll((els) => els.map((e) => e.getAttribute("title") ?? ""));
   const rows = titles.map((s) => ({
     label: s.split(":")[0],
     n: Number(/: (\d+) trades?/.exec(s)![1]),
     net: Number(/net ([+-−]?)\$([\d,.]+)/.exec(s)!.slice(1).join("").replace("−", "-").replace(/,/g, "")),
   }));
   // the seeded moves of your own make sure these classes exist
-  expect(rows.map((r) => r.label)).toEqual(expect.arrayContaining(["Stop widened", "Moved to breakeven", "Trailed into profit", "Never moved"]));
+  expect(rows.map((r) => r.label)).toEqual(
+    expect.arrayContaining(["Stop widened", "Moved to breakeven", "Trailed into profit", "Never moved"]),
+  );
 
-  const [expected] = await query<{ n: number; net: number }>(`select count(*) as n, sum(t.net_pnl) as net ${WITH_STOP}`);
+  const [expected] = await query<{ n: number; net: number }>(
+    `select count(*) as n, sum(t.net_pnl) as net ${WITH_STOP}`,
+  );
   expect(rows.reduce((a, r) => a + r.n, 0)).toBe(Number(expected.n));
   // each bucket's net is shown rounded to the cent: allow half a cent per bucket
-  expect(Math.abs(rows.reduce((a, r) => a + r.net, 0) - Number(expected.net))).toBeLessThanOrEqual(0.005 * rows.length + 1e-9);
+  expect(Math.abs(rows.reduce((a, r) => a + r.net, 0) - Number(expected.net))).toBeLessThanOrEqual(
+    0.005 * rows.length + 1e-9,
+  );
 
   // $ values in the widget blur in privacy mode
   await page.getByRole("button", { name: "Hide amounts" }).click();

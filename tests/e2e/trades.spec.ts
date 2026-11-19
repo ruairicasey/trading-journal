@@ -1,20 +1,28 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const count = async (page: Page, tab: string) =>
-  Number(await page.getByRole("navigation", { name: "Trade tabs" }).getByRole("link", { name: new RegExp(`^${tab}`) }).locator("span").innerText());
+  Number(
+    await page
+      .getByRole("navigation", { name: "Trade tabs" })
+      .getByRole("link", { name: new RegExp(`^${tab}`) })
+      .locator("span")
+      .innerText(),
+  );
 
 test.describe("Trades page (demo data)", () => {
   test("tabs with counts, rows expand to details", async ({ page }) => {
     await page.goto("/trades");
     const all = await count(page, "All");
     expect(all).toBeGreaterThan(100);
-    expect(all).toBe((await count(page, "Planned")) + (await count(page, "Open")) + (await count(page, "Closed")));
+    expect(all).toBe(
+      (await count(page, "Planned")) + (await count(page, "Open")) + (await count(page, "Closed")),
+    );
     await expect(page.getByTestId("trade-row")).toHaveCount(20);
     await page.getByTestId("trade-row").first().getByTestId("trade-expand").click();
     const details = page.getByTestId("trade-details").first();
-    await expect(details).toContainText("Entry → exit");
+    await expect(details).toContainText("Entry and exit");
     await expect(details).toContainText("hyperliquid auto-sync");
-    await expect(details.getByRole("link", { name: "Edit trade →" })).toBeVisible();
+    await expect(details.getByRole("link", { name: "Edit trade" })).toBeVisible();
     await page.getByRole("link", { name: /^Open \d+/ }).click();
     await expect(page).toHaveURL(/tab=open/);
     await expect(page.getByTestId("trade-row").first()).toContainText("Open");
@@ -24,7 +32,10 @@ test.describe("Trades page (demo data)", () => {
     await page.goto("/trades");
     await page.getByRole("button", { name: /Filters/ }).click();
     const sheet = page.getByRole("dialog");
-    await sheet.locator("div.grid", { hasText: /^Direction/ }).getByRole("combobox").click();
+    await sheet
+      .locator("div.grid", { hasText: /^Direction/ })
+      .getByRole("combobox")
+      .click();
     await page.getByRole("option", { name: "Long", exact: true }).click();
     await sheet.getByRole("button", { name: "Apply" }).click();
     await expect(page).toHaveURL(/dir=long/);

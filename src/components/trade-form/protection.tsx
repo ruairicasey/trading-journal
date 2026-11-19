@@ -46,7 +46,7 @@ export function ProtectionHint({
       <Zap className="mt-0.5 size-3 shrink-0 text-gold-ink" />
       {auto ? (
         <span>
-          Auto from your {what} order ·{" "}
+          Auto from your {what} order,{" "}
           {late !== null ? (
             <span className="text-gold-ink" title={`Placed ${fmtDateTime(det.placedAt, tz)}`} data-testid="late-stop">
               placed {lateBy(late)} after entry
@@ -57,7 +57,7 @@ export function ProtectionHint({
         </span>
       ) : matches ? (
         <span>
-          Matches your {what} order{late !== null && <span className="text-gold-ink"> · placed {lateBy(late)} after entry</span>}
+          Matches your {what} order{late !== null && <span className="text-gold-ink">, placed {lateBy(late)} after entry</span>}
         </span>
       ) : (
         <span>

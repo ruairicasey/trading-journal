@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { TZDate } from "@date-fns/tz";
 import { DashboardControls } from "@/components/dashboard/controls";
-import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params";
+import { dashHref, type DashParams , periodPhrase } from "@/lib/dashboard-params";
 import { EquityChart } from "@/components/dashboard/equity-chart";
 import { KpiStrip, NetFigure } from "@/components/dashboard/kpi-card";
 import { OpenTradesBanner } from "@/components/dashboard/open-trades-banner";
@@ -11,15 +11,11 @@ import { RecentTrades } from "@/components/dashboard/recent-trades";
 import { EmptyState } from "@/components/shell/empty-state";
 import { dayBoundsLocal, periodRange, PERIODS, type Period } from "@/lib/periods";
 import { balanceCurve, calendarMonth, computeKpis, equityCurve, type BalancePoint } from "@/lib/stats";
-import { drawdownStats, sliceUnderwater, underwaterSeries } from "@/lib/drawdown";
 import { weekOf, weekScore } from "@/lib/weekly";
-import { DrawdownCard } from "@/components/dashboard/drawdown-card";
 import { WeeklyCard } from "@/components/dashboard/weekly-card";
 import { InsightsList } from "@/components/analytics/insights-list";
 import { insights } from "@/lib/analytics/insights";
 import { scores } from "@/lib/analytics/scores";
-import { computeRisk } from "@/lib/risk";
-import { RiskCard } from "@/components/analytics/risk-card";
 import { ScoresCard } from "@/components/analytics/scores-card";
 import { analyticsTrades } from "@/server/db/queries/analytics";
 import { missingCounts } from "@/server/db/queries/trades";
@@ -29,7 +25,7 @@ import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { balanceInputs, closedTrades, openTrades } from "@/server/db/queries/dashboard";
 import { getActiveScope, getSetting } from "@/server/db/queries/settings";
-import { fmtR, fmtUsd, pnlClass } from "@/lib/format";
+import { fmtR, fmtUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { H2, SECTION } from "@/lib/ui";
 import { baseAtFloor, clampStart, fromFloor, journalFloor, SINCE_START } from "@/lib/journal-start";
@@ -128,13 +124,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const mm = ((((m - 1) % 12) + 12) % 12) + 1;
     return `${y}-${String(mm).padStart(2, "0")}`;
   };
-  // drawdown: computed over all history (the running peak includes earlier trades), shown for the period
-  const underwater = underwaterSeries(
-    end === null ? all : all.filter((t) => t.exitTime < end),
-    startBal > 0 ? base : startBal,
-  );
-  const dd = drawdownStats(underwater, { from: start, to: end, now });
-  const ddPoints = sliceUnderwater(underwater, start);
 
   // weekly reflection (Monday-first, by exit time)
   let week = weekOf(params.week, now, tz);
@@ -153,8 +142,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   );
   const leaks = insights(richInRange, rich, tz).list.slice(0, 3);
   const sc = richInRange.length ? scores(richInRange, rich, tz) : null;
-  const risk = inRange.length ? computeRisk(all, bal, base, { from: start, to: end, tz, now }) : null;
-
   const recent = [...all].sort((a, b) => b.exitTime - a.exitTime).slice(0, 7);
   const dateFmt = new Intl.DateTimeFormat("en-AU", {
     timeZone: tz,
@@ -162,9 +149,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     month: "short",
     year: "numeric",
   });
-  const periodLabel = custom
-    ? `${from} → ${params.to ?? "now"}`
-    : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period);
+  const periodLabel = periodPhrase(params);
 
   // the hero names exactly what its figure is: the curve's last point (at the range end when a custom range has one)
   const on = params.to ? ` on ${params.to}` : "";
@@ -197,7 +182,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 className={cn(
                   "sm:text-52 text-[40px] leading-none font-medium tracking-[-0.035em]",
                   unit === "usd" && "money",
-                  unit === "r" && pnlClass(lastPoint?.cumR),
                 )}
                 data-testid={balanceView ? "balance-now" : "hero-figure"}
               >
@@ -232,7 +216,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {unit === "r" ? (
               "Trades without a stop count as 0R"
             ) : balanceView ? (
-              "Deposits, withdrawals and transfers included · open positions not marked to market"
+              "Deposits, withdrawals and transfers included, open positions not marked to market"
             ) : walletId ? (
               "This wallet's realised P&L from $0 (the starting balance is the whole account's)"
             ) : (
@@ -274,7 +258,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <header className="flex items-baseline justify-between gap-2">
                 <h2 className={H2}>
                   Where you lose the most
-                  <span className="text-muted-foreground font-normal"> · {periodLabel}</span>
+                  <span className="text-muted-foreground font-normal">, {periodLabel}</span>
                   {unit === "r" && (
                     <span className="text-muted-foreground ml-2 text-xs font-normal">
                       (in $; total R on the Insights page)
@@ -296,14 +280,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <InsightsList items={leaks} tz={tz} compact />
             </section>
           )}
-          {sc && <ScoresCard s={sc} title={`Scores · ${periodLabel}`} plain />}
+          {sc && <ScoresCard s={sc} title={`Scores, ${periodLabel}`} plain />}
           <RecentTrades trades={recent} tz={tz} unit={unit} />
         </div>
       </div>
 
-      {risk && <RiskCard m={risk} title={`Risk-adjusted · ${periodLabel}`} plain />}
-
-      <DrawdownCard stats={dd} points={ddPoints} unit={unit} tz={tz} periodLabel={periodLabel} />
     </div>
   );
 }

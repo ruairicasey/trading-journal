@@ -1,7 +1,8 @@
 import { deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 
-const saved = (page: Page) => expect(page.getByTestId("save-status")).toContainText("Saved", { timeout: 10_000 });
+const saved = (page: Page) =>
+  expect(page.getByTestId("save-status")).toContainText("Saved", { timeout: 10_000 });
 
 /** A small, valid PNG (solid colour), built in-test. */
 function pngBytes(w = 64, h = 36, rgb: [number, number, number] = [40, 120, 200]) {
@@ -29,7 +30,12 @@ function pngBytes(w = 64, h = 36, rgb: [number, number, number] = [40, 120, 200]
   ihdr.set([8, 2, 0, 0, 0], 8);
   const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: w }, () => rgb).flat())]);
   const raw = Buffer.concat(Array.from({ length: h }, () => row));
-  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
 }
 
 async function openTrade(page: Page, index: number) {
@@ -41,7 +47,9 @@ async function openTrade(page: Page, index: number) {
 }
 
 test.describe("Edit trade: Analysis and Notes (demo data)", () => {
-  test("analysis: pick confluences via search, set context and review, persists after reload", async ({ page }) => {
+  test("analysis: pick confluences via search, set context and review, persists after reload", async ({
+    page,
+  }) => {
     await openTrade(page, 8);
     await page.getByRole("tab", { name: /Analysis/ }).click();
 
@@ -71,16 +79,26 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
     await page.reload();
     await page.waitForLoadState("networkidle");
     await page.getByRole("tab", { name: /Analysis/ }).click();
-    await expect(page.getByRole("radiogroup", { name: "Entry timeframe" }).getByRole("radio", { name: "2H", exact: true })).toHaveAttribute("aria-checked", "true");
-    await expect(page.getByTestId("confluence-picker").getByRole("button", { name: "Remove Naked POC" })).toBeVisible();
-    await expect(page.getByRole("radiogroup", { name: "Trade grade" }).getByRole("radio", { name: "A+" })).toHaveAttribute("aria-checked", "true");
+    await expect(
+      page
+        .getByRole("radiogroup", { name: "Entry timeframe" })
+        .getByRole("radio", { name: "2H", exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
+    await expect(
+      page.getByTestId("confluence-picker").getByRole("button", { name: "Remove Naked POC" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("radiogroup", { name: "Trade grade" }).getByRole("radio", { name: "A+" }),
+    ).toHaveAttribute("aria-checked", "true");
     await expect(page.getByLabel("Custom max R")).toHaveValue("2.7");
     await expect(htf.getByRole("checkbox", { name: "30m" })).toHaveAttribute("aria-checked", "true");
     await expect(htf.getByRole("checkbox", { name: "12H" })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("retests")).not.toHaveText("—");
   });
 
-  test("notes: text, tags, review, screenshots by upload and paste; persists after reload", async ({ page }) => {
+  test("notes: text, tags, review, screenshots by upload and paste; persists after reload", async ({
+    page,
+  }) => {
     await openTrade(page, 9);
     await page.getByRole("tab", { name: /Notes/ }).click();
 
@@ -88,13 +106,17 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
     await page.getByLabel("Add tag").fill("e2e-tag");
     await page.getByLabel("Add tag").press("Enter");
     await expect(page.getByTestId("tags")).toContainText("#e2e-tag");
-    const partial = page.getByRole("radiogroup", { name: "Rules followed" }).getByRole("radio", { name: "Partial" });
+    const partial = page
+      .getByRole("radiogroup", { name: "Rules followed" })
+      .getByRole("radio", { name: "Partial" });
     if ((await partial.getAttribute("aria-checked")) !== "true") await partial.click();
     await saved(page);
 
     const shots = page.getByTestId("screenshot");
     const before = await shots.count();
-    await page.getByTestId("screenshot-input").setInputFiles({ name: "chart.png", mimeType: "image/png", buffer: pngBytes() });
+    await page
+      .getByTestId("screenshot-input")
+      .setInputFiles({ name: "chart.png", mimeType: "image/png", buffer: pngBytes() });
     await expect(shots).toHaveCount(before + 1, { timeout: 30_000 });
 
     // paste an image (synthetic clipboard event, like Cmd/Ctrl+V of a copied screenshot)
@@ -124,7 +146,9 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
     await page.getByRole("tab", { name: /Notes/ }).click();
     await expect(page.getByLabel("Trade rationale")).toHaveValue("Reclaim of VAL after a sweep; e2e note.");
     await expect(page.getByTestId("tags")).toContainText("#e2e-tag");
-    await expect(page.getByRole("radiogroup", { name: "Rules followed" }).getByRole("radio", { name: "Partial" })).toHaveAttribute("aria-checked", "true");
+    await expect(
+      page.getByRole("radiogroup", { name: "Rules followed" }).getByRole("radio", { name: "Partial" }),
+    ).toHaveAttribute("aria-checked", "true");
     await expect(shots).toHaveCount(before + 2);
     await expect(shots.last().getByLabel("Screenshot caption")).toHaveValue("Pasted exit");
 
@@ -132,7 +156,10 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
     page.once("dialog", (d) => d.accept());
     // the screenshot leaves the list at once (optimistic); wait for the server action itself before reloading,
     // or the reload can race it (its first call compiles the actions module in dev mode, which can be slow)
-    const deleted = page.waitForResponse((r) => r.request().method() === "POST" && !!r.request().headers()["next-action"], { timeout: 30_000 });
+    const deleted = page.waitForResponse(
+      (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
+      { timeout: 30_000 },
+    );
     await shots.last().getByRole("button", { name: "Delete screenshot" }).click();
     await expect(shots).toHaveCount(before + 1);
     await deleted;
@@ -144,7 +171,14 @@ test.describe("Edit trade: Analysis and Notes (demo data)", () => {
   test("a non-image disguised as PNG is rejected by the server", async ({ page }) => {
     const id = await openTrade(page, 10);
     const res = await page.request.post("/api/screenshots", {
-      multipart: { tradeId: id, file: { name: "x.png", mimeType: "image/png", buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'><script>1</script></svg>") } },
+      multipart: {
+        tradeId: id,
+        file: {
+          name: "x.png",
+          mimeType: "image/png",
+          buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'><script>1</script></svg>"),
+        },
+      },
     });
     expect(res.status()).toBe(422);
   });

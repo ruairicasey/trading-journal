@@ -54,7 +54,7 @@ export function WeeklyCard({
     title: `Week of ${range.format(ymd(week.monday))} ${week.monday.slice(0, 4)}`,
     date: week.start,
     body: [
-      `${k.count} trades · net ${fmtSignedUsd(k.net)}${k.avgR !== null ? ` · avg ${fmtR(k.avgR)}` : ""}${k.winRate !== null ? ` · win rate ${(k.winRate * 100).toFixed(0)}%` : ""}`,
+      `${k.count} trades, net ${fmtSignedUsd(k.net)}${k.avgR !== null ? `, avg ${fmtR(k.avgR)}` : ""}${k.winRate !== null ? `, win rate ${(k.winRate * 100).toFixed(0)}%` : ""}`,
       "",
       "What went well?",
       "",
@@ -113,15 +113,15 @@ export function WeeklyCard({
             <Item label="Net">
               {r ? <span className={pnlClass(k.totalR)}>{fmtR(k.totalR)}</span> : money(k.net)}
             </Item>
-            <Item label="Trades" sub={`${k.wins}W / ${k.losses}L / ${k.breakeven}BE`}>
+            <Item label="Trades" sub={`${k.wins} won, ${k.losses} lost, ${k.breakeven} even`}>
               {k.count}
             </Item>
             <Item label="Win rate">{k.winRate === null ? "—" : `${(k.winRate * 100).toFixed(0)}%`}</Item>
             <Item
               label="Avg R"
-              sub={k.rCount ? `median ${fmtR(k.medianR)} · ${k.rCount} with a stop` : "no stops"}
+              sub={k.rCount ? `median ${fmtR(k.medianR)}, ${k.rCount} with a stop` : "no stops"}
             >
-              <span className={pnlClass(k.avgR)}>{fmtR(k.avgR)}</span>
+              <span>{fmtR(k.avgR)}</span>
             </Item>
             <Item label="Best day" sub={score.bestDay ? dayName(score.bestDay.date) : undefined}>
               {score.bestDay ? money(score.bestDay.net) : "—"}
@@ -154,7 +154,7 @@ export function WeeklyCard({
               <span className="text-muted-foreground">Review coverage</span>
               <span className="tabular-nums" data-testid="review-coverage">
                 {reviewed} of {missing.total} reviewed
-                {coverage !== null && ` · ${(coverage * 100).toFixed(0)}%`}
+                {coverage !== null && `, ${(coverage * 100).toFixed(0)}%`}
               </span>
             </div>
             <div
@@ -181,7 +181,7 @@ export function WeeklyCard({
                       title={MISSING_LABELS[kind].long}
                     >
                       <span>{MISSING_LABELS[kind].short}</span>
-                      <span className="font-medium tabular-nums">{missing[kind]} →</span>
+                      <span className="font-medium tabular-nums">{missing[kind]}</span>
                     </Link>
                   ) : (
                     <span className="text-muted-foreground flex items-center justify-between gap-2 px-1.5 py-1">
@@ -194,7 +194,7 @@ export function WeeklyCard({
               {missing.review > 0 && (
                 <li className="sm:col-span-2">
                   <Link href={tradesHref(base, { missing: "review" })} className="link px-1.5 text-xs">
-                    Review the {missing.review} unreviewed trade{missing.review === 1 ? "" : "s"} →
+                    Review the {missing.review} unreviewed trade{missing.review === 1 ? "" : "s"}
                   </Link>
                 </li>
               )}

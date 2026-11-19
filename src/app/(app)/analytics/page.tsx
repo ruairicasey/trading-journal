@@ -4,7 +4,7 @@ import { BreakdownWidget } from "@/components/analytics/breakdown-widget";
 import { CustomizeWidgets } from "@/components/analytics/customize";
 import { DashboardControls } from "@/components/dashboard/controls";
 import { EmptyState } from "@/components/shell/empty-state";
-import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params";
+import { dashHref, type DashParams, periodPhrase } from "@/lib/dashboard-params";
 import { baseAtFloor, clampStart, fromFloor, journalFloor, SINCE_START } from "@/lib/journal-start";
 import { setupBreakdowns, SETUP_WIDGETS } from "@/lib/analytics/setup";
 import { TIMING_WIDGETS, timingBreakdowns } from "@/lib/analytics/timing";
@@ -21,6 +21,8 @@ import { insights, INSIGHT_RULES } from "@/lib/analytics/insights";
 import { scores } from "@/lib/analytics/scores";
 import { computeRisk } from "@/lib/risk";
 import { RiskCard } from "@/components/analytics/risk-card";
+import { DrawdownCard } from "@/components/dashboard/drawdown-card";
+import { drawdownStats, sliceUnderwater, underwaterSeries } from "@/lib/drawdown";
 import { balanceInputs, closedTrades } from "@/server/db/queries/dashboard";
 import { ScoresCard } from "@/components/analytics/scores-card";
 import { DailyWidget, RollingWidget, StreaksWidget } from "@/components/analytics/behaviour-widgets";
@@ -104,17 +106,18 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           balanceInputs(getDb(), active.id, walletId),
         ]).then(([closedAll, bal]) => {
           const closed = fromFloor(closedAll, floor);
-          return computeRisk(
-            closed,
-            bal,
-            baseAtFloor(closedAll, floor, walletId ? 0 : active.startingBalance),
-            {
-              from: start,
-              to: end,
-              tz,
-              now,
-            },
+          const startBal = walletId ? 0 : active.startingBalance;
+          const base = baseAtFloor(closedAll, floor, startBal);
+          // drawdown: over all history in view (the running peak includes earlier trades), shown for the period
+          const underwater = underwaterSeries(
+            end === null ? closed : closed.filter((t) => t.exitTime < end),
+            startBal > 0 ? base : startBal,
           );
+          return {
+            metrics: computeRisk(closed, bal, base, { from: start, to: end, tz, now }),
+            dd: drawdownStats(underwater, { from: start, to: end, now }),
+            ddPoints: sliceUnderwater(underwater, start),
+          };
         })
       : null;
   const trades = all.filter(
@@ -142,24 +145,24 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <span>
           Hours used (first match wins)
           {tb.sessionFromTrade
-            ? ` · ${tb.sessionFromTrade} trade${tb.sessionFromTrade === 1 ? " uses" : "s use"} the session set on the trade`
+            ? `, ${tb.sessionFromTrade} trade${tb.sessionFromTrade === 1 ? " uses" : "s use"} the session set on the trade`
             : ""}
           :
         </span>
         {sessions.map((x) => (
           <span key={x.name} className="tabular-nums">
-            <span className="text-foreground">{x.name}</span> {describeSession(x)} · now{" "}
-            {sessionHoursIn(x, now, "UTC")} UTC · {sessionHoursIn(x, now, tz)} yours
+            <span className="text-foreground">{x.name}</span> {describeSession(x)}, now{" "}
+            {sessionHoursIn(x, now, "UTC")} UTC, {sessionHoursIn(x, now, tz)} yours
           </span>
         ))}
         <Link href="/settings" className="link">
-          Edit sessions in Settings →
+          Edit sessions in Settings
         </Link>
       </div>
     );
     footers.hold = (
       <span data-testid="hold-avg">
-        Average hold: winners <span className="text-foreground tabular-nums">{hours(tb.holdWin)}</span> ·
+        Average hold: winners <span className="text-foreground tabular-nums">{hours(tb.holdWin)}</span>,
         losers <span className="text-foreground tabular-nums">{hours(tb.holdLoss)}</span>
       </span>
     );
@@ -254,9 +257,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     widgets = SETUP_WIDGETS;
     data = setupBreakdowns(trades);
   }
-  const periodLabel = custom
-    ? `${from} → ${params.to ?? "now"}`
-    : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period);
+  const periodLabel = periodPhrase(params);
   const visible = widgets.filter((w) => !hidden.includes(w.id));
 
   return (
@@ -308,23 +309,30 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       </nav>
 
       <p className="text-muted-foreground text-xs" data-testid="analytics-summary">
-        {trades.length} closed trade{trades.length === 1 ? "" : "s"} · {periodLabel} · by exit time
-        {section === "timing" ? ` · day, hour and session by entry time (${tz})` : ""}
+        {trades.length} closed trade{trades.length === 1 ? "" : "s"}, {periodLabel}, by exit time
+        {section === "timing" ? `, day, hour and session by entry time (${tz})` : ""}
         {section === "insights"
-          ? " · ranked by net P&L, with total R alongside"
-          : ` · bars show ${unit === "r" ? "average R (trades with a stop)" : "net P&L"}`}
+          ? ", ranked by net P&L, with total R alongside"
+          : `, bars show ${unit === "r" ? "average R (trades with a stop)" : "net P&L"}`}
       </p>
 
-      {risk && trades.length > 0 && (
-        <RiskCard
-          m={risk}
-          title={`Risk-adjusted · ${custom ? `${from} → ${params.to ?? "now"}` : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period)}`}
-        />
+      {risk && (
+        <>
+          {trades.length > 0 && <RiskCard m={risk.metrics} title={`Risk-adjusted, ${periodLabel}`} />}
+          {/* the current drawdown includes earlier history, so it shows even without exits in the period */}
+          <DrawdownCard
+            stats={risk.dd}
+            points={risk.ddPoints}
+            unit={unit}
+            tz={tz}
+            periodLabel={periodLabel}
+          />
+        </>
       )}
 
       {section === "insights" && trades.length > 0 ? (
         <div className="grid gap-4">
-          <ScoresCard s={scores(trades, all, tz)} title={`Scores · ${periodLabel}`} />
+          <ScoresCard s={scores(trades, all, tz)} title={`Scores, ${periodLabel}`} />
           <InsightsSection list={insights(trades, all, tz).list} tz={tz} />
         </div>
       ) : trades.length === 0 ? (

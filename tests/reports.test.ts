@@ -173,7 +173,7 @@ describe("report range", () => {
     expect(all.start).toBeNull();
     expect(all.qs).toBe("period=all");
     const c = reportRange({ period: "custom", from: "2026-10-01", to: "2026-10-31" }, now, TZ);
-    expect(c.label).toBe("2026-10-01 → 2026-10-31");
+    expect(c.label).toBe("2026-10-01 to 2026-10-31");
     expect(c.inRange({ exitTime: Date.UTC(2026, 9, 15) })).toBe(true);
     expect(c.inRange({ exitTime: Date.UTC(2026, 10, 2) })).toBe(false);
     expect(c.qs).toBe("period=custom&from=2026-10-01&to=2026-10-31");

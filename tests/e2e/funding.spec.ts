@@ -8,15 +8,19 @@ async function setIncludeFunding(page: Page, on: boolean) {
   await expect(page.getByText("Saved")).toBeVisible();
 }
 
-test("funding shows on the dashboard and the trade; the setting moves it in and out of net P&L", async ({ page }) => {
+test("funding shows on the dashboard and the trade; the setting moves it in and out of net P&L", async ({
+  page,
+}) => {
   await page.goto("/dashboard?period=all");
   await expect(page.getByTestId("kpi-funding")).toHaveText(/[+-]\$/);
-  await expect(page.getByTestId("kpi-fees")).toContainText("funding in net");
+  await expect(page.getByTestId("kpi-funding").locator("xpath=../..")).toContainText("included in net P&L");
   const withFunding = await page.getByTestId("kpi-net").locator("div").nth(1).innerText();
 
   await setIncludeFunding(page, false);
   await page.goto("/dashboard?period=all");
-  await expect(page.getByTestId("kpi-fees")).toContainText("funding not in net");
+  await expect(page.getByTestId("kpi-funding").locator("xpath=../..")).toContainText(
+    "not included in net P&L",
+  );
   const without = await page.getByTestId("kpi-net").locator("div").nth(1).innerText();
   expect(without).not.toBe(withFunding);
 

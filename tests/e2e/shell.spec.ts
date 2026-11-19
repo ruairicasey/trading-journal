@@ -40,4 +40,23 @@ test.describe("app shell", () => {
     await expect(page.getByRole("dialog").getByRole("link", { name: "Trades", exact: true })).toBeVisible();
     await expect(status(page)).toHaveCount(1);
   });
+
+  test("phone: search and privacy are in the menu sheet; search closes the sheet; ⌘K opens one palette", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByRole("button", { name: "Hide amounts" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-privacy", "on");
+    await sheet.getByRole("button", { name: "Show amounts" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-privacy", "off");
+    await sheet.getByRole("button", { name: /Search/ }).click();
+    await expect(page.getByPlaceholder(/search/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Trades", exact: true })).toHaveCount(0); // the sheet closed
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(page.getByPlaceholder(/search/i)).toHaveCount(1);
+  });
 });

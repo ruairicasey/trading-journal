@@ -51,7 +51,7 @@ export function AccountSwitcher({
             <span className="text-ink truncate text-sm font-medium">{active?.name ?? "No account"}</span>
             <span className="text-muted-foreground truncate text-xs" data-testid="scope-label">
               {active ? (TYPE_LABEL[active.type] ?? active.type) : "Add one in Settings"}
-              {wallet ? ` · ${wallet.label}` : ""}
+              {wallet ? `, ${wallet.label}` : ""}
             </span>
           </div>
           <ChevronsUpDown className="ml-auto size-4 opacity-60 group-data-[collapsible=icon]:ml-0" />

@@ -89,7 +89,7 @@ export function StopMoveHistory(p: Props) {
     <div className="mt-3 border-t pt-3" data-testid="stop-moves">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className="text-muted-foreground text-xs">
-          Stop moves{classified.cls && rows.length ? <> · <span data-testid="stop-class">{CLASS_TEXT[classified.cls]}</span></> : null}
+          Stop moves{classified.cls && rows.length ? <>, <span data-testid="stop-class">{CLASS_TEXT[classified.cls]}</span></> : null}
         </p>
         {!edit && (
           <Button
@@ -117,7 +117,7 @@ export function StopMoveHistory(p: Props) {
             return (
               <li key={m.id} className="flex flex-wrap items-center gap-x-3" data-testid="stop-move-row">
                 <span className="text-muted-foreground w-36 shrink-0">{fmtDateTime(m.time, p.tz)}</span>
-                <span className="tabular-nums">→ {fmtPrice(m.price)}</span>
+                <span className="tabular-nums">to {fmtPrice(m.price)}</span>
                 {c && <span className={cn(KIND[c.kind].cls)} data-testid="stop-move-kind">{KIND[c.kind].label}</span>}
                 {c && <span className="text-muted-foreground tabular-nums">{c.riskPct >= 0 ? `${c.riskPct.toFixed(2)}% risk` : `${(-c.riskPct).toFixed(2)}% in profit`}</span>}
                 {c?.lockedR !== null && c?.lockedR !== undefined && <span className="text-muted-foreground tabular-nums">locks {fmtR(c.lockedR)}</span>}

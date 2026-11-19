@@ -254,8 +254,8 @@ export function CtraderSettings(p: {
                   </Select>
                 </div>
                 <p className="text-muted-foreground text-xs">
-                  {a.deals} deal{a.deals === 1 ? "" : "s"} · history to{" "}
-                  {a.dealsSyncedTo ? fmtDateTime(a.dealsSyncedTo, p.timezone) : "—"} · last sync{" "}
+                  {a.deals} deal{a.deals === 1 ? "" : "s"}, history to{" "}
+                  {a.dealsSyncedTo ? fmtDateTime(a.dealsSyncedTo, p.timezone) : "—"}, last sync{" "}
                   {a.lastSyncedAt ? timeAgo(a.lastSyncedAt) : "never"}
                 </p>
                 {a.currency && a.currency !== "USD" && (
@@ -406,9 +406,9 @@ function CsvImport(p: {
               <p className="text-destructive">Columns not found: {preview.missing.join(", ")}.</p>
             ) : (
               <p>
-                {preview.rows} rows → {preview.trades} closed trades
+                {preview.rows} rows make {preview.trades} closed trades
                 {preview.first && preview.last
-                  ? `, ${fmtDateTime(preview.first, p.timezone)} → ${fmtDateTime(preview.last, p.timezone)}`
+                  ? `, ${fmtDateTime(preview.first, p.timezone)} to ${fmtDateTime(preview.last, p.timezone)}`
                   : ""}
                 , net <span className="money">{money(preview.net)}</span>.
               </p>
