@@ -259,7 +259,7 @@ export function CtraderSettings(p: {
                   {a.lastSyncedAt ? timeAgo(a.lastSyncedAt) : "never"}
                 </p>
                 {a.currency && a.currency !== "USD" && (
-                  <p className="text-xs text-amber-600">
+                  <p className="text-xs text-gold-ink">
                     This account is in {a.currency}: its P&amp;L is shown as is, not converted to USD, so keep
                     it out of all-account totals.
                   </p>
@@ -415,7 +415,7 @@ function CsvImport(p: {
             )}
             {preview.issueCount > 0 && (
               <div className="text-xs">
-                <p className="text-amber-600">
+                <p className="text-gold-ink">
                   {preview.issueCount} row{preview.issueCount === 1 ? "" : "s"} flagged:
                 </p>
                 <ul className="text-muted-foreground list-disc pl-5">

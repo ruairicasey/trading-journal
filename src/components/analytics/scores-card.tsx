@@ -3,7 +3,7 @@ import { fmtSignedUsd, pnlClass } from "@/lib/format";
 import { DISCIPLINE_CHECKS, type Scores } from "@/lib/analytics/scores";
 
 const band = (s: number | null) =>
-  s === null ? "text-muted-foreground" : s >= 80 ? "text-profit" : s >= 60 ? "text-amber-400" : "text-loss";
+  s === null ? "text-muted-foreground" : s >= 80 ? "text-profit" : s >= 60 ? "text-gold-ink" : "text-loss";
 const show = (s: number | null) => (s === null ? "—" : String(Math.round(s)));
 const pct = (x: number, of: number) => (of ? `${Math.round((x / of) * 100)}%` : "—");
 

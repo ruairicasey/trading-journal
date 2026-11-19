@@ -159,7 +159,7 @@ function ItemRow({
       ) : (
         <>
           <IconBtn label={item.favorite ? "Unfavourite" : "Favourite"} onClick={() => onChange({ favorite: !item.favorite })}>
-            <Star className={cn(item.favorite && "fill-amber-400 text-amber-400")} />
+            <Star className={cn(item.favorite && "fill-gold text-gold")} />
           </IconBtn>
           <button
             type="button"

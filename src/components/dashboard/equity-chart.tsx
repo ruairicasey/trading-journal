@@ -15,7 +15,7 @@ const FLOW_LABEL: Record<string, string> = {
   internal: "Internal transfer fee",
 };
 
-const LINE = "oklch(0.72 0.14 250)"; // single series: one calm accent; P&L sign is shown as text
+const LINE = "var(--gold)"; // single series: one calm accent; P&L sign is shown as text
 
 /** `points` with `deposited` (BalancePoint) draw the real account balance with a dashed net-deposited line. */
 export function EquityChart({ points, unit, baseline, tz }: { points: (EquityPoint | BalancePoint)[]; unit: "usd" | "r"; baseline: number; tz: string }) {

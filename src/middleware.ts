@@ -26,9 +26,9 @@ export async function middleware(req: NextRequest) {
       if (pathname.startsWith("/api/")) return NextResponse.json({ error: d.reason }, { status: 503 });
       return new NextResponse(
         `<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Unavailable</title>` +
-          `<body style="background:#0a0a0a;color:#e5e5e5;font:14px system-ui;display:grid;place-items:center;height:100vh;margin:0">` +
+          `<body style="background:#f2f3ef;color:#15181c;font:14px system-ui;display:grid;place-items:center;height:100vh;margin:0">` +
           `<div style="max-width:28rem;text-align:center"><h1 style="font-size:16px">Trading Journal is unavailable</h1>` +
-          `<p style="color:#a3a3a3">${d.reason.replace(/[<>&]/g, "")}</p></div>`,
+          `<p style="color:#5e6560">${d.reason.replace(/[<>&]/g, "")}</p></div>`,
         { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } },
       );
   }

@@ -203,7 +203,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 "/analytics",
                 active.journalStart !== null ? SINCE_START : "all", // Analytics' own default, so All time survives
               )}
-              className="text-xs text-sky-400 hover:underline"
+              className="text-xs link"
             >
               All insights →
             </Link>

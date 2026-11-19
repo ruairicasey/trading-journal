@@ -14,10 +14,10 @@ import type { ProtectionState } from "./types";
 type MoveRow = ProtectionState["stopMoves"][number];
 
 const KIND: Record<StopMoveKind, { label: string; cls: string }> = {
-  tighten: { label: "tightened", cls: "text-sky-400" },
-  widen: { label: "widened", cls: "text-red-400" },
-  breakeven: { label: "to breakeven", cls: "text-amber-400" },
-  trail: { label: "trailing in profit", cls: "text-emerald-400" },
+  tighten: { label: "tightened", cls: "text-ink-2" },
+  widen: { label: "widened", cls: "text-loss" },
+  breakeven: { label: "to breakeven", cls: "text-gold-ink" },
+  trail: { label: "trailing in profit", cls: "text-profit" },
   unchanged: { label: "re-placed", cls: "text-muted-foreground" },
 };
 
@@ -135,7 +135,7 @@ export function StopMoveHistory(p: Props) {
                     </button>
                     {confirmDelete === m.id ? (
                       <span className="flex gap-1">
-                        <button type="button" className="text-red-400 hover:underline" disabled={pending} onClick={() => run(() => deleteStopMoveAction(m.id))}>
+                        <button type="button" className="text-loss hover:underline" disabled={pending} onClick={() => run(() => deleteStopMoveAction(m.id))}>
                           Delete
                         </button>
                         <button type="button" className="text-muted-foreground hover:underline" onClick={() => setConfirmDelete(null)}>
@@ -143,7 +143,7 @@ export function StopMoveHistory(p: Props) {
                         </button>
                       </span>
                     ) : (
-                      <button type="button" className="text-muted-foreground hover:text-red-400" aria-label="Delete stop move" onClick={() => setConfirmDelete(m.id)}>
+                      <button type="button" className="text-muted-foreground hover:text-loss" aria-label="Delete stop move" onClick={() => setConfirmDelete(m.id)}>
                         <Trash2 className="size-3" />
                       </button>
                     )}
@@ -156,7 +156,7 @@ export function StopMoveHistory(p: Props) {
       )}
       {editor}
       {error && (
-        <p className="mt-1 text-xs text-red-400" role="alert">
+        <p className="mt-1 text-xs text-loss" role="alert">
           {error}
         </p>
       )}

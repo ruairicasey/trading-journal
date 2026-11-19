@@ -95,8 +95,8 @@ export function SyncStatus({ initial, isDemo }: { initial: Status; isDemo: boole
               className={cn(
                 "flex items-center gap-1 rounded-md px-1.5 py-0.5",
                 status.stale || status.lastRun?.status === "error"
-                  ? "bg-amber-500/15 text-amber-400"
-                  : "text-amber-400/80",
+                  ? "bg-gold-tint text-gold-ink"
+                  : "text-gold-ink",
               )}
             >
               <AlertTriangle className="size-3.5" />

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { axisDateFormat, fmtR, fmtSignedUsd, fmtUsd } from "@/lib/format";
 import { WidgetFrame } from "./widget-frame";
 
-const LINE = "oklch(0.72 0.14 250)"; // single series: the calm accent used by the equity curve
+const LINE = "var(--gold)"; // single series: the calm accent used by the equity curve
 type Common = { id: string; title: string; description: string; hidden: string[]; unit: "usd" | "r"; tz: string };
 
 type RunView = { kind: "win" | "loss"; n: number; from: number; to: number } | null;

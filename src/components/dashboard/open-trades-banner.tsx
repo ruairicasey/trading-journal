@@ -49,9 +49,9 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
   const upnl = live?.live ? (live.positions ?? []).reduce((a, p) => a + (p.unrealizedPnl ?? 0), 0) : null;
 
   return (
-    <section className="rounded-lg border border-sky-500/30 bg-sky-500/5" aria-label="Open positions" data-testid="open-banner">
+    <section className="rounded-lg border border-rule bg-subtle" aria-label="Open positions" data-testid="open-banner">
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm">
-        <Activity className="size-4 text-sky-300" />
+        <Activity className="size-4 text-gold-ink" />
         <span className="font-medium">
           {rows.length} open position{rows.length === 1 ? "" : "s"}
         </span>
@@ -72,7 +72,7 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
         <ChevronDown className={cn("text-muted-foreground size-4 transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="overflow-x-auto border-t border-sky-500/20">
+        <div className="overflow-x-auto border-t border-rule">
           <table className="w-full min-w-[640px] text-xs">
             <thead className="text-muted-foreground text-left">
               <tr>
@@ -83,7 +83,7 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-sky-500/10 tabular-nums">
+            <tbody className="divide-y divide-rule-faint tabular-nums">
               {rows.map(({ trade, pos }, i) => {
                 const dir = trade?.direction ?? (pos && pos.size < 0 ? "short" : "long");
                 return (
@@ -97,14 +97,14 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
                     <td className={cn("money px-4 py-1.5", pnlClass(pos?.unrealizedPnl))}>{pos ? fmtSignedUsd(pos.unrealizedPnl) : "—"}</td>
                     <td className={cn("px-4 py-1.5", pnlClass(pos?.returnOnEquity))}>{pos?.returnOnEquity != null ? fmtPct(pos.returnOnEquity * 100) : "—"}</td>
                     <td className="px-4 py-1.5">{fmtPrice(pos?.liquidationPx ?? trade?.liqPx)}</td>
-                    <td className="px-4 py-1.5">{trade?.stopLoss ? fmtPrice(trade.stopLoss) : <span className="text-amber-400">none</span>}</td>
+                    <td className="px-4 py-1.5">{trade?.stopLoss ? fmtPrice(trade.stopLoss) : <span className="text-gold-ink">none</span>}</td>
                     <td className="px-4 py-1.5 text-right">
                       {trade ? (
                         <Link href={`/trades/${trade.id}`} className="text-primary hover:underline">
                           Journal →
                         </Link>
                       ) : (
-                        <span className="text-amber-400" title="Not in your journal yet: run Sync now">
+                        <span className="text-gold-ink" title="Not in your journal yet: run Sync now">
                           not synced
                         </span>
                       )}

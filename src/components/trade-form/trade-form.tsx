@@ -195,7 +195,7 @@ function SaveStatus({ status, dirty }: { status: Status; dirty: boolean }) {
     );
   if (dirty || status.kind === "dirty")
     return (
-      <span className={cn(base, "text-amber-400")} data-testid="save-status">
+      <span className={cn(base, "text-gold-ink")} data-testid="save-status">
         Unsaved changes
       </span>
     );

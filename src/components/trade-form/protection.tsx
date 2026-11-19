@@ -43,12 +43,12 @@ export function ProtectionHint({
   const late = field === "stopLoss" && entryTime !== null && det.placedAt - entryTime > LATE_STOP_MS ? det.placedAt - entryTime : null;
   return (
     <p className="text-muted-foreground flex items-start gap-1 text-[11px] leading-4" data-testid={`${field}-auto`}>
-      <Zap className="mt-0.5 size-3 shrink-0 text-sky-400" />
+      <Zap className="mt-0.5 size-3 shrink-0 text-gold-ink" />
       {auto ? (
         <span>
           Auto from your {what} order ·{" "}
           {late !== null ? (
-            <span className="text-amber-400" title={`Placed ${fmtDateTime(det.placedAt, tz)}`} data-testid="late-stop">
+            <span className="text-gold-ink" title={`Placed ${fmtDateTime(det.placedAt, tz)}`} data-testid="late-stop">
               placed {lateBy(late)} after entry
             </span>
           ) : (
@@ -57,14 +57,14 @@ export function ProtectionHint({
         </span>
       ) : matches ? (
         <span>
-          Matches your {what} order{late !== null && <span className="text-amber-400"> · placed {lateBy(late)} after entry</span>}
+          Matches your {what} order{late !== null && <span className="text-gold-ink"> · placed {lateBy(late)} after entry</span>}
         </span>
       ) : (
         <span>
           Your {what} order was <span className="tabular-nums">{exact(det.price)}</span>{" "}
           <button
             type="button"
-            className="inline-flex items-center gap-0.5 text-sky-400 hover:underline disabled:opacity-50"
+            className="inline-flex items-center gap-0.5 link disabled:opacity-50"
             disabled={pending}
             onClick={() => start(() => onRevert(field))}
           >
@@ -91,7 +91,7 @@ export function PartialsHint({
   const matches = rows.length === det.length && rows.every((r, i) => same(r.price, det[i].price) && same(r.pct, det[i].pct));
   return (
     <p className="text-muted-foreground flex items-start gap-1 text-[11px] leading-4" data-testid="tpPartials-auto">
-      <Zap className="mt-0.5 size-3 shrink-0 text-sky-400" />
+      <Zap className="mt-0.5 size-3 shrink-0 text-gold-ink" />
       {matches ? (
         <span>{state.sources.tpPartials === "auto" ? "Auto from" : "Matches"} your {det.length} take-profit orders</span>
       ) : (
@@ -99,7 +99,7 @@ export function PartialsHint({
           Your exchange orders had {det.length} take-profit levels{" "}
           <button
             type="button"
-            className="inline-flex items-center gap-0.5 text-sky-400 hover:underline disabled:opacity-50"
+            className="inline-flex items-center gap-0.5 link disabled:opacity-50"
             disabled={pending}
             onClick={() => start(() => onRevert("tpPartials"))}
           >

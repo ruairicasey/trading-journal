@@ -40,6 +40,10 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   it (the new "Since start" period is Analytics' default); "All time" looks further back. Nothing is deleted; sync is
   unaffected; the balance curve starts at the real balance on that date.
 
+- Redesign (light theme), in cycles. Cycle 1 design tokens **done**: palette, type scale (IBM Plex), focus ring and link
+  style as tokens; light mode; hard-coded colours moved onto tokens; red/green kept for realised money, gold for warnings.
+  Next: cycle 2, the sidebar, page sheet and dashboard.
+
 ## Phase 3: insights and reports
 
 - ~~Rule-based insights (revenge trades, tilt, worst hour/day, missing stops…) ranked by $ impact~~ **done**: Analytics →

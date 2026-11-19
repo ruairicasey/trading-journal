@@ -152,7 +152,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
             {sessionHoursIn(x, now, "UTC")} UTC · {sessionHoursIn(x, now, tz)} yours
           </span>
         ))}
-        <Link href="/settings" className="text-sky-400 hover:underline">
+        <Link href="/settings" className="link">
           Edit sessions in Settings →
         </Link>
       </div>

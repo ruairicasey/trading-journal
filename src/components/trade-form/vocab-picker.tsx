@@ -92,7 +92,7 @@ export function VocabPicker({
           <div key={g.key}>
             {g.name && (
               <div className="text-muted-foreground mb-1 flex items-center gap-1 px-1 text-[10px] font-semibold tracking-wide uppercase">
-                {g.key === "fav" && <Star className="size-3 fill-amber-400 text-amber-400" />}
+                {g.key === "fav" && <Star className="size-3 fill-gold text-gold" />}
                 {g.name}
               </div>
             )}

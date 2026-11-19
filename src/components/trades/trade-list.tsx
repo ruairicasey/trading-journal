@@ -259,10 +259,10 @@ function TradeItem({
             {r.direction}
           </Badge>
           {r.status === "open" && (
-            <Badge className="h-5 bg-sky-500/15 px-1.5 text-[10px] text-sky-300">Open</Badge>
+            <Badge className="h-5 bg-gold-tint px-1.5 text-[10px] text-gold-ink">Open</Badge>
           )}
           {r.status === "planned" && (
-            <Badge className="h-5 bg-violet-500/15 px-1.5 text-[10px] text-violet-300">Planned</Badge>
+            <Badge className="h-5 bg-subtle px-1.5 text-[10px] text-ink-2">Planned</Badge>
           )}
           <span className="text-muted-foreground w-full truncate pl-6 text-[11px] sm:w-auto sm:pl-0 sm:text-xs">
             {time ? fmtDateTime(time, tz) : "Not entered"}
@@ -405,7 +405,7 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
           </Badge>
         ))}
         {flagBadges.map((f) => (
-          <Badge key={f} className="bg-amber-500/15 text-[10px] text-amber-300">
+          <Badge key={f} className="bg-gold-tint text-[10px] text-gold-ink">
             {f}
           </Badge>
         ))}
@@ -456,7 +456,7 @@ export function Highlight({ segs }: { segs: Seg[] }) {
     <>
       {segs.map((x, i) =>
         x.hit ? (
-          <mark key={i} className="text-foreground rounded-sm bg-amber-500/25 px-0.5">
+          <mark key={i} className="text-foreground rounded-sm bg-gold-tint px-0.5">
             {x.text}
           </mark>
         ) : (

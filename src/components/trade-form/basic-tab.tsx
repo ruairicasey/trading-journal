@@ -195,7 +195,7 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
       {/* ── Prices ── */}
       <Section title="Prices" description={draft.stopLoss === null ? undefined : rr !== null ? `Planned reward:risk ${rr.toFixed(2)} : 1` : undefined}>
         {draft.stopLoss === null && (
-          <div className="mb-3 flex items-center gap-2 rounded-md border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200" data-testid="sl-prompt">
+          <div className="mb-3 flex items-center gap-2 rounded-md border border-rule bg-subtle px-3 py-2 text-xs text-ink-2" data-testid="sl-prompt">
             <Info className="size-3.5 shrink-0" /> Add a stop loss to unlock R:R analytics.
           </div>
         )}
@@ -497,7 +497,7 @@ function SizeFields(p: {
                 </button>
               )}
               {!p.manual && p.actualRisk !== null && <span>Actual risk from stop: {fmtUsd(p.actualRisk)}</span>}
-              {p.manual && p.stop === null && <span className="text-amber-400">Set a stop loss to size from risk</span>}
+              {p.manual && p.stop === null && <span className="text-gold-ink">Set a stop loss to size from risk</span>}
             </span>
           }
         >

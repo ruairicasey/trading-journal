@@ -6,7 +6,7 @@ import { axisDateFormat, fmtR, fmtSignedUsd, fmtUsd } from "@/lib/format";
 import type { DrawdownStats, UnderwaterPoint } from "@/lib/drawdown";
 
 // single series: the same calm accent as the equity curve (red/green stay reserved for P&L text)
-const LINE = "oklch(0.72 0.14 250)";
+const LINE = "var(--gold)";
 
 const pct = (v: number | null | undefined, signed = true) => (v == null ? "—" : `${signed && v > 0 ? "+" : ""}${v.toFixed(1)}%`);
 

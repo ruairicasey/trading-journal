@@ -85,7 +85,7 @@ export function NotesTab({ data, value: n, onChange, active }: Props) {
               onChange={(v) => onChange({ rulesFollowed: v })}
               options={[
                 { value: "yes", label: "Yes", className: "text-profit" },
-                { value: "partial", label: "Partial", className: "text-amber-400" },
+                { value: "partial", label: "Partial", className: "text-gold-ink" },
                 { value: "no", label: "No", className: "text-loss" },
               ]}
             />

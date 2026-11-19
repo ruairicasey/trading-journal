@@ -7,9 +7,40 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  /* no monospace anywhere: "mono" falls back to the sans with tabular figures */
+  --font-mono: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  --font-condensed: var(--font-plex-condensed), var(--font-plex), ui-sans-serif, sans-serif;
+  --text-13: 13px;
+  --text-13--line-height: 1.4;
+  --text-15: 15px;
+  --text-15--line-height: 1.45;
+  --text-17: 17px;
+  --text-17--line-height: 1.35;
+  --text-22: 22px;
+  --text-22--line-height: 1.25;
+  --text-26: 26px;
+  --text-26--line-height: 1.1;
+  --text-52: 52px;
+  --text-52--line-height: 1;
+  --color-ground: var(--ground);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-rule: var(--rule);
+  --color-rule-ring: var(--rule-ring);
+  --color-rule-faint: var(--rule-faint);
+  --color-subtle: var(--subtle);
+  --color-hover: var(--hover);
+  --color-field: var(--field);
+  --color-profit-ink: var(--profit-ink);
+  --color-loss-ink: var(--loss-ink);
+  --color-leak: var(--leak);
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-ink-hover: var(--gold-ink-hover);
+  --color-gold-tint: var(--gold-tint);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -53,80 +84,65 @@
 }
 
 :root {
-  --profit: oklch(0.6 0.15 155);
-  --loss: oklch(0.58 0.2 25);
-  --long: oklch(0.6 0.15 155);
-  --short: oklch(0.58 0.2 25);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  /* Light only. The palette (see the design canvas): ground, sheet, ink, rules; red/green only for realised money;
+     gold is the one accent (links, focus, the balance line, today, the logo, the open badge). */
+  --ground: #f2f3ef;
+  --sheet: #ffffff;
+  --ink: #15181c;
+  --ink-2: #4c534e;
+  --muted-ink: #5e6560;
+  --rule: #e6e8e3;
+  --rule-ring: #e1e4de;
+  --rule-faint: #edefea;
+  --subtle: #f2f3ef;
+  --hover: #f7f8f5;
+  --field: #daded7;
+  --profit: #13795b;
+  --profit-ink: #0f6249;
+  --loss: #c2352a;
+  --loss-ink: #a02a21;
+  --leak: #e3a79f;
+  --gold: #a9841b;
+  --gold-ink: #7a5d0d;
+  --gold-ink-hover: #5c4609;
+  --gold-tint: rgba(169, 132, 27, 0.16);
+  --long: var(--ink-2);
+  --short: var(--ink-2);
 
-.dark {
-  --profit: oklch(0.76 0.16 155);
-  --loss: oklch(0.7 0.19 22);
-  --long: oklch(0.76 0.16 155);
-  --short: oklch(0.7 0.19 22);
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* shadcn theme variables, mapped onto the palette */
+  --background: var(--sheet);
+  --foreground: var(--ink);
+  --card: var(--sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--sheet);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #ffffff;
+  --secondary: var(--subtle);
+  --secondary-foreground: var(--ink);
+  --muted: var(--subtle);
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--hover);
+  --accent-foreground: var(--ink);
+  --destructive: var(--loss);
+  --border: var(--rule);
+  --input: var(--field);
+  --ring: var(--gold);
+  --chart-1: var(--gold);
+  --chart-2: var(--ink-2);
+  --chart-3: var(--muted-ink);
+  --chart-4: var(--leak);
+  --chart-5: var(--rule);
+  --radius: 0.5625rem; /* 9px: buttons and fields */
+  --sidebar: var(--ground);
+  --sidebar-foreground: var(--ink-2);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8eae5;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--rule-ring);
+  --sidebar-ring: var(--gold);
+  color-scheme: light;
 }
 
 @layer base {
@@ -134,13 +150,52 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "tnum" 1, "cv11" 1;
+    @apply bg-ground text-foreground;
+    font-variant-numeric: tabular-nums;
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 600;
+    letter-spacing: -0.012em;
+  }
+  h1 {
+    letter-spacing: -0.015em;
+  }
+  /* keyboard focus: a 2px gold ring everywhere */
+  :focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
   html {
     @apply font-sans;
   }
 }
+/* Links in text: gold, underlined on hover. No arrows on link text. */
+@utility link {
+  color: var(--gold-ink);
+  text-decoration: none;
+  &:hover {
+    color: var(--gold-ink-hover);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+/* Dates and small notes in dense rows */
+@utility condensed {
+  font-family: var(--font-condensed);
+}
+
 /* Privacy mode: blur every element tagged as money (toggle in the header, remembered per browser). */
 html[data-privacy="on"] .money {
   filter: blur(7px);
@@ -162,24 +217,9 @@ html[data-privacy="on"] .money-axis .recharts-yAxis .recharts-cartesian-axis-tic
   [data-print="hide"] {
     display: none !important;
   }
-  /* the light palette on paper, whatever the screen theme */
-  .dark {
-    --profit: oklch(0.5 0.15 155);
-    --loss: oklch(0.5 0.2 25);
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.45 0 0);
-    --border: oklch(0.85 0 0);
-  }
   html,
   body {
     background: #fff !important;
-  }
-  /* the mid "amber" score band is too pale on paper */
-  .text-amber-400 {
-    color: oklch(0.55 0.14 70) !important;
   }
   [data-slot="sidebar-inset"] {
     margin: 0 !important;

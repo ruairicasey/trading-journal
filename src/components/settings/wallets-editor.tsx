@@ -58,7 +58,7 @@ export function WalletsEditor(props: {
   return (
     <div className="space-y-4">
       {props.isDemo && (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+        <p className="rounded-md border border-rule bg-gold-tint px-3 py-2 text-xs text-gold-ink">
           Demo mode: the demo wallet is a placeholder and syncing is disabled.
         </p>
       )}
@@ -128,8 +128,8 @@ function WalletCard({ wallet: w, tz, isDemo, accounts }: { wallet: Wallet; tz: s
           {reveal ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
         </Button>
         <div className="flex-1" />
-        {w.historyTruncated && <Badge className="bg-amber-500/15 text-amber-400">History may be truncated</Badge>}
-        {!w.backfillCompletedAt && w.enabled && <Badge className="bg-sky-500/15 text-sky-300">Import pending</Badge>}
+        {w.historyTruncated && <Badge className="bg-gold-tint text-gold-ink">History may be truncated</Badge>}
+        {!w.backfillCompletedAt && w.enabled && <Badge className="bg-subtle text-ink-2">Import pending</Badge>}
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <dl className="text-muted-foreground grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
@@ -411,7 +411,7 @@ function RunsTable({ runs, tz }: { runs: Run[]; tz: string }) {
                   className={cn(
                     "px-2 py-1.5",
                     r.status === "error" && "text-destructive",
-                    r.status === "partial" && "text-sky-300",
+                    r.status === "partial" && "text-ink-2",
                     r.status === "success" && "text-profit",
                   )}
                 >
@@ -420,7 +420,7 @@ function RunsTable({ runs, tz }: { runs: Run[]; tz: string }) {
                 <td className="px-2 py-1.5 tabular-nums">{r.pages}</td>
                 <td className="px-2 py-1.5 tabular-nums">{r.fillsNew}</td>
                 <td className="px-2 py-1.5 tabular-nums">{r.tradesTouched}</td>
-                <td className={cn("px-2 py-1.5 tabular-nums", r.gapsDetected > 0 && "text-amber-400")}>{r.gapsDetected}</td>
+                <td className={cn("px-2 py-1.5 tabular-nums", r.gapsDetected > 0 && "text-gold-ink")}>{r.gapsDetected}</td>
                 <td className="text-muted-foreground max-w-64 truncate px-2 py-1.5" title={r.error ?? undefined}>
                   {r.error ?? (r.status === "partial" ? "continues next run" : "")}
                 </td>

@@ -194,7 +194,7 @@ export function WeeklyCard({
                 <li className="sm:col-span-2">
                   <Link
                     href={tradesHref(base, { missing: "review" })}
-                    className="px-1.5 text-xs text-sky-400 hover:underline"
+                    className="px-1.5 text-xs link"
                   >
                     Review the {missing.review} unreviewed trade{missing.review === 1 ? "" : "s"} →
                   </Link>
