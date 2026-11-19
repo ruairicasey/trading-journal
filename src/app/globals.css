@@ -223,6 +223,11 @@ html[data-privacy="on"] .money-axis .recharts-yAxis .recharts-cartesian-axis-tic
   }
   [data-slot="sidebar-inset"] {
     margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  [data-slot="sidebar-wrapper"] {
+    background: #fff !important;
   }
   .report-print table {
     break-inside: auto;

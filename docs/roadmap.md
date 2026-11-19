@@ -42,7 +42,9 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
 
 - Redesign (light theme), in cycles. Cycle 1 design tokens **done**: palette, type scale (IBM Plex), focus ring and link
   style as tokens; light mode; hard-coded colours moved onto tokens; red/green kept for realised money, gold for warnings.
-  Next: cycle 2, the sidebar, page sheet and dashboard.
+  Cycle 2a shell **done**: inset white sheet on the ground, sidebar with logo, white-pill current page, account block and
+  sync status in the footer (top bar on phones, icon when collapsed; one sync loop in a provider).
+  Next: cycle 2b, the dashboard (hero balance, figures strip, leaks and discipline beside calendar and week).
 
 ## Phase 3: insights and reports
 

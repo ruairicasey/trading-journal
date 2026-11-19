@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { BookOpenText, Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { setActiveAccount, setActiveWallet } from "@/app/(app)/settings/actions";
+
+const TYPE_LABEL: Record<string, string> = { crypto: "Crypto", prop: "Prop firm", other: "Other" };
 
 export type AccountOption = { id: string; name: string; type: string };
 export type WalletPick = { id: string; label: string; kind: string; enabled: boolean };
@@ -37,18 +39,22 @@ export function AccountSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent" disabled={pending}>
-          <div className="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 items-center justify-center rounded-md">
-            <BookOpenText className="size-4" />
-          </div>
-          <div className="grid flex-1 text-left leading-tight">
-            <span className="truncate text-sm font-semibold">Trading Journal</span>
+        <SidebarMenuButton
+          size="lg"
+          tooltip={active?.name ?? "Account"}
+          aria-label={`Account: ${active?.name ?? "No account"}${wallet ? `, ${wallet.label}` : ""}`}
+          data-testid="account-switcher"
+          className="data-[state=open]:bg-sidebar-accent h-auto rounded-lg px-2.5 py-2"
+          disabled={pending}
+        >
+          <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="text-ink truncate text-sm font-medium">{active?.name ?? "No account"}</span>
             <span className="text-muted-foreground truncate text-xs" data-testid="scope-label">
-              {active?.name ?? "No account"}
+              {active ? (TYPE_LABEL[active.type] ?? active.type) : "Add one in Settings"}
               {wallet ? ` · ${wallet.label}` : ""}
             </span>
           </div>
-          <ChevronsUpDown className="ml-auto size-4 opacity-60" />
+          <ChevronsUpDown className="ml-auto size-4 opacity-60 group-data-[collapsible=icon]:ml-0" />
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-56">

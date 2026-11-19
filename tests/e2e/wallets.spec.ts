@@ -17,7 +17,7 @@ const usd = async (page: Page, id: string) => {
   return Math.round(Number((await loc.innerText()).replace(/[^0-9.-]/g, "")) * 100);
 };
 async function pickWallet(page: Page, name: string) {
-  await page.getByRole("button", { name: /Trading Journal/ }).click();
+  await page.getByTestId("account-switcher").click();
   await page.getByRole("group", { name: "Wallets" }).getByRole("menuitem", { name: new RegExp(`^${name}`) }).click();
   if (name === "All wallets") await expect(page.getByTestId("wallet-scope")).toHaveCount(0);
   else await expect(page.getByTestId("wallet-scope")).toHaveText(`Wallet: ${name}`);
@@ -111,7 +111,7 @@ test("rename a wallet and move it to another account with its trades, then back"
     expect([Number(moved.w), Number(moved.t)]).toEqual([1, Number(sub.every)]);
 
     // the demo account now has one wallet: no wallet picker
-    await page.getByRole("button", { name: /Trading Journal/ }).click();
+    await page.getByTestId("account-switcher").click();
     await expect(page.getByRole("menuitem", { name: "Manage accounts" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Wallets" })).toHaveCount(0);
     await page.keyboard.press("Escape");
