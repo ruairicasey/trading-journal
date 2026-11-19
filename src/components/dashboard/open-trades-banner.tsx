@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtPct, fmtPrice, fmtSignedUsd, fmtSize, pnlClass } from "@/lib/format";
 import type { OpenTradeRow } from "@/server/db/queries/dashboard";
@@ -41,7 +41,8 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
     const pos = new Map((live?.positions ?? []).map((p) => [p.coin, p]));
     const out = trades.map((t) => ({ trade: t, pos: pos.get(t.coin) ?? null }));
     const known = new Set(trades.map((t) => t.coin));
-    for (const p of live?.positions ?? []) if (!known.has(p.coin)) out.push({ trade: null as unknown as OpenTradeRow, pos: p });
+    for (const p of live?.positions ?? [])
+      if (!known.has(p.coin)) out.push({ trade: null as unknown as OpenTradeRow, pos: p });
     return out;
   }, [trades, live]);
 
@@ -49,30 +50,43 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
   const upnl = live?.live ? (live.positions ?? []).reduce((a, p) => a + (p.unrealizedPnl ?? 0), 0) : null;
 
   return (
-    <section className="rounded-lg border border-rule bg-subtle" aria-label="Open positions" data-testid="open-banner">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm">
-        <Activity className="size-4 text-gold-ink" />
+    <section className="bg-subtle rounded-[10px]" aria-label="Open positions" data-testid="open-banner">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm"
+      >
+        <span
+          aria-hidden="true"
+          className="bg-gold size-2 shrink-0 rounded-full shadow-[0_0_0_4px_var(--gold-tint)]"
+        />
         <span className="font-medium">
           {rows.length} open position{rows.length === 1 ? "" : "s"}
         </span>
         <span className="text-muted-foreground text-xs">
           {upnl !== null ? (
             <>
-              unrealised <span className={cn("money font-medium tabular-nums", pnlClass(upnl))}>{fmtSignedUsd(upnl)}</span>
+              unrealised{" "}
+              <span className={cn("money font-medium tabular-nums", pnlClass(upnl))}>
+                {fmtSignedUsd(upnl)}
+              </span>
             </>
           ) : demo ? (
             "live P&L unavailable for demo data"
           ) : live ? (
-            live.reason ?? "live P&L unavailable"
+            (live.reason ?? "live P&L unavailable")
           ) : (
             "loading live P&L…"
           )}
         </span>
         <div className="flex-1" />
-        <ChevronDown className={cn("text-muted-foreground size-4 transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          className={cn("text-muted-foreground size-4 transition-transform", open && "rotate-180")}
+        />
       </button>
       {open && (
-        <div className="overflow-x-auto border-t border-rule">
+        <div className="border-rule-ring overflow-x-auto border-t">
           <table className="w-full min-w-[640px] text-xs">
             <thead className="text-muted-foreground text-left">
               <tr>
@@ -83,21 +97,38 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-rule-faint tabular-nums">
+            <tbody className="divide-rule-faint divide-y tabular-nums">
               {rows.map(({ trade, pos }, i) => {
                 const dir = trade?.direction ?? (pos && pos.size < 0 ? "short" : "long");
                 return (
                   <tr key={trade?.id ?? `pos-${i}`}>
                     <td className="px-4 py-1.5">
                       {trade?.displayPair ?? pos?.displayPair}{" "}
-                      <span className={cn("text-[10px] font-semibold uppercase", dir === "long" ? "text-long" : "text-short")}>{dir}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold uppercase",
+                          dir === "long" ? "text-long" : "text-short",
+                        )}
+                      >
+                        {dir}
+                      </span>
                     </td>
                     <td className="px-4 py-1.5">{fmtSize(pos ? Math.abs(pos.size) : trade?.sizeUnits)}</td>
                     <td className="px-4 py-1.5">{fmtPrice(pos?.entryPx ?? trade?.avgEntry)}</td>
-                    <td className={cn("money px-4 py-1.5", pnlClass(pos?.unrealizedPnl))}>{pos ? fmtSignedUsd(pos.unrealizedPnl) : "—"}</td>
-                    <td className={cn("px-4 py-1.5", pnlClass(pos?.returnOnEquity))}>{pos?.returnOnEquity != null ? fmtPct(pos.returnOnEquity * 100) : "—"}</td>
+                    <td className={cn("money px-4 py-1.5", pnlClass(pos?.unrealizedPnl))}>
+                      {pos ? fmtSignedUsd(pos.unrealizedPnl) : "—"}
+                    </td>
+                    <td className={cn("px-4 py-1.5", pnlClass(pos?.returnOnEquity))}>
+                      {pos?.returnOnEquity != null ? fmtPct(pos.returnOnEquity * 100) : "—"}
+                    </td>
                     <td className="px-4 py-1.5">{fmtPrice(pos?.liquidationPx ?? trade?.liqPx)}</td>
-                    <td className="px-4 py-1.5">{trade?.stopLoss ? fmtPrice(trade.stopLoss) : <span className="text-gold-ink">none</span>}</td>
+                    <td className="px-4 py-1.5">
+                      {trade?.stopLoss ? (
+                        fmtPrice(trade.stopLoss)
+                      ) : (
+                        <span className="text-gold-ink">none</span>
+                      )}
+                    </td>
                     <td className="px-4 py-1.5 text-right">
                       {trade ? (
                         <Link href={`/trades/${trade.id}`} className="text-primary hover:underline">

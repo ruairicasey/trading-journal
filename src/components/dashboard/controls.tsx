@@ -12,8 +12,10 @@ import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params"
 
 const seg = (on: boolean) =>
   cn(
-    "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-    on ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+    "rounded-[7px] px-2.5 py-1.5 text-13 whitespace-nowrap transition-colors",
+    on
+      ? "bg-sheet text-ink font-medium shadow-[0_1px_2px_rgba(21,24,28,.08)]"
+      : "text-muted-foreground hover:text-ink",
   );
 
 export function DashboardControls({
@@ -36,8 +38,11 @@ export function DashboardControls({
   const [from, setFrom] = useState(params.from ?? "");
   const [to, setTo] = useState(params.to ?? "");
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <nav aria-label="Period" className="bg-muted/40 inline-flex rounded-md border p-0.5">
+    <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
+      <nav
+        aria-label="Period"
+        className="bg-subtle inline-flex max-w-full overflow-x-auto rounded-[9px] p-[3px]"
+      >
         {DASH_PERIODS.filter((p) => hasStart || p.id !== "start").map((p) => (
           <Link
             key={p.id}
@@ -95,7 +100,7 @@ export function DashboardControls({
         </Popover>
       </nav>
       {showUnit && (
-        <nav aria-label="Units" className="bg-muted/40 inline-flex rounded-md border p-0.5">
+        <nav aria-label="Units" className="bg-subtle inline-flex rounded-[9px] p-[3px]">
           <Link
             href={dashHref(params, { unit: "usd" }, base, defaultPeriod)}
             aria-current={params.unit === "usd" ? "true" : undefined}

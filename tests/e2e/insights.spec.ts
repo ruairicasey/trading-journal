@@ -54,7 +54,7 @@ test("Insights: losing patterns ranked worst first, counts match the journal, da
   const leaks = page.getByTestId("leaks-card").getByTestId("insight");
   await expect(leaks).toHaveCount(3);
   expect(await leaks.evaluateAll((els) => els.map((e) => e.getAttribute("data-insight")))).toEqual(top);
-  await page.getByTestId("leaks-card").getByRole("link", { name: "All insights →" }).click();
+  await page.getByTestId("leaks-card").getByRole("link", { name: "All insights" }).click();
   await expect(page).toHaveURL(/section=insights/);
   await expect(page).not.toHaveURL(/period=/); // all time is the Analytics default
   await expect(page.getByTestId("insight")).toHaveCount(n);
@@ -62,7 +62,7 @@ test("Insights: losing patterns ranked worst first, counts match the journal, da
   await page.goto("/dashboard");
   const card = page.getByTestId("leaks-card");
   if (await card.count()) {
-    await card.getByRole("link", { name: "All insights →" }).click();
+    await card.getByRole("link", { name: "All insights" }).click();
     await expect(page).toHaveURL(/section=insights/);
     await expect(page).toHaveURL(/period=30d/);
   }

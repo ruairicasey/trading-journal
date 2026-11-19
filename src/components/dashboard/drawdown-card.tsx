@@ -4,11 +4,13 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { cn } from "@/lib/utils";
 import { axisDateFormat, fmtR, fmtSignedUsd, fmtUsd } from "@/lib/format";
 import type { DrawdownStats, UnderwaterPoint } from "@/lib/drawdown";
+import { H2, SECTION } from "@/lib/ui";
 
 // single series: the same calm accent as the equity curve (red/green stay reserved for P&L text)
 const LINE = "var(--gold)";
 
-const pct = (v: number | null | undefined, signed = true) => (v == null ? "—" : `${signed && v > 0 ? "+" : ""}${v.toFixed(1)}%`);
+const pct = (v: number | null | undefined, signed = true) =>
+  v == null ? "—" : `${signed && v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 
 export function DrawdownCard({
   stats,
@@ -24,12 +26,17 @@ export function DrawdownCard({
   periodLabel: string;
 }) {
   const r = unit === "r";
-  const dateFmt = new Intl.DateTimeFormat("en-AU", { timeZone: tz, day: "numeric", month: "short", year: "numeric" });
+  const dateFmt = new Intl.DateTimeFormat("en-AU", {
+    timeZone: tz,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
   const d = (t: number | null | undefined) => (t == null ? "—" : dateFmt.format(t));
   if (!stats) {
     return (
-      <section className="rounded-lg border p-4" aria-label="Drawdown">
-        <h2 className="text-sm font-medium">Drawdown</h2>
+      <section className={SECTION} aria-label="Drawdown">
+        <h2 className={H2}>Drawdown</h2>
         <p className="text-muted-foreground py-6 text-center text-sm">No closed trades yet.</p>
       </section>
     );
@@ -40,12 +47,20 @@ export function DrawdownCard({
   const data = points.map((p) => ({ t: p.t, v: value(p), dd: p.dd, ddPct: p.ddPct, ddR: p.ddR }));
   const axisFmt = axisDateFormat(data.length ? data[data.length - 1].t - data[0].t : 0, tz);
   const yFmt = (v: number) => (r ? `${v.toFixed(1)}R` : usePct ? `${v.toFixed(0)}%` : fmtUsd(v, 0));
-  const fullFmt = new Intl.DateTimeFormat("en-AU", { timeZone: tz, day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  const fullFmt = new Intl.DateTimeFormat("en-AU", {
+    timeZone: tz,
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 
   return (
-    <section className="rounded-lg border p-4" aria-label="Drawdown" data-testid="drawdown-card">
+    <section className={SECTION} aria-label="Drawdown" data-testid="drawdown-card">
       <header className="mb-3 flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-medium">Drawdown</h2>
+        <h2 className={H2}>Drawdown</h2>
         <span className="text-muted-foreground text-xs">trading P&L only · deposits excluded</span>
       </header>
 
@@ -57,17 +72,24 @@ export function DrawdownCard({
               fmtR(c.ddR)
             ) : (
               <>
-                <span className="money">{fmtSignedUsd(c.dd)}</span> <span className="text-muted-foreground text-xs font-normal">{pct(c.ddPct)}</span>
+                <span className="money">{fmtSignedUsd(c.dd)}</span>{" "}
+                <span className="text-muted-foreground text-xs font-normal">{pct(c.ddPct)}</span>
               </>
             )}
           </dd>
-          <dd className="text-muted-foreground text-[11px]">{c.dd < 0 ? `from the peak on ${d(c.peakAt)}` : "at an equity high"}</dd>
+          <dd className="text-muted-foreground text-[11px]">
+            {c.dd < 0 ? `from the peak on ${d(c.peakAt)}` : "at an equity high"}
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground text-xs">To recover</dt>
-          <dd className="mt-0.5 font-semibold tabular-nums">{c.dd < 0 ? (c.recoverPct === null ? "—" : `+${c.recoverPct.toFixed(1)}%`) : "—"}</dd>
+          <dd className="mt-0.5 font-semibold tabular-nums">
+            {c.dd < 0 ? (c.recoverPct === null ? "—" : `+${c.recoverPct.toFixed(1)}%`) : "—"}
+          </dd>
           <dd className="text-muted-foreground text-[11px]">
-            {c.dd < 0 ? `${c.daysInDrawdown} day${c.daysInDrawdown === 1 ? "" : "s"} · ${c.tradesSincePeak} trade${c.tradesSincePeak === 1 ? "" : "s"} since the peak` : "nothing to recover"}
+            {c.dd < 0
+              ? `${c.daysInDrawdown} day${c.daysInDrawdown === 1 ? "" : "s"} · ${c.tradesSincePeak} trade${c.tradesSincePeak === 1 ? "" : "s"} since the peak`
+              : "nothing to recover"}
           </dd>
         </div>
         <div className="col-span-2" data-testid="dd-max">
@@ -86,7 +108,8 @@ export function DrawdownCard({
               <dd className="mt-0.5 font-semibold tabular-nums">
                 {stats.max ? (
                   <>
-                    <span className="money">{fmtSignedUsd(stats.max.dd)}</span> <span className="text-muted-foreground text-xs font-normal">{pct(stats.max.ddPct)}</span>
+                    <span className="money">{fmtSignedUsd(stats.max.dd)}</span>{" "}
+                    <span className="text-muted-foreground text-xs font-normal">{pct(stats.max.ddPct)}</span>
                   </>
                 ) : (
                   "—"
@@ -94,8 +117,12 @@ export function DrawdownCard({
               </dd>
               {stats.max && (
                 <dd className="text-muted-foreground text-[11px]">
-                  peak {d(stats.max.peakAt)} → trough {d(stats.max.troughAt)} · {stats.max.recoveredAt ? `recovered ${d(stats.max.recoveredAt)}` : "not recovered yet"}
-                  {stats.maxPct !== null && stats.max.ddPct !== null && stats.maxPct < stats.max.ddPct - 0.05 && ` · deepest in %: ${pct(stats.maxPct)}`}
+                  peak {d(stats.max.peakAt)} → trough {d(stats.max.troughAt)} ·{" "}
+                  {stats.max.recoveredAt ? `recovered ${d(stats.max.recoveredAt)}` : "not recovered yet"}
+                  {stats.maxPct !== null &&
+                    stats.max.ddPct !== null &&
+                    stats.maxPct < stats.max.ddPct - 0.05 &&
+                    ` · deepest in %: ${pct(stats.maxPct)}`}
                 </dd>
               )}
             </>
@@ -104,7 +131,11 @@ export function DrawdownCard({
       </dl>
 
       {data.length >= 2 ? (
-        <div className={cn("mt-3 h-36 w-full", !r && !usePct && "money-axis")} role="img" aria-label="Underwater chart: distance below the running equity peak over time">
+        <div
+          className={cn("mt-3 h-36 w-full", !r && !usePct && "money-axis")}
+          role="img"
+          aria-label="Underwater chart: distance below the running equity peak over time"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
               <defs>
@@ -125,7 +156,14 @@ export function DrawdownCard({
                 tickLine={false}
                 minTickGap={40}
               />
-              <YAxis tickFormatter={yFmt} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} width={52} domain={["auto", 0]} />
+              <YAxis
+                tickFormatter={yFmt}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                width={52}
+                domain={["auto", 0]}
+              />
               <Tooltip
                 cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }}
                 content={({ active, payload }) => {
@@ -135,9 +173,14 @@ export function DrawdownCard({
                     <div className="bg-popover text-popover-foreground rounded-md border px-2.5 py-1.5 text-xs shadow-md">
                       <div className="text-muted-foreground">{fullFmt.format(p.t)}</div>
                       <div className="font-medium tabular-nums">
-                        {r ? fmtR(p.ddR) : (
+                        {r ? (
+                          fmtR(p.ddR)
+                        ) : (
                           <>
-                            <span className="money">{fmtSignedUsd(p.dd)}</span> {p.ddPct !== null && <span className="text-muted-foreground">{pct(p.ddPct)}</span>}
+                            <span className="money">{fmtSignedUsd(p.dd)}</span>{" "}
+                            {p.ddPct !== null && (
+                              <span className="text-muted-foreground">{pct(p.ddPct)}</span>
+                            )}
                           </>
                         )}
                       </div>
@@ -146,7 +189,17 @@ export function DrawdownCard({
                   );
                 }}
               />
-              <Area type="stepAfter" dataKey="v" stroke={LINE} strokeWidth={2} fill="url(#dd-fill)" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--background)" }} isAnimationActive={false} baseValue={0} />
+              <Area
+                type="stepAfter"
+                dataKey="v"
+                stroke={LINE}
+                strokeWidth={2}
+                fill="url(#dd-fill)"
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--background)" }}
+                isAnimationActive={false}
+                baseValue={0}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { CARD, CARD_H2, H2, SECTION } from "@/lib/ui";
 import { fmtSignedUsd, pnlClass } from "@/lib/format";
 import { DISCIPLINE_CHECKS, type Scores } from "@/lib/analytics/scores";
 
@@ -8,12 +9,12 @@ const show = (s: number | null) => (s === null ? "—" : String(Math.round(s)));
 const pct = (x: number, of: number) => (of ? `${Math.round((x / of) * 100)}%` : "—");
 
 /** Four tiles: discipline, review coverage, compliance (0–100) and mistake cost ($). */
-export function ScoresCard({ s, title }: { s: Scores; title: string }) {
+export function ScoresCard({ s, title, plain = false }: { s: Scores; title: string; plain?: boolean }) {
   const c = s.discipline.checks;
   return (
-    <section className="rounded-lg border p-4" aria-label="Scores" data-testid="scores">
-      <h2 className="mb-3 text-sm font-medium">{title}</h2>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <section className={plain ? SECTION : CARD} aria-label="Scores" data-testid="scores">
+      <h2 className={plain ? H2 : cn("mb-3", CARD_H2)}>{title}</h2>
+      <div className={cn("grid grid-cols-2 gap-4", !plain && "lg:grid-cols-4")}>
         <Tile
           id="discipline"
           label="Discipline"

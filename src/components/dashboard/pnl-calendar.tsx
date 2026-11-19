@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtR, fmtSignedUsd } from "@/lib/format";
 import type { CalendarMonth } from "@/lib/stats";
+import { H2, SECTION } from "@/lib/ui";
 
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -10,7 +11,9 @@ const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function tint(v: number, max: number) {
   if (!v || !max) return undefined;
   const pct = Math.round(8 + 32 * Math.min(1, Math.abs(v) / max));
-  return { backgroundColor: `color-mix(in oklch, var(${v > 0 ? "--profit" : "--loss"}) ${pct}%, transparent)` };
+  return {
+    backgroundColor: `color-mix(in oklch, var(${v > 0 ? "--profit" : "--loss"}) ${pct}%, transparent)`,
+  };
 }
 
 export function PnlCalendar({
@@ -28,28 +31,36 @@ export function PnlCalendar({
   const val = (net: number, rv: number) => (r ? rv : net);
   const fmt = (v: number) => (r ? fmtR(v) : fmtSignedUsd(v, Math.abs(v) >= 1000 ? 0 : 2));
   const max = r ? cal.maxAbsR : cal.maxAbs;
-  const title = new Date(Date.UTC(cal.year, cal.month - 1, 15)).toLocaleString("en-AU", { month: "long", year: "numeric", timeZone: "UTC" });
+  const title = new Date(Date.UTC(cal.year, cal.month - 1, 15)).toLocaleString("en-AU", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
   const monthTotal = val(cal.net, cal.r);
 
   return (
-    <section className="rounded-lg border p-4" aria-label="P&L calendar" data-testid="pnl-calendar">
-      <header className="mb-3 flex items-center gap-2">
-        <h2 className="text-sm font-medium">P&L calendar</h2>
+    <section className={SECTION} aria-label="P&L calendar" data-testid="pnl-calendar">
+      <header className="flex flex-wrap items-center gap-2">
+        <h2 className={H2}>P&L calendar</h2>
         <div className="flex items-center">
-          <Link href={prevHref} aria-label="Previous month" className="hover:bg-muted rounded p-1">
+          <Link href={prevHref} aria-label="Previous month" className="hover:bg-hover rounded-lg p-1.5">
             <ChevronLeft className="size-4" />
           </Link>
           <span className="w-32 text-center text-sm tabular-nums" data-testid="calendar-month">
             {title}
           </span>
-          <Link href={nextHref} aria-label="Next month" className="hover:bg-muted rounded p-1">
+          <Link href={nextHref} aria-label="Next month" className="hover:bg-hover rounded-lg p-1.5">
             <ChevronRight className="size-4" />
           </Link>
         </div>
         <div className="flex-1" />
-        <span className="text-muted-foreground text-xs tabular-nums">
+        <span className="text-muted-foreground text-13 tabular-nums">
           {cal.count} trade{cal.count === 1 ? "" : "s"} ·{" "}
-          <span className={cn(!r && "money", monthTotal > 0 ? "text-profit" : monthTotal < 0 ? "text-loss" : "")}>{fmt(monthTotal)}</span>
+          <span
+            className={cn(!r && "money", monthTotal > 0 ? "text-profit" : monthTotal < 0 ? "text-loss" : "")}
+          >
+            {fmt(monthTotal)}
+          </span>
         </span>
       </header>
       <div className="overflow-x-auto">
@@ -78,8 +89,10 @@ export function PnlCalendar({
                         <span className="text-muted-foreground">{d.day}</span>
                         {has && (
                           <>
-                            <span className={cn("block font-medium tabular-nums", !r && "money")}>{showR ? "—" : fmt(v)}</span>
-                            <span className="text-muted-foreground block text-[10px]">
+                            <span className={cn("block font-medium tabular-nums", !r && "money")}>
+                              {showR ? "—" : fmt(v)}
+                            </span>
+                            <span className="text-muted-foreground block text-[11px]">
                               {d.count} trade{d.count === 1 ? "" : "s"}
                             </span>
                           </>
@@ -91,7 +104,7 @@ export function PnlCalendar({
                         {has ? (
                           <Link
                             href={`/trades?tab=closed&from=${d.date}&to=${d.date}&dateBy=exit`}
-                            className="hover:ring-foreground/30 block h-16 rounded-md border p-1.5 hover:ring-1"
+                            className="hover:ring-ink/30 block h-16 rounded-lg p-1.5 hover:ring-1"
                             style={tint(v, max)}
                             title={`${d.date}: ${d.count} trade${d.count === 1 ? "" : "s"}`}
                             data-testid="calendar-day"
@@ -99,17 +112,28 @@ export function PnlCalendar({
                             {body}
                           </Link>
                         ) : (
-                          <div className={cn("h-16 rounded-md border p-1.5", !d.inMonth && "border-transparent opacity-30")}>{body}</div>
+                          <div className={cn("h-16 rounded-lg p-1.5", d.inMonth ? "bg-hover" : "opacity-40")}>
+                            {body}
+                          </div>
                         )}
                       </td>
                     );
                   })}
                   <td className="p-0 align-top">
-                    <div className="bg-muted/30 flex h-16 flex-col items-end justify-center rounded-md px-2" data-testid="calendar-week-total">
-                      <span className={cn("font-medium tabular-nums", !r && "money", wv > 0 ? "text-profit" : wv < 0 ? "text-loss" : "text-muted-foreground")}>
+                    <div
+                      className="bg-subtle flex h-16 flex-col items-end justify-center rounded-md px-2"
+                      data-testid="calendar-week-total"
+                    >
+                      <span
+                        className={cn(
+                          "font-medium tabular-nums",
+                          !r && "money",
+                          wv > 0 ? "text-profit" : wv < 0 ? "text-loss" : "text-muted-foreground",
+                        )}
+                      >
                         {w.count ? fmt(wv) : "—"}
                       </span>
-                      <span className="text-muted-foreground text-[10px]">{w.count} trades</span>
+                      <span className="text-muted-foreground text-[11px]">{w.count} trades</span>
                     </div>
                   </td>
                 </tr>

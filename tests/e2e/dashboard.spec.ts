@@ -5,7 +5,9 @@ import { expect, test } from "@playwright/test";
 const tradeCount = async (text: string) => Number(/(\d+) closed trades?/.exec(text)?.[1] ?? NaN);
 
 test.describe("Dashboard (demo data)", () => {
-  test("KPIs, equity curve, recent trades and calendar render; periods and R mode switch", async ({ page }) => {
+  test("KPIs, equity curve, recent trades and calendar render; periods and R mode switch", async ({
+    page,
+  }) => {
     await page.goto("/dashboard?period=all");
     const net = page.getByTestId("kpi-net");
     await expect(net).toContainText("Net P&L · All");
@@ -26,12 +28,15 @@ test.describe("Dashboard (demo data)", () => {
     await expect(net).toContainText(/[+-]?\d+\.\d{2}R/);
   });
 
-  test("with full ledger history the $ curve is the account balance; balance − net deposited reconciles to the cent", async ({ page }) => {
+  test("with full ledger history the $ curve is the account balance; balance − net deposited reconciles to the cent", async ({
+    page,
+  }) => {
     await page.goto("/dashboard?period=all");
     const chart = page.getByRole("region", { name: "Equity curve" });
     await expect(chart.getByRole("heading", { name: "Account balance" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Account balance and net deposits over time" })).toBeVisible();
-    const usd = async (loc: ReturnType<typeof page.getByTestId>) => Number((await loc.innerText()).replace(/[^0-9.-]/g, ""));
+    const usd = async (loc: ReturnType<typeof page.getByTestId>) =>
+      Number((await loc.innerText()).replace(/[^0-9.-]/g, ""));
     const balance = await usd(page.getByTestId("balance-now"));
     const deposited = await usd(page.getByTestId("balance-deposited"));
     const kpiNet = await usd(page.getByTestId("kpi-net").locator("div").nth(1));
@@ -42,13 +47,20 @@ test.describe("Dashboard (demo data)", () => {
     const flows = await one("select sum(usd) from ledger_events");
     // every fill's closedPnl − fee: a fee in a non-stable token (the spot buy pays PURR) is valued at the fill price;
     // spot fills count because the demo wallet is a unified account
-    const fillCash = await one(`select sum(cast(closed_pnl as real) - case when upper(fee_token) in ('USDC','USDH','USDT0','USDT','USDE')
+    const fillCash =
+      await one(`select sum(cast(closed_pnl as real) - case when upper(fee_token) in ('USDC','USDH','USDT0','USDT','USDE')
       then cast(fee as real) else cast(fee as real) * cast(px as real) end) from fills`);
-    const spotCash = await one("select sum(cast(closed_pnl as real)) - sum(case when fee_token = 'USDC' then cast(fee as real) else cast(fee as real) * cast(px as real) end) from fills where market_type = 'spot'");
+    const spotCash = await one(
+      "select sum(cast(closed_pnl as real)) - sum(case when fee_token = 'USDC' then cast(fee as real) else cast(fee as real) * cast(px as real) end) from fills where market_type = 'spot'",
+    );
     const funding = await one("select sum(cast(usdc as real)) from funding_events");
     // the parts of that cash the all-time KPI net doesn't hold: open positions, funding no trade claims, spot fills
-    const openCash = await one("select sum(coalesce(gross_pnl,0) - coalesce(fees,0) + funding) from trades where status = 'open' and deleted_at is null");
-    const unclaimedFunding = await one("select sum(cast(usdc as real)) from funding_events where trade_id is null");
+    const openCash = await one(
+      "select sum(coalesce(gross_pnl,0) - coalesce(fees,0) + funding) from trades where status = 'open' and deleted_at is null",
+    );
+    const unclaimedFunding = await one(
+      "select sum(cast(usdc as real)) from funding_events where trade_id is null",
+    );
     const hiddenCash = await one(
       "select sum(coalesce(gross_pnl,0) - coalesce(fees,0) + funding) from trades where status = 'closed' and (deleted_at is not null or coalesce(json_extract(flags, '$.superseded'), 0) = 1)",
     );
@@ -62,7 +74,9 @@ test.describe("Dashboard (demo data)", () => {
     // reconciliation: balance − net deposited = KPI net + open positions' realised cash + unclaimed funding
     // + spot fills + hidden trades. Each side is rounded once, so allow a 1-cent rounding step.
     const gap = cents(balance) - cents(deposited);
-    expect(Math.abs(gap - cents(kpiNet + openCash + unclaimedFunding + spotCash + hiddenCash))).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(gap - cents(kpiNet + openCash + unclaimedFunding + spotCash + hiddenCash)),
+    ).toBeLessThanOrEqual(1);
 
     // privacy mode blurs both figures
     await page.getByRole("button", { name: "Hide amounts" }).click();
@@ -74,6 +88,11 @@ test.describe("Dashboard (demo data)", () => {
     await page.goto("/dashboard?period=all&unit=r");
     await expect(chart.getByRole("heading", { name: "Cumulative R" })).toBeVisible();
     await expect(page.getByTestId("balance-now")).toHaveCount(0);
+    // the hero headlines cumulative R, never the $ equity
+    // (over All time the curve's cumulative R and the KPI's total R cover the same trades)
+    const totalR = await page.getByTestId("kpi-net").locator("div").nth(1).innerText();
+    expect(totalR).toMatch(/R$/);
+    await expect(page.getByTestId("hero-figure")).toHaveText(totalR);
   });
 
   test("privacy toggle blurs money everywhere and is remembered", async ({ page }) => {
@@ -105,14 +124,21 @@ test.describe("Dashboard (demo data)", () => {
     const day = cal.getByTestId("calendar-day").first();
     const trades = Number(/(\d+) trades?/.exec(await day.innerText())?.[1]);
     await day.click();
-    await expect(page).toHaveURL(/\/trades\?tab=closed&from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}&dateBy=exit/);
+    await expect(page).toHaveURL(
+      /\/trades\?tab=closed&from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}&dateBy=exit/,
+    );
     await expect(page.getByRole("link", { name: /Exited from/ })).toBeVisible();
     await expect(page.getByTestId("trade-row")).toHaveCount(trades);
   });
 
   test("open positions banner lists the open trades (live P&L off for demo)", async ({ page }) => {
     await page.goto("/trades?tab=open");
-    const openCount = Number(await page.getByRole("link", { name: /^Open \d+/ }).locator("span").innerText());
+    const openCount = Number(
+      await page
+        .getByRole("link", { name: /^Open \d+/ })
+        .locator("span")
+        .innerText(),
+    );
     await page.goto("/dashboard");
     const banner = page.getByTestId("open-banner");
     await expect(banner).toContainText(`${openCount} open position`);

@@ -6,6 +6,7 @@ import { MISSING_KINDS, MISSING_LABELS, type MissingKind } from "@/lib/missing";
 import { tradesHref } from "@/server/trades/filters";
 import type { Week, WeekScore } from "@/lib/weekly";
 import { WeeklyNoteButton } from "./weekly-note-button";
+import { H2, SECTION } from "@/lib/ui";
 
 type Note = { id: string; title: string | null; body: string; date: number };
 
@@ -67,9 +68,9 @@ export function WeeklyCard({
   };
 
   return (
-    <section className="rounded-lg border p-4" aria-label="Weekly reflection" data-testid="weekly-card">
+    <section className={SECTION} aria-label="Weekly reflection" data-testid="weekly-card">
       <header className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 className="text-sm font-medium">Weekly reflection</h2>
+        <h2 className={H2}>Weekly reflection</h2>
         <div className="flex items-center gap-1">
           <Link
             href={prevHref}
@@ -192,10 +193,7 @@ export function WeeklyCard({
               ))}
               {missing.review > 0 && (
                 <li className="sm:col-span-2">
-                  <Link
-                    href={tradesHref(base, { missing: "review" })}
-                    className="px-1.5 text-xs link"
-                  >
+                  <Link href={tradesHref(base, { missing: "review" })} className="link px-1.5 text-xs">
                     Review the {missing.review} unreviewed trade{missing.review === 1 ? "" : "s"} →
                   </Link>
                 </li>

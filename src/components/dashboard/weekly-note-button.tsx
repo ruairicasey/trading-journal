@@ -12,10 +12,21 @@ export function WeeklyNoteButton({ existing, draft }: { existing: Note | null; d
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size="sm" variant="secondary" className="h-7" onClick={() => setOpen(true)} data-testid="weekly-note">
+      <Button
+        size="sm"
+        variant="secondary"
+        className="h-7"
+        onClick={() => setOpen(true)}
+        data-testid="weekly-note"
+      >
         <NotebookPen className="size-3.5" /> {existing ? "Open weekly note" : "Write weekly note"}
       </Button>
-      <NoteDialog open={open} onOpenChange={setOpen} note={existing ?? undefined} draft={existing ? undefined : draft} />
+      <NoteDialog
+        open={open}
+        onOpenChange={setOpen}
+        note={existing ?? undefined}
+        draft={existing ? undefined : draft}
+      />
     </>
   );
 }

@@ -4,7 +4,7 @@ import { TZDate } from "@date-fns/tz";
 import { DashboardControls } from "@/components/dashboard/controls";
 import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params";
 import { EquityChart } from "@/components/dashboard/equity-chart";
-import { KpiCard } from "@/components/dashboard/kpi-card";
+import { KpiStrip, NetFigure } from "@/components/dashboard/kpi-card";
 import { OpenTradesBanner } from "@/components/dashboard/open-trades-banner";
 import { PnlCalendar } from "@/components/dashboard/pnl-calendar";
 import { RecentTrades } from "@/components/dashboard/recent-trades";
@@ -29,7 +29,9 @@ import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { balanceInputs, closedTrades, openTrades } from "@/server/db/queries/dashboard";
 import { getActiveScope, getSetting } from "@/server/db/queries/settings";
-import { fmtUsd } from "@/lib/format";
+import { fmtR, fmtUsd, pnlClass } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { H2, SECTION } from "@/lib/ui";
 import { baseAtFloor, clampStart, fromFloor, journalFloor, SINCE_START } from "@/lib/journal-start";
 
 type SP = Record<string, string | string[] | undefined>;
@@ -164,56 +166,96 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     ? `${from} → ${params.to ?? "now"}`
     : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period);
 
+  // the hero names exactly what its figure is: the curve's last point (at the range end when a custom range has one)
+  const on = params.to ? ` on ${params.to}` : "";
+  const heroLabel =
+    unit === "r"
+      ? `Cumulative R${params.to ? ` to ${params.to}` : ""}`
+      : balanceView
+        ? params.to
+          ? `Balance${on}`
+          : "Account balance"
+        : walletId
+          ? `Realised P&L from $0${on}`
+          : `Realised equity${on}`;
+  const heroValue = lastPoint ? (unit === "r" ? fmtR(lastPoint.cumR) : fmtUsd(lastPoint.equity)) : null;
+
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">Dashboard</h1>
+    <div className="mx-auto max-w-[1180px] space-y-9">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-22 font-semibold">Dashboard</h1>
         <DashboardControls params={params} hasStart={active.journalStart !== null} />
-      </div>
+      </header>
 
-      <OpenTradesBanner trades={open} demo={getConfig().isDemo} />
+      {/* hero: where the account stands, then the curve */}
+      <section className="flex flex-col gap-5" aria-label="Equity curve">
+        <div className="flex flex-wrap items-end gap-x-14 gap-y-6">
+          <div className="flex flex-col gap-1.5">
+            <h2 className="text-muted-foreground text-sm font-normal">{heroLabel}</h2>
+            {heroValue !== null ? (
+              <span
+                className={cn(
+                  "sm:text-52 text-[40px] leading-none font-medium tracking-[-0.035em]",
+                  unit === "usd" && "money",
+                  unit === "r" && pnlClass(lastPoint?.cumR),
+                )}
+                data-testid={balanceView ? "balance-now" : "hero-figure"}
+              >
+                {heroValue}
+              </span>
+            ) : (
+              <span className="text-muted-foreground text-17">
+                {balanceView ? "No balance changes in this period" : "No closed trades in this period"}
+              </span>
+            )}
+          </div>
+          <NetFigure
+            k={k}
+            unit={unit}
+            periodLabel={periodLabel}
+            sinceLabel={k.since ? dateFmt.format(k.since) : null}
+          />
+          {balanceView && deposited !== null && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-muted-foreground text-sm">Net deposits</span>
+              <span className="money text-26 font-medium tracking-[-0.02em]" data-testid="balance-deposited">
+                {fmtUsd(deposited)}
+              </span>
+              <span className="text-muted-foreground text-13">dashed line</span>
+            </div>
+          )}
+        </div>
+        <OpenTradesBanner trades={open} demo={getConfig().isDemo} />
+        <div>
+          <EquityChart points={curve} unit={unit} baseline={base} tz={tz} />
+          <p className="text-muted-foreground text-13 mt-2" data-testid="equity-subtitle">
+            {unit === "r" ? (
+              "Trades without a stop count as 0R"
+            ) : balanceView ? (
+              "Deposits, withdrawals and transfers included · open positions not marked to market"
+            ) : walletId ? (
+              "This wallet's realised P&L from $0 (the starting balance is the whole account's)"
+            ) : (
+              <>
+                From starting balance{" "}
+                <span className="money">${active.startingBalance.toLocaleString()}</span>
+              </>
+            )}
+          </p>
+        </div>
+      </section>
 
-      <KpiCard
-        k={k}
-        unit={unit}
-        periodLabel={periodLabel}
-        sinceLabel={k.since ? dateFmt.format(k.since) : null}
-        fundingInNet={fundingInNet}
-      />
+      <KpiStrip k={k} unit={unit} fundingInNet={fundingInNet} />
 
-      {risk && <RiskCard m={risk} title={`Risk-adjusted · ${periodLabel}`} />}
-
-      {sc && <ScoresCard s={sc} title={`Scores · ${periodLabel}`} />}
-
-      {leaks.length > 0 && (
-        <section className="rounded-lg border p-4" aria-label="Top leaks" data-testid="leaks-card">
-          <header className="mb-2 flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-medium">
-              Top leaks · {periodLabel}
-              {unit === "r" && (
-                <span className="text-muted-foreground ml-2 text-xs font-normal">
-                  (in $; total R on the Insights page)
-                </span>
-              )}
-            </h2>
-            <Link
-              href={dashHref(
-                { ...params, month: undefined, week: undefined },
-                { section: "insights" },
-                "/analytics",
-                active.journalStart !== null ? SINCE_START : "all", // Analytics' own default, so All time survives
-              )}
-              className="text-xs link"
-            >
-              All insights →
-            </Link>
-          </header>
-          <InsightsList items={leaks} tz={tz} compact />
-        </section>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3">
+      {/* the month and the week on the wide side; leaks and discipline beside them */}
+      <div className="grid gap-12 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="flex min-w-0 flex-col gap-10">
+          <PnlCalendar
+            cal={cal}
+            unit={unit}
+            prevHref={dashHref(params, { month: shift(-1) })}
+            nextHref={dashHref(params, { month: shift(1) })}
+          />
           <WeeklyCard
             allTime={floor === null && active.journalStart !== null}
             week={week}
@@ -226,56 +268,42 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             nextHref={week.next ? dashHref(params, { week: week.next }) : null}
           />
         </div>
-        <div className="lg:col-span-2">
-          <DrawdownCard stats={dd} points={ddPoints} unit={unit} tz={tz} periodLabel={periodLabel} />
+        <div className="flex min-w-0 flex-col gap-10">
+          {leaks.length > 0 && (
+            <section className={SECTION} aria-label="Top leaks" data-testid="leaks-card">
+              <header className="flex items-baseline justify-between gap-2">
+                <h2 className={H2}>
+                  Where you lose the most
+                  <span className="text-muted-foreground font-normal"> · {periodLabel}</span>
+                  {unit === "r" && (
+                    <span className="text-muted-foreground ml-2 text-xs font-normal">
+                      (in $; total R on the Insights page)
+                    </span>
+                  )}
+                </h2>
+                <Link
+                  href={dashHref(
+                    { ...params, month: undefined, week: undefined },
+                    { section: "insights" },
+                    "/analytics",
+                    active.journalStart !== null ? SINCE_START : "all", // Analytics' own default, so All time survives
+                  )}
+                  className="link text-sm"
+                >
+                  All insights
+                </Link>
+              </header>
+              <InsightsList items={leaks} tz={tz} compact />
+            </section>
+          )}
+          {sc && <ScoresCard s={sc} title={`Scores · ${periodLabel}`} plain />}
+          <RecentTrades trades={recent} tz={tz} unit={unit} />
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section className="rounded-lg border p-4 lg:col-span-2" aria-label="Equity curve">
-          <header className="mb-2 flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-medium">
-              {unit === "r" ? "Cumulative R" : balanceView ? "Account balance" : "Equity curve"}
-            </h2>
-            <span className="text-muted-foreground text-xs" data-testid="equity-subtitle">
-              {unit === "r" ? (
-                "Trades without a stop count as 0R"
-              ) : balanceView ? (
-                lastPoint && deposited !== null ? (
-                  <>
-                    <span className="money" data-testid="balance-now">
-                      {fmtUsd(lastPoint.equity)}
-                    </span>{" "}
-                    · net deposited{" "}
-                    <span className="money" data-testid="balance-deposited">
-                      {fmtUsd(deposited)}
-                    </span>{" "}
-                    (dashed) · open positions not marked to market
-                  </>
-                ) : (
-                  "deposits, withdrawals and transfers included"
-                )
-              ) : walletId ? (
-                "this wallet's realised P&L from $0 (the starting balance is the whole account's)"
-              ) : (
-                <>
-                  from starting balance{" "}
-                  <span className="money">${active.startingBalance.toLocaleString()}</span>
-                </>
-              )}
-            </span>
-          </header>
-          <EquityChart points={curve} unit={unit} baseline={base} tz={tz} />
-        </section>
-        <RecentTrades trades={recent} tz={tz} unit={unit} />
-      </div>
+      {risk && <RiskCard m={risk} title={`Risk-adjusted · ${periodLabel}`} plain />}
 
-      <PnlCalendar
-        cal={cal}
-        unit={unit}
-        prevHref={dashHref(params, { month: shift(-1) })}
-        nextHref={dashHref(params, { month: shift(1) })}
-      />
+      <DrawdownCard stats={dd} points={ddPoints} unit={unit} tz={tz} periodLabel={periodLabel} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { CARD, CARD_H2, H2, SECTION } from "@/lib/ui";
 import { fmtR, fmtSignedUsd, pnlClass } from "@/lib/format";
 import { MIN_SAMPLE, type RiskMetrics } from "@/lib/risk";
 
@@ -9,12 +10,21 @@ const tone = (x: number | null) =>
   x === null ? "text-muted-foreground" : x > 0 ? "text-profit" : x < 0 ? "text-loss" : "";
 
 /** Sharpe, Sortino, returns and drawdowns from daily returns; expectancy, payoff and SQN from trades. */
-export function RiskCard({ m, title }: { m: RiskMetrics & { basis: "balance" | "trades" }; title: string }) {
+export function RiskCard({
+  m,
+  title,
+  plain = false,
+}: {
+  m: RiskMetrics & { basis: "balance" | "trades" };
+  title: string;
+  /** the redesigned dashboard: no card border, a larger heading */
+  plain?: boolean;
+}) {
   const n = m.days.length;
   return (
-    <section className="rounded-lg border p-4" aria-label="Risk-adjusted" data-testid="risk-card">
-      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-medium">{title}</h2>
+    <section className={plain ? SECTION : CARD} aria-label="Risk-adjusted" data-testid="risk-card">
+      <header className={cn("flex flex-wrap items-baseline justify-between gap-2", !plain && "mb-3")}>
+        <h2 className={plain ? H2 : CARD_H2}>{title}</h2>
         <span className="text-muted-foreground text-xs" data-testid="risk-sample">
           {n} day{n === 1 ? "" : "s"} with capital · {m.trades} trade{m.trades === 1 ? "" : "s"}
           {m.smallDays || m.smallTrades ? ` · small sample (under ${MIN_SAMPLE}): read with care` : ""}

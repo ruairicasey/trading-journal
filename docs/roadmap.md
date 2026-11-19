@@ -44,7 +44,10 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   style as tokens; light mode; hard-coded colours moved onto tokens; red/green kept for realised money, gold for warnings.
   Cycle 2a shell **done**: inset white sheet on the ground, sidebar with logo, white-pill current page, account block and
   sync status in the footer (top bar on phones, icon when collapsed; one sync loop in a provider).
-  Next: cycle 2b, the dashboard (hero balance, figures strip, leaks and discipline beside calendar and week).
+  Cycle 2b dashboard **done**: a hero (balance or what the curve shows, period net, net deposits, open positions, the
+  curve), a ruled figures strip, then the calendar and week beside leaks, scores and recent trades; risk and drawdown
+  below. Calendar keeps its week totals, so it takes the wide column.
+  Next: cycle 3, the Trades page (the second board on the design canvas).
 
 ## Phase 3: insights and reports
 
