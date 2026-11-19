@@ -84,6 +84,10 @@ export const accounts = sqliteTable("accounts", {
   currency: text("currency").notNull().default("USD"),
   /** "Journal starts on": views hide trades opened before this (UTC ms) unless set to All time; null = no floor */
   journalStart: integer("journal_start"),
+  /** Risk rules (null = off): stop for the day at this realised loss ($), after this many trades, or this many losses in a row */
+  dailyLossLimit: real("daily_loss_limit"),
+  maxTradesPerDay: integer("max_trades_per_day"),
+  maxLossStreak: integer("max_loss_streak"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   sort: integer("sort").notNull().default(0),
   createdAt: createdAt(),

@@ -85,6 +85,13 @@
       "when": 1795074502240,
       "tag": "0011_pair_label",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795126013482,
+      "tag": "0012_risk_limits",
+      "breakpoints": true
     }
   ]
 }

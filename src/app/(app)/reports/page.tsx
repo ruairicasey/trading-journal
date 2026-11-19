@@ -10,7 +10,7 @@ import { insights } from "@/lib/analytics/insights";
 import { scores } from "@/lib/analytics/scores";
 import { computeRisk } from "@/lib/risk";
 import { RiskCard } from "@/components/analytics/risk-card";
-import { balanceInputs, closedTrades } from "@/server/db/queries/dashboard";
+import { balanceInputs, closedTrades, riskScope } from "@/server/db/queries/dashboard";
 import { computeKpis } from "@/lib/stats";
 import { fmtPct, fmtR, fmtSignedUsd, fmtUsd, pnlClass } from "@/lib/format";
 import { reportRange } from "@/lib/report-range";
@@ -48,11 +48,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const now = Date.now();
   const range = reportRange(sp, now, tz, "month", active.journalStart);
   const db = getDb();
-  const [all, richAll, closedAll, bal] = await Promise.all([
+  const [all, richAll, closedAll, bal, limits] = await Promise.all([
     reportTrades(db, active.id, walletId),
     analyticsTrades(db, active.id, walletId, { light: true }),
     closedTrades(db, active.id, walletId),
     balanceInputs(db, active.id, walletId),
+    riskScope(db, active),
   ]);
   // the journal start's floor applies to the context trades too (insights, scores, risk)
   const rich = fromFloor(richAll, range.floor);
@@ -151,12 +152,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             title="Risk-adjusted"
             plain
           />
-          <ScoresCard s={scores(richIn, rich, tz)} title="Scores" plain wide />
+          <ScoresCard s={scores(richIn, rich, tz, limits)} title="Scores" plain wide />
 
           <section className="flex flex-col gap-3.5" aria-label="Top leaks">
             <h2 className="text-17 font-semibold tracking-[-0.01em]">Where you lose the most</h2>
             {(() => {
-              const list = insights(richIn, rich, tz).list.slice(0, 5);
+              const list = insights(richIn, rich, tz, limits).list.slice(0, 5);
               return list.length ? (
                 <InsightsList items={list} tz={tz} compact />
               ) : (

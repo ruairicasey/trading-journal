@@ -3,6 +3,7 @@ import { foldOwnTransfers, type BalanceCash, type BalanceFlow, type ClosedTrade 
 import type { DB } from "../client";
 import * as s from "../schema";
 import { rExpr } from "./trades";
+import { limitsSet, type LimitScope } from "../../../lib/analytics/limits";
 
 /** null = every wallet on the account (and its manual trades); otherwise just that wallet's trades */
 export type WalletScope = string | null;
@@ -15,7 +16,11 @@ const live = (accountId: string, walletId: WalletScope = null) => [
 ];
 
 /** All closed trades for the account (stats are computed in JS; hundreds to low thousands of rows). */
-export async function closedTrades(db: DB, accountId: string, walletId: WalletScope = null): Promise<ClosedTrade[]> {
+export async function closedTrades(
+  db: DB,
+  accountId: string,
+  walletId: WalletScope = null,
+): Promise<ClosedTrade[]> {
   const rows = await db
     .select({
       id: s.trades.id,
@@ -32,9 +37,22 @@ export async function closedTrades(db: DB, accountId: string, walletId: WalletSc
     })
     .from(s.trades)
     .leftJoin(s.tradeJournal, eq(s.tradeJournal.tradeId, s.trades.id))
-    .where(and(...live(accountId, walletId), eq(s.trades.status, "closed"), isNotNull(s.trades.exitTime), isNotNull(s.trades.netPnl)))
+    .where(
+      and(
+        ...live(accountId, walletId),
+        eq(s.trades.status, "closed"),
+        isNotNull(s.trades.exitTime),
+        isNotNull(s.trades.netPnl),
+      ),
+    )
     .orderBy(asc(s.trades.exitTime));
-  return rows.map((r) => ({ ...r, netPnl: r.netPnl ?? 0, fees: r.fees ?? 0, exitTime: r.exitTime!, r: r.r === null ? null : Number(r.r) }));
+  return rows.map((r) => ({
+    ...r,
+    netPnl: r.netPnl ?? 0,
+    fees: r.fees ?? 0,
+    exitTime: r.exitTime!,
+    r: r.r === null ? null : Number(r.r),
+  }));
 }
 
 const STABLES = new Set(["USDC", "USDH", "USDT0", "USDT", "USDE"]);
@@ -48,25 +66,58 @@ const isStable = (token: string) => STABLES.has(token.split(":")[0].toUpperCase(
  * the definitions `npm run debug:ledger` reconciles against holdings. Spot fills count only for unified accounts,
  * where spot stablecoins are the collateral.
  */
-export async function balanceInputs(db: DB, accountId: string, walletId: WalletScope = null): Promise<{ flows: BalanceFlow[]; cash: BalanceCash[] } | null> {
+export async function balanceInputs(
+  db: DB,
+  accountId: string,
+  walletId: WalletScope = null,
+): Promise<{ flows: BalanceFlow[]; cash: BalanceCash[] } | null> {
   // disabled wallets are never synced, so they are left out of both the gate and the money
   const wallets = await db
     .select()
     .from(s.wallets)
-    .where(and(eq(s.wallets.accountId, accountId), eq(s.wallets.enabled, true), ...(walletId ? [eq(s.wallets.id, walletId)] : [])));
-  if (!wallets.length || wallets.some((w) => !w.ledgerCompletedAt || !w.fundingCompletedAt || !w.backfillCompletedAt || w.historyTruncated)) return null;
+    .where(
+      and(
+        eq(s.wallets.accountId, accountId),
+        eq(s.wallets.enabled, true),
+        ...(walletId ? [eq(s.wallets.id, walletId)] : []),
+      ),
+    );
+  if (
+    !wallets.length ||
+    wallets.some(
+      (w) => !w.ledgerCompletedAt || !w.fundingCompletedAt || !w.backfillCompletedAt || w.historyTruncated,
+    )
+  )
+    return null;
   const ids = wallets.map((w) => w.id);
   const unified = new Set(wallets.filter((w) => w.accountMode === "unifiedAccount").map((w) => w.id));
   const [ledger, fills, funding] = await Promise.all([
     db
-      .select({ walletId: s.ledgerEvents.walletId, hash: s.ledgerEvents.hash, t: s.ledgerEvents.time, usd: s.ledgerEvents.usd, kind: s.ledgerEvents.kind })
+      .select({
+        walletId: s.ledgerEvents.walletId,
+        hash: s.ledgerEvents.hash,
+        t: s.ledgerEvents.time,
+        usd: s.ledgerEvents.usd,
+        kind: s.ledgerEvents.kind,
+      })
       .from(s.ledgerEvents)
       .where(inArray(s.ledgerEvents.walletId, ids)),
     db
-      .select({ walletId: s.fills.walletId, t: s.fills.time, marketType: s.fills.marketType, closedPnl: s.fills.closedPnl, fee: s.fills.fee, feeToken: s.fills.feeToken, px: s.fills.px })
+      .select({
+        walletId: s.fills.walletId,
+        t: s.fills.time,
+        marketType: s.fills.marketType,
+        closedPnl: s.fills.closedPnl,
+        fee: s.fills.fee,
+        feeToken: s.fills.feeToken,
+        px: s.fills.px,
+      })
       .from(s.fills)
       .where(inArray(s.fills.walletId, ids)),
-    db.select({ t: s.fundingEvents.time, usdc: s.fundingEvents.usdc }).from(s.fundingEvents).where(inArray(s.fundingEvents.walletId, ids)),
+    db
+      .select({ t: s.fundingEvents.time, usdc: s.fundingEvents.usdc })
+      .from(s.fundingEvents)
+      .where(inArray(s.fundingEvents.walletId, ids)),
   ]);
   const cash: BalanceCash[] = [];
   for (const f of fills) {
@@ -105,3 +156,28 @@ export async function openTrades(db: DB, accountId: string, walletId: WalletScop
     .orderBy(asc(s.trades.entryTime));
 }
 export type OpenTradeRow = Awaited<ReturnType<typeof openTrades>>[number];
+
+/**
+ * The account's risk rules with what they're judged over: every closed and open trade of the ACCOUNT, whatever
+ * wallet is picked (src/lib/analytics/limits.ts). null when no rule is set, so nothing extra is loaded.
+ */
+export async function riskScope(
+  db: DB,
+  account: Pick<
+    typeof s.accounts.$inferSelect,
+    "id" | "dailyLossLimit" | "maxTradesPerDay" | "maxLossStreak"
+  >,
+): Promise<LimitScope | null> {
+  if (!limitsSet(account)) return null;
+  const [context, open] = await Promise.all([
+    closedTrades(db, account.id, null),
+    openTrades(db, account.id, null),
+  ]);
+  return {
+    dailyLossLimit: account.dailyLossLimit,
+    maxTradesPerDay: account.maxTradesPerDay,
+    maxLossStreak: account.maxLossStreak,
+    context,
+    open: open.map((o) => ({ id: o.id, entryTime: o.entryTime })),
+  };
+}

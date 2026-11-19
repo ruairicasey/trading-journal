@@ -32,8 +32,8 @@ export function ScoresCard({
           value={show(s.discipline.score)}
           cls={band(s.discipline.score)}
         >
-          {DISCIPLINE_CHECKS.map((k) => (
-            <span key={k.id}>
+          {DISCIPLINE_CHECKS.filter((k) => k.id !== "within-limits" || c[k.id].of > 0).map((k) => (
+            <span key={k.id} data-testid={`check-${k.id}`}>
               {k.label} {pct(c[k.id].passed, c[k.id].of)}
             </span>
           ))}

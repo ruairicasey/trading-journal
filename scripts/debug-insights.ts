@@ -25,6 +25,8 @@ async function main() {
   const { insights, INSIGHT_RULES } = await import("../src/lib/analytics/insights");
   const { periodRange } = await import("../src/lib/periods");
   const { scores } = await import("../src/lib/analytics/scores");
+  const { limitBreaches } = await import("../src/lib/analytics/limits");
+  const { riskScope } = await import("../src/server/db/queries/dashboard");
   const db = getDb();
   const tzRow = await db.query.settings.findFirst({ where: eq(s.settings.key, "timezone") });
   const tz = (tzRow?.value as string) ?? getConfig().timezone;
@@ -32,22 +34,30 @@ async function main() {
 
   for (const [ai, acc] of (await db.select().from(s.accounts)).entries()) {
     const all = await analyticsTrades(db, acc.id, null);
+    const limits = await riskScope(db, acc);
     for (const period of ["all", "30d"] as const) {
       const from = periodRange(period, Date.now(), tz).from;
       const trades = all.filter((t) => from === null || t.exitTime >= from);
       const net = trades.reduce((a, t) => a + t.netPnl, 0);
-      const { list, checked } = insights(trades, all, tz);
+      const { list, checked } = insights(trades, all, tz, limits);
       console.log(
         `\naccount ${ai + 1} · ${period}: ${trades.length} closed trades, ${checked} of ${INSIGHT_RULES.length} rules applied (worst hour/day only when a 5+ trade bucket lost), ${list.length} losing patterns`,
       );
       console.log(
         `  net of the period: ${net < 0 ? "loss" : "profit"}; each pattern's net as % of |period net|:`,
       );
-      const sc = scores(trades, all, tz);
+      const sc = scores(trades, all, tz, limits);
       const r = (x: number | null) => (x === null ? "—" : String(Math.round(x)));
       console.log(
         `  scores: discipline ${r(sc.discipline.score)} · coverage ${r(sc.coverage.score)} (reviewed ${sc.coverage.reviewed} of ${sc.n}) · compliance ${r(sc.compliance.score)} (rules marked ${sc.compliance.rulesMarked}, process marked ${sc.compliance.processMarked}) · mistakes: ${sc.mistakes.n} tagged, ${pct(sc.mistakes.cost, Math.abs(net))}`,
       );
+      if (limits) {
+        const b = limitBreaches(trades, all, tz, limits);
+        const w = sc.discipline.checks["within-limits"];
+        console.log(
+          `  risk rules: loss ${acc.dailyLossLimit ? "on" : "off"} · trades/day ${acc.maxTradesPerDay ?? "off"} · losses in a row ${acc.maxLossStreak ?? "off"} · broke: loss ${b.loss.size}, trades ${b.trades.size}, streak ${b.streak.size}, any ${b.any.size} · within ${w.passed} of ${w.of}`,
+        );
+      } else console.log("  risk rules: none set");
       for (const [k, i] of list.entries()) {
         const wr = i.winRate === null ? "—" : `${Math.round(i.winRate * 100)}%`;
         console.log(

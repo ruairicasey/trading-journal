@@ -14,6 +14,7 @@ import { TZDate } from "@date-fns/tz";
 import { localDateKey } from "../periods";
 import { outcomeOf } from "../outcome";
 import type { AnalyticsTrade } from "./types";
+import { limitBreaches, limitsSet, type LimitScope } from "./limits";
 
 export const MIN_TRADES = 3;
 /** a bucket rule (worst hour, worst day) needs this many trades in the bucket to be judged */
@@ -31,7 +32,8 @@ export type InsightId =
   | "no-stop"
   | "widened"
   | "rules-broken"
-  | "low-grade";
+  | "low-grade"
+  | "limits";
 
 export type Insight = {
   id: InsightId;
@@ -79,6 +81,11 @@ export const INSIGHT_RULES: { id: InsightId; title: string; rule: string }[] = [
   { id: "widened", title: "Widened stops", rule: "You moved the stop further away" },
   { id: "rules-broken", title: "Rules broken", rule: "You marked rules followed as Partial or No" },
   { id: "low-grade", title: "C and D setups", rule: "Trades you graded C or D" },
+  {
+    id: "limits",
+    title: "Past your limits",
+    rule: "Opened after one of your risk rules (Settings → Accounts) said stop for the day",
+  },
 ];
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -215,6 +222,8 @@ export function insights(
   period: AnalyticsTrade[],
   context: AnalyticsTrade[],
   tz: string,
+  /** the account's risk rules; "Past your limits" runs only when one is set */
+  limits?: LimitScope | null,
 ): { list: Insight[]; checked: number } {
   const all: Insight[] = [];
   const add = (i: Insight | null) => i && all.push(i);
@@ -315,6 +324,25 @@ export function insights(
       period,
     ),
   );
+
+  if (limitsSet(limits)) {
+    const b = limitBreaches(period, context, tz, limits);
+    const when = [
+      // no amount here: the detail is plain text, so it wouldn't blur in privacy mode
+      limits.dailyLossLimit ? "the day's realised loss had reached your limit" : null,
+      limits.maxTradesPerDay ? `you had already taken ${limits.maxTradesPerDay} trades` : null,
+      limits.maxLossStreak ? `you had lost ${limits.maxLossStreak} in a row` : null,
+    ].filter(Boolean);
+    add(
+      summarise(
+        "limits",
+        `Opened when ${when.join(", or ")} that day.`,
+        "When a rule says stop, close the platform for the day.",
+        pick((t) => b.any.has(t.id)),
+        period,
+      ),
+    );
+  }
 
   const list = all
     .filter((i) => i.n >= MIN_TRADES && i.impact < 0)

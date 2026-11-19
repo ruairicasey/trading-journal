@@ -23,8 +23,10 @@ import { weeklyNote } from "@/server/trades/mutations";
 import { INCLUDE_FUNDING_KEY } from "@/server/funding/attribute";
 import { getConfig } from "@/server/config";
 import { reviewHref } from "@/server/trades/filters";
+import { todayLimits } from "@/lib/analytics/limits";
+import { LimitsCard } from "@/components/dashboard/limits-card";
 import { getDb } from "@/server/db/client";
-import { balanceInputs, closedTrades, openTrades } from "@/server/db/queries/dashboard";
+import { balanceInputs, closedTrades, openTrades, riskScope } from "@/server/db/queries/dashboard";
 import { getActiveScope, getSetting } from "@/server/db/queries/settings";
 import { fmtR, fmtUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -141,8 +143,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const richInRange = rich.filter(
     (t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end),
   );
-  const leaks = insights(richInRange, rich, tz).list.slice(0, 3);
-  const sc = richInRange.length ? scores(richInRange, rich, tz) : null;
+  // today against the account's risk rules (whatever period is shown)
+  // rules are per account: judged over the whole account's trades, whatever wallet is picked
+  const limits = await riskScope(db, active);
+  const today = limits
+    ? todayLimits(
+        limits.context!,
+        limits.open!.map((o) => o.entryTime),
+        tz,
+        limits,
+        now,
+      )
+    : null;
+  const leaks = insights(richInRange, rich, tz, limits).list.slice(0, 3);
+  const sc = richInRange.length ? scores(richInRange, rich, tz, limits) : null;
   // the review flow for this period's unreviewed exits (exit dates in your timezone; All time skips the start floor)
   const localDay = (ms: number) => new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(ms);
   const reviewLink = reviewHref({
@@ -282,6 +296,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           />
         </div>
         <div className="flex min-w-0 flex-col gap-10">
+          {today && <LimitsCard t={today} tz={tz} />}
           {leaks.length > 0 && (
             <section className={SECTION} aria-label="Top leaks" data-testid="leaks-card">
               <header className="flex items-baseline justify-between gap-2">

@@ -23,7 +23,7 @@ import { computeRisk } from "@/lib/risk";
 import { RiskCard } from "@/components/analytics/risk-card";
 import { DrawdownCard } from "@/components/dashboard/drawdown-card";
 import { drawdownStats, sliceUnderwater, underwaterSeries } from "@/lib/drawdown";
-import { balanceInputs, closedTrades } from "@/server/db/queries/dashboard";
+import { balanceInputs, closedTrades, riskScope } from "@/server/db/queries/dashboard";
 import { ScoresCard } from "@/components/analytics/scores-card";
 import { DailyWidget, RollingWidget, StreaksWidget } from "@/components/analytics/behaviour-widgets";
 import { localDateKey } from "@/lib/periods";
@@ -99,6 +99,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const floor = journalFloor(active.journalStart, period);
   start = clampStart(start, floor);
   const all = fromFloor(await analyticsTrades(getDb(), active.id, walletId), floor);
+  const limits = section === "insights" ? await riskScope(getDb(), active) : null;
   // Risk & execution opens with the risk-adjusted card (daily returns need the plain closed trades and the balance)
   const risk =
     section === "risk"
@@ -337,8 +338,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
       {section === "insights" && trades.length > 0 ? (
         <div className="grid gap-10">
-          <ScoresCard s={scores(trades, all, tz)} title={`Scores, ${periodLabel}`} plain wide />
-          <InsightsSection list={insights(trades, all, tz).list} tz={tz} />
+          <ScoresCard s={scores(trades, all, tz, limits)} title={`Scores, ${periodLabel}`} plain wide />
+          <InsightsSection
+            list={insights(trades, all, tz, limits).list}
+            tz={tz}
+            rules={INSIGHT_RULES.length - (limits ? 0 : 1)}
+          />
         </div>
       ) : trades.length === 0 ? (
         <EmptyState
@@ -375,12 +380,21 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   );
 }
 
-function InsightsSection({ list, tz }: { list: ReturnType<typeof insights>["list"]; tz: string }) {
+/** rules: how many rules ran (the limits rule only when the account has one set) */
+function InsightsSection({
+  list,
+  tz,
+  rules,
+}: {
+  list: ReturnType<typeof insights>["list"];
+  tz: string;
+  rules: number;
+}) {
   return (
     <div className="grid gap-3">
       <h2 className="text-17 font-semibold tracking-[-0.01em]">Where you lose the most</h2>
       <p className="text-muted-foreground text-13">
-        Patterns that lost money in this period, worst first ({INSIGHT_RULES.length} rules checked; 3+ trades
+        Patterns that lost money in this period, worst first ({rules} rules checked; 3+ trades
         each). A trade can match several, so the amounts overlap and don&apos;t add up to your total.
       </p>
       {list.length ? (

@@ -2,7 +2,8 @@
  * Scores for a period: discipline, review coverage and compliance (0–100) and mistake cost ($). Pure: no DB, no I/O.
  *
  * - Discipline: each trade is checked on five habits (a stop was set, it wasn't widened, not a revenge / tilt /
- *   overtrading entry: the Insights rules); the score is the average share of checks passed.
+ *   overtrading entry: the Insights rules), plus "within your limits" when the account has risk rules
+ *   (src/lib/analytics/limits.ts); the score is the share of all checks passed.
  * - Review coverage: share of closed trades marked reviewed, the same definition as the weekly card's
  *   "Not reviewed" count (src/lib/missing.ts), so the two reconcile.
  * - Compliance: rules followed (yes 1, partial ½, no 0) and process compliant (yes 1, no 0), averaged over the
@@ -11,6 +12,7 @@
  *   two mistakes counts in both, so those don't add up to the total).
  */
 import { habitFlags } from "./insights";
+import { limitBreaches, limitsSet, type LimitScope } from "./limits";
 import type { AnalyticsTrade } from "./types";
 
 export const DISCIPLINE_CHECKS = [
@@ -19,6 +21,8 @@ export const DISCIPLINE_CHECKS = [
   { id: "not-revenge", label: "Not a revenge trade" },
   { id: "not-tilt", label: "Not on tilt" },
   { id: "not-overtrading", label: "Not overtrading" },
+  /** counted only when the account has a risk rule set (of = 0 otherwise) */
+  { id: "within-limits", label: "Within your limits" },
 ] as const;
 export type DisciplineCheck = (typeof DISCIPLINE_CHECKS)[number]["id"];
 
@@ -38,12 +42,19 @@ export type Scores = {
 
 const pct = (x: number, of: number) => (of ? (x / of) * 100 : null);
 
-export function scores(period: AnalyticsTrade[], context: AnalyticsTrade[], tz: string): Scores {
+export function scores(
+  period: AnalyticsTrade[],
+  context: AnalyticsTrade[],
+  tz: string,
+  limits?: LimitScope | null,
+): Scores {
   const n = period.length;
   const { revenge, tilt, overtrading } = habitFlags(period, context, tz);
+  const ruled = limitsSet(limits);
+  const breaches = limitBreaches(period, context, tz, limits);
 
   const checks = Object.fromEntries(
-    DISCIPLINE_CHECKS.map((c) => [c.id, { passed: 0, of: n }]),
+    DISCIPLINE_CHECKS.map((c) => [c.id, { passed: 0, of: c.id === "within-limits" && !ruled ? 0 : n }]),
   ) as Scores["discipline"]["checks"];
   for (const t of period) {
     if (t.riskUsd !== null) checks.stop.passed++;
@@ -51,8 +62,10 @@ export function scores(period: AnalyticsTrade[], context: AnalyticsTrade[], tz: 
     if (!revenge.has(t.id)) checks["not-revenge"].passed++;
     if (!tilt.has(t.id)) checks["not-tilt"].passed++;
     if (!overtrading.has(t.id)) checks["not-overtrading"].passed++;
+    if (ruled && !breaches.any.has(t.id)) checks["within-limits"].passed++;
   }
   const passed = Object.values(checks).reduce((a, c) => a + c.passed, 0);
+  const of = Object.values(checks).reduce((a, c) => a + c.of, 0);
 
   let rulesSum = 0;
   let rulesMarked = 0;
@@ -81,7 +94,7 @@ export function scores(period: AnalyticsTrade[], context: AnalyticsTrade[], tz: 
 
   return {
     n,
-    discipline: { score: pct(passed, n * DISCIPLINE_CHECKS.length), checks },
+    discipline: { score: pct(passed, of), checks },
     coverage: {
       score: pct(period.filter((t) => t.reviewed).length, n),
       reviewed: period.filter((t) => t.reviewed).length,

@@ -83,3 +83,9 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   Edit form for setup, review and screenshots. Crypto accounts use Hyperliquid's names (BTC, kPEPE, xyz:SPX); prop and
   other accounts store cTrader-style CFD symbols (EURUSD), reusing a spelling the account already has. Manual trades
   belong to no wallet (they show under All wallets) and count in P&L, but not in the balance curve.
+- ~~Risk rules~~ **done**: Settings → Accounts → Risk rules: a daily loss limit ($), max trades a day and stop after N
+  losses in a row, each off until set. Days are local, midnight to midnight; a trade breaks a rule when you opened it
+  after that day's realised loss reached the limit (in cents), beyond the cap (open trades count), or after N losses in a
+  row that day. Judged over the whole account, whatever wallet is picked. A Today card on the dashboard (within / close /
+  stop for today), a "Past your limits" insight, and "Within your limits" in discipline (only when a rule is set, so the
+  score is unchanged otherwise). `npm run debug:insights` prints the breach counts.

@@ -117,6 +117,12 @@ export async function updateVocabCategory(input: { id: string; name?: string; ar
 }
 
 // ─── accounts ────────────────────────────────────────────────────────────────────
+/** A form number that may be left empty (null); absent leaves the stored value alone. */
+const optionalNum = (n: z.ZodNumber) =>
+  z
+    .union([z.literal(""), z.null(), z.coerce.number().pipe(n)])
+    .transform((v) => (v === "" || v === null ? null : v))
+    .optional();
 const AccountInput = z.object({
   name: label,
   type: z.enum(s.ACCOUNT_TYPES),
@@ -129,6 +135,10 @@ const AccountInput = z.object({
     .trim()
     .regex(/^(\d{4}-\d{2}-\d{2})?$/, "Pick a date")
     .optional(),
+  /** risk rules: empty = off */
+  dailyLossLimit: optionalNum(z.number().positive("The daily loss limit must be above 0").max(1e9)),
+  maxTradesPerDay: optionalNum(z.number().int("Max trades a day is a whole number").min(1).max(1000)),
+  maxLossStreak: optionalNum(z.number().int("Losses in a row is a whole number").min(1).max(100)),
 });
 
 export async function saveAccount(input: { id?: string } & z.input<typeof AccountInput>) {
