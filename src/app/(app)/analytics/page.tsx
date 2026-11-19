@@ -31,6 +31,7 @@ import { fmtUsd } from "@/lib/format";
 import type { Breakdown } from "@/lib/analytics/types";
 import { describeSession, sessionHoursIn } from "@/lib/sessions";
 import { cn } from "@/lib/utils";
+import { KeepActiveVisible } from "@/components/shell/keep-active-visible";
 import { dayBoundsLocal, periodRange, PERIODS, type Period } from "@/lib/periods";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
@@ -275,7 +276,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
 
-      <nav aria-label="Analytics sections" className="flex gap-6 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--rule)]">
+      <nav
+        aria-label="Analytics sections"
+        className="flex gap-6 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--rule)]"
+      >
         {SECTIONS.map((s) =>
           "soon" in s && s.soon ? (
             <span
@@ -296,7 +300,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
               )}
               aria-current={section === s.id ? "page" : undefined}
               className={cn(
-                "shrink-0 pb-3 text-sm",
+                "shrink-0 rounded-sm pb-3 text-sm focus-visible:outline-offset-[-2px]",
                 section === s.id
                   ? "text-ink font-medium shadow-[inset_0_-2px_0_var(--ink)]"
                   : "text-ink-2 hover:text-ink",
@@ -306,6 +310,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
             </Link>
           ),
         )}
+        <KeepActiveVisible dep={section} />
       </nav>
 
       <p className="text-muted-foreground text-13" data-testid="analytics-summary">

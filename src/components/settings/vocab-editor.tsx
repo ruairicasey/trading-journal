@@ -46,7 +46,7 @@ export function VocabEditor({ kind, data }: { kind: string; data: VocabList }) {
 
   return (
     <div className={cn("space-y-4", pending && "opacity-70")}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
           <Label htmlFor="show-archived" className="text-muted-foreground text-xs">

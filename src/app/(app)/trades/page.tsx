@@ -10,6 +10,7 @@ import { SavedFilters } from "@/components/trades/saved-filters";
 import { listSavedFilters, pickSaved } from "@/server/trades/saved-filters";
 import { parseSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
+import { KeepActiveVisible } from "@/components/shell/keep-active-visible";
 import { PERIOD_LABELS } from "@/lib/periods";
 import { journalFloor, SINCE_START } from "@/lib/journal-start";
 import { getConfig } from "@/server/config";
@@ -129,14 +130,17 @@ export default async function TradesPage({
         </div>
       </header>
 
-      <nav className="flex gap-6 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--rule)]" aria-label="Trade tabs">
+      <nav
+        className="flex gap-6 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--rule)]"
+        aria-label="Trade tabs"
+      >
         {TABS.map((tab) => (
           <Link
             key={tab}
             href={tradesHref(filters, { tab })}
             aria-current={filters.tab === tab ? "page" : undefined}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 pb-3 text-sm",
+              "flex shrink-0 items-center gap-1.5 rounded-sm pb-3 text-sm focus-visible:outline-offset-[-2px]",
               filters.tab === tab
                 ? "text-ink font-medium shadow-[inset_0_-2px_0_var(--ink)]"
                 : "text-ink-2 hover:text-ink",
@@ -146,6 +150,7 @@ export default async function TradesPage({
             <span className="text-muted-foreground font-normal tabular-nums">{counts[tab]}</span>
           </Link>
         ))}
+        <KeepActiveVisible dep={filters.tab} />
       </nav>
 
       {floorLabel && (

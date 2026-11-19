@@ -61,7 +61,9 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   ruled rows with a leak bar scaled to the worst pattern (dashboard and Reports too); no sideways scroll on phones.
   Cycle 6 Reports **done**: report title and meta, a ruled figures strip (one row in print), plain risk, scores and
   leaks, tables on hairline rules; Print / Save as PDF still prints just the report on white.
-  Next: cycle 7, Settings and login.
+  Cycle 7 Settings and login **done**: settings aligned with the other pages, underlined section tabs (the current
+  one kept in view on phones), journal lists without sideways scroll, softer card rings; login with the logo on the
+  ground. The redesign is complete.
 
 ## Phase 3: insights and reports
 

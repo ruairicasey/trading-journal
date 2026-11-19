@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BookOpenText, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
+import { Logo } from "@/components/shell/logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,13 +16,13 @@ export function LoginForm({ next }: { next?: string }) {
   const [pending, setPending] = useState(false);
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm rounded-2xl py-7 [--card-spacing:--spacing(7)]">
       <CardHeader className="items-center text-center">
-        <div className="bg-sidebar-primary text-sidebar-primary-foreground mb-2 flex size-10 items-center justify-center rounded-md">
-          <BookOpenText className="size-5" />
+        <div className="mb-2 flex items-center justify-center gap-2.5">
+          <Logo />
+          <CardTitle className="text-ink text-17 font-semibold tracking-[-0.01em]">Journal</CardTitle>
         </div>
-        <CardTitle className="text-base">Trading Journal</CardTitle>
-        <p className="text-muted-foreground text-xs">Private instance. Sign in to continue.</p>
+        <p className="text-muted-foreground text-13">Private instance. Sign in to continue.</p>
       </CardHeader>
       <CardContent>
         <form
@@ -50,7 +51,7 @@ export function LoginForm({ next }: { next?: string }) {
           }}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor="password" className="text-xs">
+            <Label htmlFor="password" className="text-muted-foreground text-13 font-normal">
               Password
             </Label>
             <Input
@@ -62,8 +63,16 @@ export function LoginForm({ next }: { next?: string }) {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {error && <p className="text-destructive text-xs">{error}</p>}
-          <Button type="submit" className="w-full" disabled={pending || !password}>
+          {error && (
+            <p className="text-destructive text-13" role="alert">
+              {error}
+            </p>
+          )}
+          <Button
+            type="submit"
+            className="bg-ink hover:bg-ink/90 h-10 w-full rounded-[9px] text-white"
+            disabled={pending || !password}
+          >
             <Lock className="size-4" /> {pending ? "Signing in…" : "Sign in"}
           </Button>
         </form>

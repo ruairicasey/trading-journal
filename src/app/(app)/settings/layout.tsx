@@ -2,10 +2,10 @@ import { SettingsNav } from "@/components/settings/settings-nav";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <h1 className="text-lg font-semibold">Settings</h1>
+    <div className="mx-auto max-w-[1180px] space-y-7">
+      <h1 className="text-22 font-semibold">Settings</h1>
       <SettingsNav />
-      <div className="pt-2">{children}</div>
+      <div className="max-w-4xl">{children}</div>
     </div>
   );
 }

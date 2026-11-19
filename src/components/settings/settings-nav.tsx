@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { KeepActiveVisible } from "@/components/shell/keep-active-visible";
 
 const LINKS: { href: string; label: string; soon?: boolean }[] = [
   { href: "/settings", label: "General" },
@@ -15,7 +16,10 @@ const LINKS: { href: string; label: string; soon?: boolean }[] = [
 export function SettingsNav() {
   const pathname = usePathname();
   return (
-    <nav className="flex gap-1 border-b">
+    <nav
+      aria-label="Settings sections"
+      className="flex gap-6 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--rule)]"
+    >
       {LINKS.map((l) =>
         l.soon ? (
           <span key={l.href} className="text-muted-foreground/50 px-3 py-2 text-sm" title="Coming in step 5">
@@ -25,17 +29,19 @@ export function SettingsNav() {
           <Link
             key={l.href}
             href={l.href}
+            aria-current={pathname === l.href ? "page" : undefined}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm transition-colors",
+              "shrink-0 rounded-sm pb-3 text-sm transition-colors focus-visible:outline-offset-[-2px]",
               pathname === l.href
-                ? "border-primary text-foreground"
-                : "text-muted-foreground hover:text-foreground border-transparent",
+                ? "text-ink font-medium shadow-[inset_0_-2px_0_var(--ink)]"
+                : "text-ink-2 hover:text-ink",
             )}
           >
             {l.label}
           </Link>
         ),
       )}
+      <KeepActiveVisible dep={pathname} />
     </nav>
   );
 }
