@@ -5,7 +5,14 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { BookmarkPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { deleteSavedFilterAction, saveFilterAction } from "@/app/(app)/trades/actions";
@@ -13,7 +20,15 @@ import { deleteSavedFilterAction, saveFilterAction } from "@/app/(app)/trades/ac
 export type SavedChip = { id: string; name: string; href: string; active: boolean };
 
 /** The owner's saved filters as chips (× removes one), plus "Save filter" when filters or a search are set. */
-export function SavedFilters({ chips, params, canSave }: { chips: SavedChip[]; params: Record<string, string>; canSave: boolean }) {
+export function SavedFilters({
+  chips,
+  params,
+  canSave,
+}: {
+  chips: SavedChip[];
+  params: Record<string, string>;
+  canSave: boolean;
+}) {
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -26,11 +41,19 @@ export function SavedFilters({ chips, params, canSave }: { chips: SavedChip[]; p
           key={c.id}
           data-testid="saved-filter"
           className={cn(
-            "flex items-center rounded-full border text-xs transition-colors",
-            c.active ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground border-dashed",
+            "text-13 flex h-8 items-center rounded-full transition-colors",
+            c.active
+              ? "bg-ink text-white"
+              : "text-ink-2 hover:text-ink shadow-[inset_0_0_0_1px_var(--rule-ring)]",
           )}
         >
-          <Link href={c.active ? `/trades${params.tab && params.tab !== "all" ? `?tab=${params.tab}` : ""}` : c.href} aria-pressed={c.active} className="py-0.5 pl-2.5 pr-1">
+          <Link
+            href={
+              c.active ? `/trades${params.tab && params.tab !== "all" ? `?tab=${params.tab}` : ""}` : c.href
+            }
+            aria-pressed={c.active}
+            className="py-1 pr-1 pl-3"
+          >
             {c.name}
           </Link>
           <button
@@ -58,7 +81,10 @@ export function SavedFilters({ chips, params, canSave }: { chips: SavedChip[]; p
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Save this filter</DialogTitle>
-            <DialogDescription>It keeps the tab, search and filters, and shows as a chip above the list. Saving under an existing name replaces it.</DialogDescription>
+            <DialogDescription>
+              It keeps the tab, search and filters, and shows as a chip above the list. Saving under an
+              existing name replaces it.
+            </DialogDescription>
           </DialogHeader>
           <form
             className="grid gap-3"
@@ -73,7 +99,14 @@ export function SavedFilters({ chips, params, canSave }: { chips: SavedChip[]; p
               });
             }}
           >
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. A+ longs" maxLength={40} aria-label="Filter name" autoFocus />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. A+ longs"
+              maxLength={40}
+              aria-label="Filter name"
+              autoFocus
+            />
             <DialogFooter>
               <Button type="submit" disabled={!name.trim() || pending}>
                 Save

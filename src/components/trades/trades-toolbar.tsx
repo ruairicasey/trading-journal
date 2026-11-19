@@ -9,7 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MISSING_KINDS, MISSING_LABELS } from "@/lib/missing";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { tradesHref, type TradeFilters } from "@/server/trades/filters";
 
 type Options = {
@@ -18,7 +25,15 @@ type Options = {
   sessions: string[];
 };
 
-export function TradesToolbar({ filters, options, activeCount }: { filters: TradeFilters; options: Options; activeCount: number }) {
+export function TradesToolbar({
+  filters,
+  options,
+  activeCount,
+}: {
+  filters: TradeFilters;
+  options: Options;
+  activeCount: number;
+}) {
   const router = useRouter();
   const [q, setQ] = useState(filters.q ?? "");
   const [sheet, setSheet] = useState(false);
@@ -38,9 +53,9 @@ export function TradesToolbar({ filters, options, activeCount }: { filters: Trad
   }, []);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2.5">
       <form
-        className="relative flex-1 sm:max-w-sm"
+        className="relative flex-1 sm:max-w-[420px]"
         onSubmit={(e) => {
           e.preventDefault();
           router.push(tradesHref(filters, { q: q.trim() || undefined }));
@@ -52,7 +67,7 @@ export function TradesToolbar({ filters, options, activeCount }: { filters: Trad
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={filters.tab === "notes" ? "Search notes…" : "Search pair, tag, notes…"}
-          className="h-8 pr-14 pl-8"
+          className="bg-subtle h-[38px] rounded-[9px] border-0 pr-14 pl-8 text-sm shadow-none"
           aria-label="Search trades"
         />
         {q ? (
@@ -68,13 +83,17 @@ export function TradesToolbar({ filters, options, activeCount }: { filters: Trad
             <X className="size-4" />
           </button>
         ) : (
-          <kbd className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border px-1 text-[10px]">
+          <kbd className="text-muted-foreground border-rule-ring pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded border px-1 text-[11px]">
             /
           </kbd>
         )}
       </form>
       {filters.tab !== "notes" && (
-        <Button variant="secondary" size="sm" className="h-8" onClick={() => setSheet(true)}>
+        <Button
+          variant="outline"
+          className="border-field h-[38px] rounded-[9px] bg-transparent shadow-none"
+          onClick={() => setSheet(true)}
+        >
           <SlidersHorizontal className="size-4" /> Filters
           {activeCount > 0 && <Badge className="ml-1 h-4 min-w-4 px-1 text-[10px]">{activeCount}</Badge>}
         </Button>
@@ -102,7 +121,8 @@ function FilterSheet({
   useEffect(() => {
     if (open) setDraft(filters);
   }, [open, filters]);
-  const set = (k: keyof TradeFilters, v: unknown) => setDraft((d) => ({ ...d, [k]: v === ANY || v === "" ? undefined : v }));
+  const set = (k: keyof TradeFilters, v: unknown) =>
+    setDraft((d) => ({ ...d, [k]: v === ANY || v === "" ? undefined : v }));
 
   const sel = (k: keyof TradeFilters, label: string, items: { value: string; label: string }[]) => (
     <div className="grid gap-1.5">
@@ -131,7 +151,11 @@ function FilterSheet({
           <SheetDescription>Narrow the trade list. Dates use your account timezone.</SheetDescription>
         </SheetHeader>
         <div className="grid gap-3 px-4">
-          {sel("pair", "Pair", options.pairs.map((p) => ({ value: p.coin, label: p.displayPair })))}
+          {sel(
+            "pair",
+            "Pair",
+            options.pairs.map((p) => ({ value: p.coin, label: p.displayPair })),
+          )}
           {sel("dir", "Direction", [
             { value: "long", label: "Long" },
             { value: "short", label: "Short" },
@@ -141,22 +165,48 @@ function FilterSheet({
             { value: "loss", label: "Loss" },
             { value: "be", label: "Breakeven" },
           ])}
-          {sel("strategy", "Strategy", options.strategies.map((s) => ({ value: s.id, label: s.label })))}
-          {sel("grade", "Grade", ["A+", "A", "B", "C", "D"].map((g) => ({ value: g, label: g })))}
-          {sel("session", "Session", options.sessions.map((s) => ({ value: s, label: s })))}
+          {sel(
+            "strategy",
+            "Strategy",
+            options.strategies.map((s) => ({ value: s.id, label: s.label })),
+          )}
+          {sel(
+            "grade",
+            "Grade",
+            ["A+", "A", "B", "C", "D"].map((g) => ({ value: g, label: g })),
+          )}
+          {sel(
+            "session",
+            "Session",
+            options.sessions.map((s) => ({ value: s, label: s })),
+          )}
           {sel("type", "Trade type", [
             { value: "planned", label: "Planned" },
             { value: "reactive", label: "Reactive" },
           ])}
-          {sel("missing", "Missing context (closed trades)", MISSING_KINDS.map((k) => ({ value: k, label: MISSING_LABELS[k].short })))}
+          {sel(
+            "missing",
+            "Missing context (closed trades)",
+            MISSING_KINDS.map((k) => ({ value: k, label: MISSING_LABELS[k].short })),
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
               <Label className="text-muted-foreground text-xs">From</Label>
-              <Input type="date" className="h-8" value={draft.from ?? ""} onChange={(e) => set("from", e.target.value)} />
+              <Input
+                type="date"
+                className="h-8"
+                value={draft.from ?? ""}
+                onChange={(e) => set("from", e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label className="text-muted-foreground text-xs">To</Label>
-              <Input type="date" className="h-8" value={draft.to ?? ""} onChange={(e) => set("to", e.target.value)} />
+              <Input
+                type="date"
+                className="h-8"
+                value={draft.to ?? ""}
+                onChange={(e) => set("to", e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label className="text-muted-foreground text-xs">Min R</Label>

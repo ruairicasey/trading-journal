@@ -14,7 +14,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,7 +82,11 @@ export function BulkBar({
   const n = ids.length;
   const pageAll = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
 
-  const run = (label: (n: number) => string, fn: () => Promise<BulkResult>, after?: (r: Extract<BulkResult, { ok: true }>) => void) =>
+  const run = (
+    label: (n: number) => string,
+    fn: () => Promise<BulkResult>,
+    after?: (r: Extract<BulkResult, { ok: true }>) => void,
+  ) =>
     start(async () => {
       const r = await fn();
       if (!r.ok) return void toast.error(r.error);
@@ -102,7 +113,9 @@ export function BulkBar({
       (r) => {
         setConfirmDelete(false);
         const gone = r.ids ?? [];
-        toast(`${plural(gone.length)} deleted`, { action: { label: "Undo", onClick: () => void undoDelete(gone) } });
+        toast(`${plural(gone.length)} deleted`, {
+          action: { label: "Undo", onClick: () => void undoDelete(gone) },
+        });
       },
     );
 
@@ -123,12 +136,24 @@ export function BulkBar({
       )}
       <div className="flex-1" />
       {pending && <Loader2 className="text-muted-foreground size-4 animate-spin" />}
-      <Button variant="secondary" size="sm" className="h-7" onClick={() => setTagOpen(true)} disabled={pending}>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="h-7"
+        onClick={() => setTagOpen(true)}
+        disabled={pending}
+      >
         <Tag className="size-3.5" /> Add tag
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="sm" className="h-7" disabled={pending} aria-label="More bulk actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7"
+            disabled={pending}
+            aria-label="More bulk actions"
+          >
             <MoreHorizontal className="size-4" /> Set
           </Button>
         </DropdownMenuTrigger>
@@ -137,35 +162,76 @@ export function BulkBar({
             <DropdownMenuSubTrigger>Grade</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {GRADES.map((g) => (
-                <DropdownMenuItem key={g} onSelect={() => run((k) => `Grade ${g} set on ${plural(k)}`, () => bulkSetGradeAction(ids, g))}>
+                <DropdownMenuItem
+                  key={g}
+                  onSelect={() =>
+                    run(
+                      (k) => `Grade ${g} set on ${plural(k)}`,
+                      () => bulkSetGradeAction(ids, g),
+                    )
+                  }
+                >
                   {g}
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => run((k) => `Grade cleared on ${plural(k)}`, () => bulkSetGradeAction(ids, null))}>No grade</DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() =>
+                  run(
+                    (k) => `Grade cleared on ${plural(k)}`,
+                    () => bulkSetGradeAction(ids, null),
+                  )
+                }
+              >
+                No grade
+              </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>Strategy</DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
               {strategies.map((st) => (
-                <DropdownMenuItem key={st.id} onSelect={() => run((k) => `${st.label} set on ${plural(k)}`, () => bulkSetStrategyAction(ids, st.id))}>
+                <DropdownMenuItem
+                  key={st.id}
+                  onSelect={() =>
+                    run(
+                      (k) => `${st.label} set on ${plural(k)}`,
+                      () => bulkSetStrategyAction(ids, st.id),
+                    )
+                  }
+                >
                   {st.label}
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => run((k) => `Strategy cleared on ${plural(k)}`, () => bulkSetStrategyAction(ids, null))}>
+              <DropdownMenuItem
+                onSelect={() =>
+                  run(
+                    (k) => `Strategy cleared on ${plural(k)}`,
+                    () => bulkSetStrategyAction(ids, null),
+                  )
+                }
+              >
                 No strategy
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setConfirmDelete(true)} className="text-destructive focus:text-destructive">
+          <DropdownMenuItem
+            onSelect={() => setConfirmDelete(true)}
+            className="text-destructive focus:text-destructive"
+          >
             <Trash2 className="size-4" /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Button variant="ghost" size="icon" className="size-7" aria-label="Clear selection" onClick={() => setSelected(new Set())}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7"
+        aria-label="Clear selection"
+        onClick={() => setSelected(new Set())}
+      >
         <X className="size-4" />
       </Button>
 
@@ -173,19 +239,31 @@ export function BulkBar({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Add a tag to {plural(n)}</DialogTitle>
-            <DialogDescription>Trades that already have it stay as they are. Other tags are kept.</DialogDescription>
+            <DialogDescription>
+              Trades that already have it stay as they are. Other tags are kept.
+            </DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (!tag.trim()) return;
               setTagOpen(false);
-              run((k) => `#${tag.trim().replace(/^#/, "")} added to ${plural(k)}`, () => bulkAddTagAction(ids, tag));
+              run(
+                (k) => `#${tag.trim().replace(/^#/, "")} added to ${plural(k)}`,
+                () => bulkAddTagAction(ids, tag),
+              );
               setTag("");
             }}
             className="grid gap-3"
           >
-            <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="e.g. fomo" maxLength={40} aria-label="Tag" autoFocus />
+            <Input
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              placeholder="e.g. fomo"
+              maxLength={40}
+              aria-label="Tag"
+              autoFocus
+            />
             <DialogFooter>
               <Button type="submit" disabled={!tag.trim()}>
                 Add tag
@@ -200,12 +278,16 @@ export function BulkBar({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {plural(n)}?</AlertDialogTitle>
             <AlertDialogDescription>
-              They&apos;re hidden from lists and stats, and a re-sync won&apos;t bring them back. You can undo right after deleting.
+              They&apos;re hidden from lists and stats, and a re-sync won&apos;t bring them back. You can undo
+              right after deleting.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => (e.preventDefault(), remove())} className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction
+              onClick={(e) => (e.preventDefault(), remove())}
+              className="bg-destructive hover:bg-destructive/90 text-white"
+            >
               Delete {plural(n)}
             </AlertDialogAction>
           </AlertDialogFooter>

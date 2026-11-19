@@ -17,10 +17,10 @@ export function parseCoin(coin: string): ParsedCoin {
   return { coin, dex: "", base: coin, marketType: "perp" };
 }
 
-/** Human-readable pair: kPEPE → "kPEPE/USD", xyz:SPX → "SPX/USD · xyz", PURR/USDC → "PURR/USDC". */
+/** Human-readable pair: kPEPE is "kPEPE/USD", xyz:SPX is "SPX/USD (xyz)", PURR/USDC stays "PURR/USDC". */
 export function displayPair(coin: string): string {
   const p = parseCoin(coin);
   if (p.marketType === "spot") return p.coin;
-  if (p.marketType === "hip3") return `${p.base}/USD · ${p.dex}`;
+  if (p.marketType === "hip3") return `${p.base}/USD (${p.dex})`;
   return `${p.base}/USD`;
 }

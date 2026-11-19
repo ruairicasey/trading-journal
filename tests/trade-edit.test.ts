@@ -168,7 +168,7 @@ describe("saving the Basic tab", () => {
     const after = (await db.select().from(s.trades).where(eq(s.trades.id, t.id)))[0];
     expect(after).toMatchObject({
       coin: "xyz:SPX",
-      displayPair: "SPX/USD · xyz",
+      displayPair: "SPX/USD (xyz)",
       marketType: "hip3",
       direction: "short",
       status: "closed",

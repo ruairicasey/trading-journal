@@ -191,7 +191,7 @@ describe("open positions and history edges", () => {
 describe("markets", () => {
   test("13. HIP-3 dex coin parsing and display names", () => {
     expect(parseCoin("xyz:SPX")).toEqual({ coin: "xyz:SPX", dex: "xyz", base: "SPX", marketType: "hip3" });
-    expect(displayPair("xyz:SPX")).toBe("SPX/USD · xyz");
+    expect(displayPair("xyz:SPX")).toBe("SPX/USD (xyz)");
     expect(displayPair("kPEPE")).toBe("kPEPE/USD");
     expect(parseCoin("BTC").marketType).toBe("perp");
 
@@ -199,7 +199,7 @@ describe("markets", () => {
     const [t] = reconstructAll(W, s.fills);
     expect(t.dex).toBe("xyz");
     expect(t.marketType).toBe("hip3");
-    expect(t.displayPair).toBe("SPX/USD · xyz");
+    expect(t.displayPair).toBe("SPX/USD (xyz)");
     expect(t.metrics.grossPnl).toBe(100);
   });
 

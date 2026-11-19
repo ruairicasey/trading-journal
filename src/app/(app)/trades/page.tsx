@@ -110,27 +110,40 @@ export default async function TradesPage({
         }).format(floor);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">Trades</h1>
-        {isNotes && <AddNoteButton />}
-      </div>
+    <div className="mx-auto max-w-[1180px] space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-22 font-semibold">Trades</h1>
+        <div className="flex gap-2.5">
+          {isNotes ? (
+            <AddNoteButton />
+          ) : (
+            <a
+              href={`/api/export/trades.csv?period=${filters.period ?? (active.journalStart !== null ? SINCE_START : "all")}`}
+              className="bg-subtle hover:bg-hover text-ink rounded-[9px] px-3.5 py-2 text-sm"
+              data-testid="trades-export"
+              title="CSV of the trades that closed in this period (the same file as Reports)"
+            >
+              Export closed trades
+            </a>
+          )}
+        </div>
+      </header>
 
-      <nav className="-mx-1 flex gap-1 overflow-x-auto border-b px-1" aria-label="Trade tabs">
+      <nav className="border-rule flex gap-6 overflow-x-auto border-b" aria-label="Trade tabs">
         {TABS.map((tab) => (
           <Link
             key={tab}
             href={tradesHref(filters, { tab })}
             aria-current={filters.tab === tab ? "page" : undefined}
             className={cn(
-              "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
+              "-mb-px flex shrink-0 items-center gap-1.5 pb-3 text-sm",
               filters.tab === tab
-                ? "border-primary text-foreground"
-                : "text-muted-foreground hover:text-foreground border-transparent",
+                ? "text-ink font-medium shadow-[inset_0_-2px_0_var(--ink)]"
+                : "text-ink-2 hover:text-ink",
             )}
           >
             {TAB_LABELS[tab]}
-            <span className="bg-muted rounded px-1.5 text-[11px] tabular-nums">{counts[tab]}</span>
+            <span className="text-muted-foreground font-normal tabular-nums">{counts[tab]}</span>
           </Link>
         ))}
       </nav>
@@ -138,10 +151,7 @@ export default async function TradesPage({
       {floorLabel && (
         <p className="text-muted-foreground text-xs" data-testid="journal-start-note">
           Trades opened from {floorLabel}, your journal start.{" "}
-          <Link
-            href={tradesHref(filters, { period: "all", page: 1 })}
-            className="text-foreground underline underline-offset-2"
-          >
+          <Link href={tradesHref(filters, { period: "all", page: 1 })} className="link">
             Show all time
           </Link>
         </p>
@@ -158,7 +168,7 @@ export default async function TradesPage({
       />
 
       {!isNotes && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           {CHIPS.map((chip) => {
             const on = chipActive(filters, chip);
             return (
@@ -167,10 +177,10 @@ export default async function TradesPage({
                 href={toggleChipHref(filters, chip)}
                 aria-pressed={on}
                 className={cn(
-                  "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+                  "text-13 flex h-8 items-center rounded-full px-3 transition-colors",
                   on
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-ink text-white"
+                    : "text-ink-2 hover:text-ink shadow-[inset_0_0_0_1px_var(--rule-ring)]",
                 )}
               >
                 {chip.label}
@@ -183,7 +193,7 @@ export default async function TradesPage({
             <Link
               key={k}
               href={tradesHref(filters, { [k]: undefined } as Partial<TradeFilters>)}
-              className="bg-secondary text-secondary-foreground flex items-center gap-1 rounded-full px-2 py-0.5 text-xs hover:opacity-80"
+              className="bg-subtle text-ink text-13 flex h-8 items-center gap-1 rounded-full px-3 hover:opacity-80"
             >
               {labelFor(k, filters[k])} <X className="size-3" />
             </Link>
@@ -234,18 +244,30 @@ export default async function TradesPage({
         <EmptyState icon={SearchX} title="No trades match" body="Loosen the filters or clear the search." />
       )}
 
-      {total > pageSize && (
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground tabular-nums">
-            {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+      {total > 0 && (
+        <div className="text-13 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-muted-foreground tabular-nums" data-testid="trades-showing">
+            Showing{" "}
+            {total > pageSize ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)}` : total} of{" "}
+            {total} {isNotes ? (total === 1 ? "note" : "notes") : total === 1 ? "trade" : "trades"}
           </span>
-          <div className="flex gap-1">
-            <PageLink href={tradesHref(filters, { page: page - 1 })} disabled={page <= 1} label="Previous" />
-            <span className="text-muted-foreground px-2 py-1 tabular-nums">
-              {page} / {pages}
-            </span>
-            <PageLink href={tradesHref(filters, { page: page + 1 })} disabled={page >= pages} label="Next" />
-          </div>
+          {total > pageSize && (
+            <div className="flex gap-1">
+              <PageLink
+                href={tradesHref(filters, { page: page - 1 })}
+                disabled={page <= 1}
+                label="Previous"
+              />
+              <span className="text-muted-foreground px-2 py-1 tabular-nums">
+                {page} / {pages}
+              </span>
+              <PageLink
+                href={tradesHref(filters, { page: page + 1 })}
+                disabled={page >= pages}
+                label="Next"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -253,9 +275,10 @@ export default async function TradesPage({
 }
 
 function PageLink({ href, disabled, label }: { href: string; disabled: boolean; label: string }) {
-  if (disabled) return <span className="text-muted-foreground/50 rounded-md border px-2 py-1">{label}</span>;
+  if (disabled)
+    return <span className="text-muted-foreground/50 bg-subtle rounded-lg px-3 py-1.5">{label}</span>;
   return (
-    <Link href={href} className="hover:bg-muted rounded-md border px-2 py-1">
+    <Link href={href} className="bg-subtle hover:bg-hover rounded-lg px-3 py-1.5">
       {label}
     </Link>
   );

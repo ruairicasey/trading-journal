@@ -222,7 +222,7 @@ describe("positions, HIP-3 and data quirks", () => {
     expect(r.openPositions).toBe(1);
     expect(r.gapsDetected).toBe(0);
     const [t] = await db().select().from(s.trades);
-    expect(t).toMatchObject({ status: "open", leverage: 5, liqPx: 5000.5, displayPair: "SPX/USD · xyz" });
+    expect(t).toMatchObject({ status: "open", leverage: 5, liqPx: 5000.5, displayPair: "SPX/USD (xyz)" });
   });
 
   test("exchange position with no matching open trade counts as a coverage gap", async () => {

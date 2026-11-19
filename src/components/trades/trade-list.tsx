@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ChevronDown, Copy, MoreHorizontal, PenLine, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, MoreHorizontal, PenLine, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +43,10 @@ import {
 import type { TradeRow } from "@/server/db/queries/trades";
 import { deleteTradeAction, duplicateTradeAction, restoreTradeAction } from "@/app/(app)/trades/actions";
 import { Direction } from "@/components/trades/direction";
+
+/** Columns on lg+ screens (narrower widths stack): select, pair, side, opened, stop, review, return, net, actions. Phones stack. */
+const COLS =
+  "lg:grid lg:grid-cols-[1.75rem_minmax(0,1.4fr)_5rem_minmax(0,1.3fr)_4.5rem_6.5rem_5rem_6.5rem_3.5rem] lg:items-center lg:gap-x-3";
 
 type BulkProps = {
   total: number;
@@ -126,39 +130,57 @@ export function TradeList({
 
   return (
     <>
-      {bulk && (
-        <label className="text-muted-foreground flex w-fit cursor-pointer items-center gap-2 px-3 text-xs">
-          <Checkbox
-            checked={pageAll ? true : pageSome ? "indeterminate" : false}
-            onCheckedChange={(v) => selectPage(v === true)}
-            aria-label="Select all trades on this page"
-          />
-          Select page
-        </label>
-      )}
-      <ul className={cn("divide-y rounded-lg border", pending && "opacity-70")} data-testid="trade-list">
-        {rows.map((r) => (
-          <TradeItem
-            key={r.id}
-            row={r}
-            tz={tz}
-            walletLabel={
-              walletLabels
-                ? r.walletId
-                  ? (walletLabels[r.walletId] ?? "Other wallet")
-                  : "Manual"
-                : undefined
-            }
-            expanded={open.has(r.id)}
-            selected={bulk ? selected.has(r.id) : undefined}
-            terms={terms}
-            onSelect={(on) => select(r.id, on)}
-            onToggle={() => toggle(r.id)}
-            onDuplicate={() => duplicate(r)}
-            onDelete={() => setConfirm(r)}
-          />
-        ))}
-      </ul>
+      <div>
+        {/* header row (lg+): the first cell selects the page; phones get a plain "Select page" line */}
+        <div className={cn("text-muted-foreground text-13 flex items-center pb-2.5 lg:pb-2.5", COLS)}>
+          <span className="flex items-center">
+            {bulk && (
+              <label className="flex cursor-pointer items-center gap-2">
+                <Checkbox
+                  checked={pageAll ? true : pageSome ? "indeterminate" : false}
+                  onCheckedChange={(v) => selectPage(v === true)}
+                  aria-label="Select all trades on this page"
+                />
+                <span className="lg:hidden">Select page</span>
+              </label>
+            )}
+          </span>
+          <span className="hidden lg:inline">Pair</span>
+          <span className="hidden lg:inline">Side</span>
+          <span className="hidden lg:inline">Opened</span>
+          <span className="hidden lg:inline">Stop</span>
+          <span className="hidden lg:inline">Review</span>
+          <span className="hidden text-right lg:inline">Return</span>
+          <span className="hidden text-right lg:inline">Net P&L</span>
+          <span />
+        </div>
+        <ul
+          className={cn("divide-rule-faint border-rule-faint divide-y border-t", pending && "opacity-70")}
+          data-testid="trade-list"
+        >
+          {rows.map((r) => (
+            <TradeItem
+              key={r.id}
+              row={r}
+              tz={tz}
+              walletLabel={
+                walletLabels
+                  ? r.walletId
+                    ? (walletLabels[r.walletId] ?? "Other wallet")
+                    : "Manual"
+                  : undefined
+              }
+              expanded={open.has(r.id)}
+              selected={bulk ? selected.has(r.id) : undefined}
+              terms={terms}
+              onSelect={(on) => select(r.id, on)}
+              onToggle={() => toggle(r.id)}
+              onDuplicate={() => duplicate(r)}
+              onDelete={() => setConfirm(r)}
+            />
+          ))}
+        </ul>
+      </div>
       {bulk && selected.size > 0 && (
         <BulkBar
           selected={selected}
@@ -174,9 +196,9 @@ export function TradeList({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this trade?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirm?.displayPair} {confirm?.direction === "short" ? "short" : "long"} from {fmtDateTime(confirm?.entryTime, tz)}.
-              It&apos;s hidden from lists and stats, and a re-sync won&apos;t bring it back. You can undo
-              right after deleting.
+              {confirm?.displayPair} {confirm?.direction === "short" ? "short" : "long"} from{" "}
+              {fmtDateTime(confirm?.entryTime, tz)}. It&apos;s hidden from lists and stats, and a re-sync
+              won&apos;t bring it back. You can undo right after deleting.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -222,55 +244,74 @@ function TradeItem({
   const time = r.entryTime ?? null;
   return (
     <li data-testid="trade-row" data-trade-id={r.id}>
-      <div className={cn("hover:bg-muted/30 flex items-center gap-2 px-3 py-2", selected && "bg-primary/5")}>
-        {selected !== undefined && (
-          <Checkbox
-            checked={selected}
-            onCheckedChange={(v) => onSelect(v === true)}
-            aria-label={`Select ${r.displayPair} trade`}
-            data-testid="trade-select"
-          />
+      <div
+        className={cn(
+          "hover:bg-hover flex flex-wrap items-center gap-x-3 gap-y-1 py-3 text-sm",
+          COLS,
+          selected && "bg-gold-tint/40",
         )}
+      >
+        <span className="flex items-center">
+          {selected !== undefined && (
+            <Checkbox
+              checked={selected}
+              onCheckedChange={(v) => onSelect(v === true)}
+              aria-label={`Select ${r.displayPair} trade`}
+              data-testid="trade-select"
+            />
+          )}
+        </span>
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
           data-testid="trade-expand"
-          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 text-left focus-visible:outline-none sm:flex-nowrap"
+          aria-label={`${r.displayPair}${walletLabel ? `, ${walletLabel}` : ""}, ${r.direction}, ${r.status}, ${time ? `opened ${fmtDateTime(time, tz)}` : "not entered"}: details`}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none lg:flex-none"
         >
-          <ChevronDown
-            className={cn(
-              "text-muted-foreground size-4 shrink-0 transition-transform",
-              expanded && "rotate-180",
-            )}
-          />
-          <span className="truncate text-sm font-medium">{r.displayPair}</span>
+          <span className="truncate font-medium">{r.displayPair}</span>
+          {r.status === "open" && (
+            <Badge className="bg-gold-tint text-gold-ink h-5 rounded-full px-2 text-xs">Open</Badge>
+          )}
+          {r.status === "planned" && (
+            <Badge className="bg-subtle text-ink-2 h-5 rounded-full px-2 text-xs">Planned</Badge>
+          )}
           {walletLabel && (
-            <span className="text-muted-foreground max-w-24 truncate text-[11px]" data-testid="trade-wallet">
+            <span className="text-muted-foreground max-w-24 truncate text-xs" data-testid="trade-wallet">
               {walletLabel}
             </span>
           )}
-          <Direction dir={r.direction} className="text-xs" />
-          {r.status === "open" && (
-            <Badge className="h-5 bg-gold-tint px-1.5 text-[10px] text-gold-ink">Open</Badge>
-          )}
-          {r.status === "planned" && (
-            <Badge className="h-5 bg-subtle px-1.5 text-[10px] text-ink-2">Planned</Badge>
-          )}
-          <span className="text-muted-foreground w-full truncate pl-6 text-[11px] sm:w-auto sm:pl-0 sm:text-xs">
-            {time ? fmtDateTime(time, tz) : "Not entered"}
-          </span>
         </button>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="text-right tabular-nums">
-            <div className={cn("money text-sm font-medium", pnlClass(r.netPnl))}>
-              {r.status === "planned" ? "—" : fmtSignedUsd(r.netPnl)}
-            </div>
-            <div className={cn("text-[11px]", pnlClass(r.netPnl))}>
-              {r.status === "planned" ? "" : fmtPct(r.returnPct)}
-            </div>
-          </div>
+        <Direction dir={r.direction} />
+        <span className="condensed text-ink-2 order-last w-full truncate lg:order-none lg:w-auto">
+          {time ? fmtDateTime(time, tz) : "Not entered"}
+          {/* narrower screens: the hidden columns' essentials on the second line */}
+          <span className="lg:hidden">
+            {r.status !== "planned" && `, ${fmtPct(r.returnPct)}`}
+            {r.stopLoss === null && <span className="text-loss-ink">, no stop</span>}
+          </span>
+        </span>
+        <span className={cn("hidden lg:inline", r.stopLoss === null ? "text-loss-ink" : "text-ink")}>
+          <span className="sr-only">Stop: </span>
+          {r.stopLoss === null ? "None" : "Set"}
+        </span>
+        <span className={cn("hidden lg:inline", r.reviewedAt ? "text-ink" : "text-muted-foreground")}>
+          <span className="sr-only">Review: </span>
+          {r.status !== "closed" ? "—" : r.reviewedAt ? "Reviewed" : "Not reviewed"}
+        </span>
+        <span className="text-muted-foreground hidden text-right tabular-nums lg:inline">
+          <span className="sr-only">Return: </span>
+          {r.status === "planned" ? "" : fmtPct(r.returnPct)}
+        </span>
+        <span
+          className={cn(
+            "money ml-auto text-right font-medium tabular-nums lg:ml-0",
+            r.status === "closed" && pnlClass(r.netPnl),
+          )}
+        >
+          {r.status === "planned" ? "—" : fmtSignedUsd(r.netPnl)}
+        </span>
+        <div className="flex shrink-0 items-center justify-end gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <span
@@ -334,7 +375,8 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
         <Field label="Entry and exit">
           {fmtDateTime(r.entryTime, tz)}
-          <br />to {r.status === "open" ? "open" : fmtDateTime(r.exitTime, tz)}
+          <br />
+          to {r.status === "open" ? "open" : fmtDateTime(r.exitTime, tz)}
         </Field>
         <Field label="Duration">
           {r.status === "open" && r.entryTime
@@ -398,7 +440,7 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
           </Badge>
         ))}
         {flagBadges.map((f) => (
-          <Badge key={f} className="bg-gold-tint text-[10px] text-gold-ink">
+          <Badge key={f} className="bg-gold-tint text-gold-ink text-[10px]">
             {f}
           </Badge>
         ))}
@@ -449,7 +491,7 @@ export function Highlight({ segs }: { segs: Seg[] }) {
     <>
       {segs.map((x, i) =>
         x.hit ? (
-          <mark key={i} className="text-foreground rounded-sm bg-gold-tint px-0.5">
+          <mark key={i} className="text-foreground bg-gold-tint rounded-sm px-0.5">
             {x.text}
           </mark>
         ) : (

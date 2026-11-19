@@ -215,6 +215,7 @@ export async function listTrades(
         postNotes: j.postNotes,
         reflection: j.reflection,
         manualEntry: j.manualEntry,
+        reviewedAt: j.reviewedAt,
         strategyLabel: strategy.label,
         tags: tagNames,
         r: rExpr,

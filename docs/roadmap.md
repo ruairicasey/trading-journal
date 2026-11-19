@@ -50,7 +50,11 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   Cycle 2c spec fixes **done**: balance chart scaled to the balance (net deposits drawn when in range, else behind a
   toggle; no fill); red/green only for realised money; no middle-dot labels or link arrows; direction as an arrow and
   word; risk and drawdown moved to Analytics → Risk; no desktop top bar (search and privacy in the sidebar).
-  Next: cycle 3, the Trades page (the second board on the design canvas), including HIP-3 pair labels without a dot.
+  Cycle 3 Trades **done**: underlined status tabs, search and chips, a table (pair, side, opened, stop, review, return,
+  net) that stacks below 1024px, "Showing N of M" footer, an "Export closed trades" link. HIP-3 pairs read
+  "SPX/USD (xyz)" (migration 0011 rewrites the stored labels). Manual "Add trade" from the design is not built: the
+  app has no manual trade creation yet.
+  Next: cycle 4, trade detail and the edit form.
 
 ## Phase 3: insights and reports
 

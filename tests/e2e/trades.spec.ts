@@ -119,3 +119,21 @@ test.describe("Trades page (demo data)", () => {
     await expect(page.getByRole("heading", { name: /Exchange fills \(\d+\)/ })).toBeVisible();
   });
 });
+
+test("Trades footer counts the list; the export link exports the period's closed trades", async ({
+  page,
+}) => {
+  await page.goto("/trades?tab=closed&period=all");
+  const closed = Number(
+    await page
+      .getByRole("link", { name: /^Closed \d+/ })
+      .locator("span")
+      .innerText(),
+  );
+  await expect(page.getByTestId("trades-showing")).toContainText(`of ${closed} trades`);
+  await expect(page.getByTestId("trades-export")).toHaveAttribute(
+    "href",
+    "/api/export/trades.csv?period=all",
+  );
+  await expect(page.getByTestId("trades-export")).toHaveText("Export closed trades");
+});

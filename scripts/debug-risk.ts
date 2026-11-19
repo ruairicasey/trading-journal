@@ -72,6 +72,12 @@ account ${ai + 1} · journal start ${new Date(js).toISOString()} · before ${bef
       );
     }
   }
+  // HIP-3 pair labels read "SPX/USD (xyz)" since migration 0011; a middle dot means an old label survived
+  const { sql } = await import("drizzle-orm");
+  const dotted = await db.all<{ n: number }>(
+    sql`select count(*) as n from trades where market_type = 'hip3' and display_pair like '% · %'`,
+  );
+  console.log(`pair labels: ${dotted[0]?.n ?? 0} HIP-3 label(s) still with a middle dot (expect 0)`);
   console.log("\nRead-only. No addresses or amounts in this output.");
 }
 
