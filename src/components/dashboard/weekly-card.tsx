@@ -3,7 +3,7 @@ import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtR, fmtSignedUsd, pnlClass } from "@/lib/format";
 import { MISSING_KINDS, MISSING_LABELS, type MissingKind } from "@/lib/missing";
-import { tradesHref } from "@/server/trades/filters";
+import { reviewHref, tradesHref } from "@/server/trades/filters";
 import type { Week, WeekScore } from "@/lib/weekly";
 import { WeeklyNoteButton } from "./weekly-note-button";
 import { H2, SECTION } from "@/lib/ui";
@@ -193,7 +193,7 @@ export function WeeklyCard({
               ))}
               {missing.review > 0 && (
                 <li className="sm:col-span-2">
-                  <Link href={tradesHref(base, { missing: "review" })} className="link px-1.5 text-xs">
+                  <Link href={reviewHref(base)} className="link px-1.5 text-xs" data-testid="review-week">
                     Review the {missing.review} unreviewed trade{missing.review === 1 ? "" : "s"}
                   </Link>
                 </li>

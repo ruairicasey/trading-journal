@@ -59,14 +59,31 @@ export function parseFilters(params: RawParams): TradeFilters {
 }
 
 /** The filter keys shown as removable pills and counted on the Filters button. */
-export const FILTER_KEYS = ["pair", "dir", "outcome", "strategy", "grade", "session", "type", "period", "from", "to", "missing", "minR", "maxR"] as const;
+export const FILTER_KEYS = [
+  "pair",
+  "dir",
+  "outcome",
+  "strategy",
+  "grade",
+  "session",
+  "type",
+  "period",
+  "from",
+  "to",
+  "missing",
+  "minR",
+  "maxR",
+] as const;
 
 export function activeFilterCount(f: TradeFilters) {
   return FILTER_KEYS.filter((k) => f[k] !== undefined).length;
 }
 
 /** Build a /trades URL from filters plus a patch. Changing anything but the page resets to page 1. */
-export function tradesHref(f: Partial<TradeFilters>, patch: Partial<Record<keyof TradeFilters, unknown>> = {}) {
+export function tradesHref(
+  f: Partial<TradeFilters>,
+  patch: Partial<Record<keyof TradeFilters, unknown>> = {},
+) {
   const next: Record<string, unknown> = { ...f, ...patch };
   if (!("page" in patch)) delete next.page;
   const sp = new URLSearchParams();
@@ -78,6 +95,12 @@ export function tradesHref(f: Partial<TradeFilters>, patch: Partial<Record<keyof
   }
   const qs = sp.toString();
   return qs ? `/trades?${qs}` : "/trades";
+}
+
+/** The review flow for the trades these filters match (always closed and not yet reviewed). */
+export function reviewHref(f: Partial<TradeFilters>) {
+  const href = tradesHref({ ...f, tab: "closed", missing: "review" });
+  return href.replace(/^\/trades/, "/review");
 }
 
 /** A chip is active when all of its patch values are present in the filters. */

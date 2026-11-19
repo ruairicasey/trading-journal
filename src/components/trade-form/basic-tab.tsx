@@ -532,7 +532,7 @@ export function BasicTab({
   );
 }
 
-function StrategyField({
+export function StrategyField({
   strategies,
   value,
   onChange,

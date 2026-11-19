@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
 import { TZDate } from "@date-fns/tz";
 import { DashboardControls } from "@/components/dashboard/controls";
-import { dashHref, type DashParams , periodPhrase } from "@/lib/dashboard-params";
+import { dashHref, type DashParams, periodPhrase } from "@/lib/dashboard-params";
 import { EquityChart } from "@/components/dashboard/equity-chart";
 import { KpiStrip, NetFigure } from "@/components/dashboard/kpi-card";
 import { OpenTradesBanner } from "@/components/dashboard/open-trades-banner";
@@ -22,6 +22,7 @@ import { missingCounts } from "@/server/db/queries/trades";
 import { weeklyNote } from "@/server/trades/mutations";
 import { INCLUDE_FUNDING_KEY } from "@/server/funding/attribute";
 import { getConfig } from "@/server/config";
+import { reviewHref } from "@/server/trades/filters";
 import { getDb } from "@/server/db/client";
 import { balanceInputs, closedTrades, openTrades } from "@/server/db/queries/dashboard";
 import { getActiveScope, getSetting } from "@/server/db/queries/settings";
@@ -142,6 +143,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   );
   const leaks = insights(richInRange, rich, tz).list.slice(0, 3);
   const sc = richInRange.length ? scores(richInRange, rich, tz) : null;
+  // the review flow for this period's unreviewed exits (exit dates in your timezone; All time skips the start floor)
+  const localDay = (ms: number) => new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(ms);
+  const reviewLink = reviewHref({
+    ...(start !== null ? { from: localDay(start) } : {}),
+    ...(end !== null ? { to: localDay(end - 1) } : {}),
+    ...(start !== null || end !== null ? { dateBy: "exit" as const } : {}),
+    ...(floor === null ? { period: "all" as const } : {}),
+  });
+  // the callout counts over the link's whole local days (a rolling 7/30 days starts mid-day), so it matches the queue
+  const fromMs = start === null ? null : dayBoundsLocal(localDay(start), tz)!.start;
+  const toMs = end === null ? null : dayBoundsLocal(localDay(end - 1), tz)!.end;
+  const reviewSet = rich.filter(
+    (t) => (fromMs === null || t.exitTime >= fromMs) && (toMs === null || t.exitTime < toMs),
+  );
+  const reviewedN = reviewSet.filter((t) => t.reviewed).length;
+  const unreviewed = reviewSet.length - reviewedN;
+
   const recent = [...all].sort((a, b) => b.exitTime - a.exitTime).slice(0, 7);
   const dateFmt = new Intl.DateTimeFormat("en-AU", {
     timeZone: tz,
@@ -150,6 +168,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     year: "numeric",
   });
   const periodLabel = periodPhrase(params);
+  // "closed …" for the callout sentence
+  const closedWhen =
+    period === "all"
+      ? "so far"
+      : period === "start"
+        ? "since your journal start"
+        : period === "7d" || period === "30d"
+          ? `in the last ${periodLabel}`
+          : custom
+            ? `from ${periodLabel}`
+            : periodLabel;
 
   // the hero names exactly what its figure is: the curve's last point (at the range end when a custom range has one)
   const on = params.to ? ` on ${params.to}` : "";
@@ -280,11 +309,35 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <InsightsList items={leaks} tz={tz} compact />
             </section>
           )}
+          {reviewSet.length > 0 && (
+            <section
+              className="bg-subtle flex flex-col gap-3 rounded-xl p-5"
+              aria-label="Reviews"
+              data-testid="reviews-callout"
+            >
+              <h2 className="text-17 font-semibold tracking-[-0.01em]">Reviews</h2>
+              <p className="text-ink-2 text-sm leading-relaxed">
+                {unreviewed === 0
+                  ? `All ${reviewSet.length} trades closed ${closedWhen} are reviewed.`
+                  : reviewedN === 0
+                    ? `None of the ${reviewSet.length} trades closed ${closedWhen} has been reviewed yet. Grading them unlocks mistake costs and compliance.`
+                    : `${reviewedN} of ${reviewSet.length} trades closed ${closedWhen} are reviewed.`}
+              </p>
+              {unreviewed > 0 && (
+                <Link
+                  href={reviewLink}
+                  className="bg-ink hover:bg-ink/90 w-fit rounded-[9px] px-4 py-2.5 text-sm font-medium text-white"
+                  data-testid="start-review"
+                >
+                  Start reviewing
+                </Link>
+              )}
+            </section>
+          )}
           {sc && <ScoresCard s={sc} title={`Scores, ${periodLabel}`} plain />}
           <RecentTrades trades={recent} tz={tz} unit={unit} />
         </div>
       </div>
-
     </div>
   );
 }

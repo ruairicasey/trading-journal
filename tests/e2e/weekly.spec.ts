@@ -35,7 +35,9 @@ test.describe("Weekly reflection and drawdown (demo data)", () => {
       const href = (await link.getAttribute("href"))!;
       const back = page.url();
       await page.goto(href);
-      await expect(page.getByTestId("trade-row")).toHaveCount(Math.min(count, 20));
+      if (href.startsWith("/review"))
+        await expect(page.getByTestId("review-progress")).toHaveText(`1 of ${count}, 0 reviewed`);
+      else await expect(page.getByTestId("trade-row")).toHaveCount(Math.min(count, 20));
       await page.goto(back);
     }
   });

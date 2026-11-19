@@ -75,3 +75,7 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   expectancy, payoff and SQN in Analytics → Risk and Reports (moved off the dashboard in redesign cycle 2c); daily returns net of deposits/withdrawals.
 - ~~Exportable reports (CSV/PDF)~~ **done**: Reports page (KPIs, scores, top leaks, by month / pair / direction, every
   trade) with Print / Save as PDF, and trades and monthly CSVs pinned to the moment the page was built.
+- ~~Weekly review flow~~ **done**: `/review` steps through closed, unreviewed trades one at a time, oldest first (chart,
+  key figures, grade, strategy, emotions, exit reason, mistakes, notes), with ← / → and ⌘↵ / ⌘S. Opened from the week
+  card's "Review the N unreviewed trades" and a Reviews callout on the dashboard for the current period. Saving writes
+  only the review fields you changed and marks the trade reviewed, so edits made elsewhere survive.
