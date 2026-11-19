@@ -57,6 +57,20 @@
       "when": 1794975228999,
       "tag": "0007_stop_moves_trade_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795055639809,
+      "tag": "0008_ctrader",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1795056743373,
+      "tag": "0009_ctrader_starting_balance",
+      "breakpoints": true
     }
   ]
 }

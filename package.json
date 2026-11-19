@@ -32,7 +32,8 @@
     "debug:r": "tsx scripts/debug-r.ts",
     "debug:ledger": "tsx scripts/debug-ledger.ts",
     "debug:insights": "tsx scripts/debug-insights.ts",
-    "debug:risk": "tsx scripts/debug-risk.ts"
+    "debug:risk": "tsx scripts/debug-risk.ts",
+    "debug:ctrader": "tsx scripts/debug-ctrader.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1165.0",

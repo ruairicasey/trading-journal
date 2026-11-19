@@ -10,6 +10,7 @@ import { getDb } from "@/server/db/client";
 import { getSyncStatus } from "@/server/db/queries/sync";
 import { getHlClient } from "@/server/hyperliquid";
 import { syncAll } from "@/server/hyperliquid/sync";
+import { syncCtrader } from "@/server/ctrader/sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,8 +39,21 @@ export async function POST(req: Request) {
     range,
     budgetMs: getConfig().hyperliquid.syncBudgetMs,
   });
-  // label/status/counts only — no addresses
-  return NextResponse.json({ done: out.done, results: out.results, status: await getSyncStatus() });
+  // "Sync now" on the whole journal (no wallet or range picked) also pulls cTrader; the background auto-sync doesn't
+  const ct =
+    trigger !== "manual" || walletId || range
+      ? null
+      : await syncCtrader(getDb(), {
+          cfg: getConfig().ctrader,
+          budgetMs: Math.max(10_000, getConfig().hyperliquid.syncBudgetMs / 2),
+        });
+  // label/status/counts only — no addresses or logins
+  return NextResponse.json({
+    done: out.done && (ct?.done ?? true),
+    results: out.results,
+    ctrader: ct?.results ?? [],
+    status: await getSyncStatus(),
+  });
 }
 
 export async function GET() {

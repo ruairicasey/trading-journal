@@ -32,6 +32,10 @@ const EnvSchema = z.object({
   TJ_DEMO: optional, // set by `npm run dev:demo`
   SYNC_BUDGET_MS: z.coerce.number().int().positive().default(40_000),
   CRON_SYNC_BUDGET_MS: z.coerce.number().int().positive().default(240_000),
+  // cTrader Open API app (openapi.ctrader.com → Applications) and the key that encrypts its tokens at rest
+  CTRADER_CLIENT_ID: optional,
+  CTRADER_CLIENT_SECRET: optional,
+  CTRADER_TOKEN_KEY: optional,
 });
 
 export type AppConfig = ReturnType<typeof buildConfig>;
@@ -62,6 +66,18 @@ function buildConfig(env: NodeJS.ProcessEnv) {
       syncBudgetMs: e.SYNC_BUDGET_MS,
       /** Scheduled runs have no user waiting, so they get a longer budget (still under maxDuration 300s). */
       cronSyncBudgetMs: e.CRON_SYNC_BUDGET_MS,
+    },
+    ctrader: {
+      clientId: e.CTRADER_CLIENT_ID,
+      clientSecret: e.CTRADER_CLIENT_SECRET,
+      tokenKey: e.CTRADER_TOKEN_KEY,
+      /** all three set (the token key at least 32 characters) */
+      configured: !!(
+        e.CTRADER_CLIENT_ID &&
+        e.CTRADER_CLIENT_SECRET &&
+        e.CTRADER_TOKEN_KEY &&
+        e.CTRADER_TOKEN_KEY.length >= 32
+      ),
     },
     auth: { passwordHash: e.AUTH_PASSWORD_HASH, secret: e.AUTH_SECRET, cronSecret: e.CRON_SECRET },
     storage: {

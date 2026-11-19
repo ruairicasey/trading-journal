@@ -9,6 +9,7 @@ const LINKS: { href: string; label: string; soon?: boolean }[] = [
   { href: "/settings/accounts", label: "Accounts" },
   { href: "/settings/journal", label: "Journal lists" },
   { href: "/settings/wallets", label: "Wallets & sync" },
+  { href: "/settings/ctrader", label: "cTrader" },
 ];
 
 export function SettingsNav() {

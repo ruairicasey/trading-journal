@@ -15,7 +15,7 @@ export type ClosedTrade = {
   fees: number;
   /** attributed funding (negative = paid); 0 for manual trades */
   funding?: number | null;
-  source?: "hyperliquid" | "manual";
+  source?: "hyperliquid" | "ctrader" | "manual";
   notionalUsd: number | null;
   entryTime: number | null;
   exitTime: number;

@@ -28,18 +28,32 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <Link href="/trades" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs">
+      <Link
+        href="/trades"
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
+      >
         <ArrowLeft className="size-3.5" /> Trades
       </Link>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold">{trade.displayPair}</h1>
-        <Badge variant="outline" className={trade.direction === "long" ? "border-long/40 text-long" : "border-short/40 text-short"}>
+        <Badge
+          variant="outline"
+          className={trade.direction === "long" ? "border-long/40 text-long" : "border-short/40 text-short"}
+        >
           {trade.direction.toUpperCase()}
         </Badge>
         <Badge variant="secondary" className="capitalize">
           {trade.status}
         </Badge>
-        <Badge variant="outline">{trade.source === "hyperliquid" ? "Synced from Hyperliquid" : "Manual"}</Badge>
+        <Badge variant="outline">
+          {trade.source === "hyperliquid"
+            ? "Synced from Hyperliquid"
+            : trade.source === "ctrader"
+              ? trade.flags?.imported
+                ? "Imported from a cTrader file"
+                : "Synced from cTrader"
+              : "Manual"}
+        </Badge>
         {wallets.length > 1 && trade.walletId && (
           <Badge variant="outline" data-testid="trade-wallet">
             {wallets.find((w) => w.id === trade.walletId)?.label ?? "Other wallet"}
@@ -57,7 +71,12 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
         data={data}
         tz={tz}
         sessions={sessions}
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name, startingBalance: a.startingBalance, standardRiskPct: a.standardRiskPct }))}
+        accounts={accounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          startingBalance: a.startingBalance,
+          standardRiskPct: a.standardRiskPct,
+        }))}
       />
 
       {legs.length > 0 && (
@@ -81,7 +100,9 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
                     <td className="px-3 py-1.5 capitalize">{l.role}</td>
                     <td className="px-3 py-1.5">{fmtPrice(l.px)}</td>
                     <td className="px-3 py-1.5">{fmtSize(l.sz)}</td>
-                    <td className={cn("money px-3 py-1.5", pnlClass(l.closedPnl))}>{l.closedPnl ? fmtSignedUsd(l.closedPnl) : "—"}</td>
+                    <td className={cn("money px-3 py-1.5", pnlClass(l.closedPnl))}>
+                      {l.closedPnl ? fmtSignedUsd(l.closedPnl) : "—"}
+                    </td>
                     <td className="money px-3 py-1.5">{fmtUsd(l.fee, 4)}</td>
                   </tr>
                 ))}

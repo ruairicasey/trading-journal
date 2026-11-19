@@ -35,7 +35,9 @@ export function SyncStatus({ initial, isDemo }: { initial: Status; isDemo: boole
       try {
         const r = await runSync({ trigger }, (p) => setStatus(p.status));
         const failed = r.results.find((x) => x.status === "error");
+        const ctFailed = r.ctrader?.find((x) => x.status === "error");
         if (failed) setError(failed.error ?? "Sync failed");
+        else if (ctFailed) setError(`cTrader: ${ctFailed.error ?? "sync failed"}`);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Sync failed");
@@ -62,7 +64,10 @@ export function SyncStatus({ initial, isDemo }: { initial: Status; isDemo: boole
   }
   if (!status.hasWallets) {
     return (
-      <Link href="/settings/wallets" className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 hover:underline">
+      <Link
+        href="/settings/wallets"
+        className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 hover:underline"
+      >
         Add a wallet to sync
       </Link>
     );
@@ -70,9 +75,13 @@ export function SyncStatus({ initial, isDemo }: { initial: Status; isDemo: boole
 
   const nextIn = Math.max(0, Math.ceil((lastAuto.current + autoMs - now) / 1000));
   const warnings: string[] = [];
-  if (status.stale) warnings.push(status.lastSuccessAt ? `Last successful sync ${timeAgo(status.lastSuccessAt, now)}` : "Never synced");
+  if (status.stale)
+    warnings.push(
+      status.lastSuccessAt ? `Last successful sync ${timeAgo(status.lastSuccessAt, now)}` : "Never synced",
+    );
   if (status.backfillPending) warnings.push("Initial import still in progress");
-  if (status.historyTruncated) warnings.push("Hyperliquid only serves your 10,000 most recent fills; older history may be missing");
+  if (status.historyTruncated)
+    warnings.push("Hyperliquid only serves your 10,000 most recent fills; older history may be missing");
   if (status.gapTrades) warnings.push(`${status.gapTrades} trade(s) with a coverage gap`);
   if (status.lastRun?.status === "error") warnings.push("Last sync failed");
 
@@ -85,7 +94,9 @@ export function SyncStatus({ initial, isDemo }: { initial: Status; isDemo: boole
               href="/settings/wallets"
               className={cn(
                 "flex items-center gap-1 rounded-md px-1.5 py-0.5",
-                status.stale || status.lastRun?.status === "error" ? "bg-amber-500/15 text-amber-400" : "text-amber-400/80",
+                status.stale || status.lastRun?.status === "error"
+                  ? "bg-amber-500/15 text-amber-400"
+                  : "text-amber-400/80",
               )}
             >
               <AlertTriangle className="size-3.5" />
@@ -102,10 +113,27 @@ export function SyncStatus({ initial, isDemo }: { initial: Status; isDemo: boole
         </Tooltip>
       )}
       <span className="text-muted-foreground hidden sm:inline" title={error ?? undefined}>
-        {syncing ? "Syncing…" : error ? <span className="text-destructive">Sync failed</span> : <>Synced {timeAgo(status.lastSyncedAt, now)}</>}
-        {!syncing && autoEnabled && <span className="opacity-60"> · next in {Math.floor(nextIn / 60)}:{String(nextIn % 60).padStart(2, "0")}</span>}
+        {syncing ? (
+          "Syncing…"
+        ) : error ? (
+          <span className="text-destructive">Sync failed</span>
+        ) : (
+          <>Synced {timeAgo(status.lastSyncedAt, now)}</>
+        )}
+        {!syncing && autoEnabled && (
+          <span className="opacity-60">
+            {" "}
+            · next in {Math.floor(nextIn / 60)}:{String(nextIn % 60).padStart(2, "0")}
+          </span>
+        )}
       </span>
-      <Button size="sm" variant="ghost" className="h-7 gap-1 px-2" onClick={() => sync("manual")} disabled={syncing}>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 gap-1 px-2"
+        onClick={() => sync("manual")}
+        disabled={syncing}
+      >
         <RefreshCw className={cn("size-3.5", syncing && "animate-spin")} />
         Sync now
       </Button>

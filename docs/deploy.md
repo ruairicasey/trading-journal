@@ -11,6 +11,7 @@ You'll collect these values. Keep them in your password manager as you go:
 |---|---|
 | `AUTH_PASSWORD_HASH` | `npm run hash-password` (step 1) |
 | `AUTH_SECRET`, `CRON_SECRET` | `npm run gen-secret` (step 1) |
+| `CTRADER_CLIENT_ID`, `CTRADER_CLIENT_SECRET`, `CTRADER_TOKEN_KEY` | optional, for cTrader (step 7) |
 | `DATABASE_URL`, `DATABASE_AUTH_TOKEN` | Turso (step 2) |
 | `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Cloudflare (step 3) |
 
@@ -174,6 +175,32 @@ Then **Actions → Scheduled sync → Run workflow** once and check it goes gree
 ### 6c. Vercel Cron (backstop)
 
 Nothing to do: `vercel.json` calls the endpoint once a day, and Vercel sends `CRON_SECRET` automatically.
+
+## 7. cTrader (optional: a prop-firm or other cTrader account)
+
+The journal reads a cTrader account through the cTrader Open API with **view-only** access (scope `accounts`; it never
+asks for `trading`, and refuses a grant that has it).
+
+1. At openapi.ctrader.com → Applications, create an app with the redirect URI `https://<your production domain>/api/ctrader/callback`
+   (exactly; no trailing slash) and wait for it to be approved.
+2. In Vercel → Settings → Environment Variables (Production only), add:
+
+   | Name | Value |
+   |---|---|
+   | `CTRADER_CLIENT_ID` | the app's Client ID |
+   | `CTRADER_CLIENT_SECRET` | the app's Secret |
+   | `CTRADER_TOKEN_KEY` | a random value of 32+ characters (`npm run gen-secret`); it encrypts the stored tokens |
+
+3. Redeploy, then Settings → cTrader → **Connect cTrader** and grant access. Each account the grant covers becomes a journal
+   account (type prop); its deals sync on the same hourly cron as Hyperliquid.
+
+How it fits the time limits: the Open API is a WebSocket protocol, but the journal doesn't keep a connection open.
+Each sync opens one short session per host (`demo.ctraderapi.com` for demo/challenge accounts, `live.ctraderapi.com`
+for live ones), reads the deals since its cursor in weekly windows, and closes, all inside the cron route's 300 s limit;
+the cursor is saved after every window, so a long backfill continues on the next run. The Worker only triggers the route.
+
+Changing `CTRADER_TOKEN_KEY` makes the stored tokens unreadable: connect again afterwards. Access tokens last about 30 days
+and are renewed automatically a week before they expire.
 
 ## Backups
 

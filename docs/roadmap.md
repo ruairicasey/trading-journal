@@ -18,8 +18,13 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
 - ~~Multiple wallets per account in the UI~~ **done**: a wallet picker scopes the dashboard, trades, analytics, search and
   balance view to one wallet (transfers between your own wallets fold away in "All wallets"); wallet cards can be
   renamed, retyped and moved to another account with their trades.
-- Manual trades for non-Hyperliquid accounts: a prop-firm account on cTrader, via the cTrader Open API plus CSV import
-  of cTrader's history export. **Parked** until the account exists (needs a real history export and an Open API app).
+- ~~Non-Hyperliquid accounts: a prop-firm account on cTrader~~ **built, awaiting real data**: Settings → cTrader connects
+  through the cTrader Open API with view-only (`accounts`) access, refresh token encrypted at rest; discovers each account
+  (demo host for challenge accounts, live host for live ones) as a prop journal account; syncs deals hourly on the
+  existing cron in short WebSocket sessions (one trade per cTrader position); imports cTrader's history CSV as a backup,
+  with a preview. Built against the documented messages with synthetic fixtures; verify with `npm run debug:ctrader`
+  once the first real trade closes (commission semantics, JSON encoding, the CSV's exact headers). Non-USD accounts
+  aren't converted to USD yet.
 - ~~Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import~~ **done**: select rows,
   a page or every matching trade, then add a tag, set grade or strategy, or delete with Undo; save the current filters
   as a chip; paste a `tradingview.com/x/…` link to store the chart as a screenshot.

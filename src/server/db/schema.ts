@@ -266,7 +266,81 @@ export const ledgerEvents = sqliteTable(
   ],
 );
 
-// ─── trades ([X] for source=hyperliquid; [U] for source=manual) ─────────────────────
+// ─── [X] cTrader Open API (src/server/ctrader) ──────────────────────────────────────
+// One OAuth grant, "accounts" (view-only) scope. Tokens are encrypted at rest (AES-256-GCM, CTRADER_TOKEN_KEY).
+export const ctraderConnections = sqliteTable("ctrader_connections", {
+  id: id(),
+  accessTokenEnc: text("access_token_enc").notNull(),
+  refreshTokenEnc: text("refresh_token_enc").notNull(),
+  accessExpiresAt: integer("access_expires_at").notNull(),
+  /** a refresh in progress until this time (refresh tokens rotate: two concurrent refreshes would lose one) */
+  refreshingUntil: integer("refreshing_until"),
+  lastError: text("last_error"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const ctraderAccounts = sqliteTable("ctrader_accounts", {
+  /** cTrader's ctidTraderAccountId */
+  ctid: integer("ctid").primaryKey(),
+  connectionId: text("connection_id").references(() => ctraderConnections.id),
+  // [U] which journal account its trades go to, and whether to sync it
+  accountId: text("account_id")
+    .notNull()
+    .references(() => accounts.id),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  // [X] from the API
+  isLive: integer("is_live", { mode: "boolean" }).notNull(),
+  traderLogin: integer("trader_login"),
+  broker: text("broker"),
+  currency: text("currency"),
+  moneyDigits: integer("money_digits"),
+  registeredAt: integer("registered_at"),
+  /** deals are fully fetched up to this time (cursor, saved after every window) */
+  dealsSyncedTo: integer("deals_synced_to"),
+  lastSyncedAt: integer("last_synced_at"),
+  lastSuccessAt: integer("last_success_at"),
+  lastError: text("last_error"),
+  /** the journal account discovery created for it, and whether its starting balance still awaits the first full
+   *  history read (sync only ever fills that one account's starting balance, once) */
+  createdAccountId: text("created_account_id"),
+  startingBalancePending: integer("starting_balance_pending", { mode: "boolean" }).notNull().default(false),
+  createdAt: createdAt(),
+});
+
+/** Raw cTrader deals (executions); never deleted. Money already divided by 10^moneyDigits. */
+export const ctraderDeals = sqliteTable(
+  "ctrader_deals",
+  {
+    ctid: integer("ctid").notNull(),
+    dealId: integer("deal_id").notNull(),
+    positionId: integer("position_id").notNull(),
+    orderId: integer("order_id").notNull(),
+    symbolId: integer("symbol_id").notNull(),
+    symbol: text("symbol").notNull(),
+    side: text("side", { enum: ["B", "S"] }).notNull(),
+    status: integer("status").notNull(),
+    volume: real("volume").notNull(), // filled units (API cents ÷ 100)
+    price: real("price"),
+    time: integer("time").notNull(), // executionTimestamp
+    commission: real("commission").notNull().default(0),
+    baseToUsd: real("base_to_usd"),
+    /** closing deals only: realised gross, swap, commission, conversion fee, closed units, balance after */
+    close: text("close", { mode: "json" }).$type<{
+      entryPrice: number;
+      gross: number;
+      swap: number;
+      commission: number;
+      conversionFee: number;
+      units: number;
+      balance: number;
+    }>(),
+    raw: text("raw", { mode: "json" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.ctid, t.dealId] }), index("ctrader_deals_position_idx").on(t.ctid, t.positionId)],
+);
+
+// ─── trades ([X] for source=hyperliquid|ctrader; [U] for source=manual) ──────────────
 export type TradeFlags = {
   partialHistory?: boolean;
   gap?: boolean;
@@ -275,6 +349,8 @@ export type TradeFlags = {
   liquidated?: boolean;
   liquidationCounterparty?: boolean;
   entryImplied?: boolean;
+  /** imported from a cTrader history file; the API replaces it on the next sync */
+  imported?: boolean;
 };
 
 export const trades = sqliteTable(

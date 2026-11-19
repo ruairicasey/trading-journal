@@ -1,10 +1,10 @@
 /** Fixed enumerations shared by the schema, server code and client components (no DB imports). */
 export const ACCOUNT_TYPES = ["crypto", "prop", "other"] as const;
 export const WALLET_KINDS = ["main", "sub", "vault"] as const;
-export const TRADE_SOURCES = ["hyperliquid", "manual"] as const;
+export const TRADE_SOURCES = ["hyperliquid", "ctrader", "manual"] as const;
 export const TRADE_STATUSES = ["planned", "open", "closed"] as const;
 export const DIRECTIONS = ["long", "short"] as const;
-export const MARKET_TYPES = ["perp", "hip3", "spot"] as const;
+export const MARKET_TYPES = ["perp", "hip3", "spot", "cfd"] as const;
 export const GRADES = ["A+", "A", "B", "C", "D"] as const;
 export const TIMEFRAME_CLASSES = ["LTF", "MTF", "HTF"] as const;
 export const TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1H", "2H", "4H", "6H", "12H", "1D", "3D", "1W", "1M"] as const;

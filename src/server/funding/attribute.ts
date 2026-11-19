@@ -13,7 +13,7 @@
  * Runs after every rebuild and after new funding is synced. Payments that fall outside every trade (e.g. a
  * position opened before your fill history starts) stay unattributed and are reported, never forced onto a trade.
  */
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { DB } from "../db/client";
 import * as s from "../db/schema";
 
@@ -21,7 +21,13 @@ export const INCLUDE_FUNDING_KEY = "include_funding_in_net";
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
-type TradeLite = { id: string; coin: string; direction: "long" | "short"; entryTime: number | null; exitTime: number | null };
+type TradeLite = {
+  id: string;
+  coin: string;
+  direction: "long" | "short";
+  entryTime: number | null;
+  exitTime: number | null;
+};
 type Payment = { coin: string; time: number; szi: string; usdc: string };
 
 /** Pure: which trade each payment belongs to (null = none). */
@@ -41,7 +47,8 @@ export function assignFunding(trades: TradeLite[], payments: Payment[]): (string
     let best: { id: string; hours: number } | null = null;
     for (const t of same) {
       let hours = 0;
-      for (let h = p.time; h < p.time + DAY; h += HOUR) if (t.entryTime! <= h && (t.exitTime === null || h <= t.exitTime)) hours++;
+      for (let h = p.time; h < p.time + DAY; h += HOUR)
+        if (t.entryTime! <= h && (t.exitTime === null || h <= t.exitTime)) hours++;
       if (hours > 0 && (!best || hours >= best.hours)) best = { id: t.id, hours };
     }
     return best?.id ?? null;
@@ -53,7 +60,7 @@ async function includeFunding(db: DB) {
   return row?.value !== false;
 }
 
-/** Net P&L and return % for synced trades, with or without funding. */
+/** Net P&L and return % for synced trades (Hyperliquid and cTrader), with or without funding. */
 export async function recomputeNet(db: DB, opts: { walletId?: string; tradeIds?: string[] } = {}) {
   const inc = (await includeFunding(db)) ? 1 : 0;
   const net = sql`coalesce(${s.trades.grossPnl}, 0) - coalesce(${s.trades.fees}, 0) + ${inc} * coalesce(${s.trades.funding}, 0)`;
@@ -65,7 +72,7 @@ export async function recomputeNet(db: DB, opts: { walletId?: string; tradeIds?:
     })
     .where(
       and(
-        eq(s.trades.source, "hyperliquid"),
+        ne(s.trades.source, "manual"), // synced trades: Hyperliquid and cTrader (swap is their funding)
         ...(opts.walletId ? [eq(s.trades.walletId, opts.walletId)] : []),
         ...(opts.tradeIds ? [inArray(s.trades.id, opts.tradeIds)] : []),
       ),
@@ -76,14 +83,33 @@ export async function attributeFunding(db: DB, walletId: string, opts: { coins?:
   const coinFilter = opts.coins?.length ? opts.coins : null;
   const trades = (
     await db
-      .select({ id: s.trades.id, coin: s.trades.coin, direction: s.trades.direction, entryTime: s.trades.entryTime, exitTime: s.trades.exitTime, flags: s.trades.flags })
+      .select({
+        id: s.trades.id,
+        coin: s.trades.coin,
+        direction: s.trades.direction,
+        entryTime: s.trades.entryTime,
+        exitTime: s.trades.exitTime,
+        flags: s.trades.flags,
+      })
       .from(s.trades)
-      .where(and(eq(s.trades.walletId, walletId), eq(s.trades.source, "hyperliquid"), isNull(s.trades.deletedAt), ...(coinFilter ? [inArray(s.trades.coin, coinFilter)] : [])))
+      .where(
+        and(
+          eq(s.trades.walletId, walletId),
+          eq(s.trades.source, "hyperliquid"),
+          isNull(s.trades.deletedAt),
+          ...(coinFilter ? [inArray(s.trades.coin, coinFilter)] : []),
+        ),
+      )
   ).filter((t) => !t.flags?.superseded);
   const payments = await db
     .select()
     .from(s.fundingEvents)
-    .where(and(eq(s.fundingEvents.walletId, walletId), ...(coinFilter ? [inArray(s.fundingEvents.coin, coinFilter)] : [])));
+    .where(
+      and(
+        eq(s.fundingEvents.walletId, walletId),
+        ...(coinFilter ? [inArray(s.fundingEvents.coin, coinFilter)] : []),
+      ),
+    );
   const assigned = assignFunding(trades, payments);
 
   const perTrade = new Map<string, number>();
@@ -98,14 +124,26 @@ export async function attributeFunding(db: DB, walletId: string, opts: { coins?:
   const scope = await db
     .select({ id: s.trades.id, funding: s.trades.funding })
     .from(s.trades)
-    .where(and(eq(s.trades.walletId, walletId), eq(s.trades.source, "hyperliquid"), ...(coinFilter ? [inArray(s.trades.coin, coinFilter)] : [])));
+    .where(
+      and(
+        eq(s.trades.walletId, walletId),
+        eq(s.trades.source, "hyperliquid"),
+        ...(coinFilter ? [inArray(s.trades.coin, coinFilter)] : []),
+      ),
+    );
   const touched: string[] = [];
   await db.transaction(async (tx) => {
     for (const c of changes) {
       await tx
         .update(s.fundingEvents)
         .set({ tradeId: c.tradeId })
-        .where(and(eq(s.fundingEvents.walletId, walletId), eq(s.fundingEvents.coin, c.coin), eq(s.fundingEvents.time, c.time)));
+        .where(
+          and(
+            eq(s.fundingEvents.walletId, walletId),
+            eq(s.fundingEvents.coin, c.coin),
+            eq(s.fundingEvents.time, c.time),
+          ),
+        );
     }
     for (const t of scope) {
       const f = perTrade.get(t.id) ?? 0;
@@ -118,5 +156,10 @@ export async function attributeFunding(db: DB, walletId: string, opts: { coins?:
   // net may also be stale right after a rebuild (which writes net without funding), so recompute the scope
   await recomputeNet(db, { walletId, tradeIds: scope.map((t) => t.id) });
   const attributed = assigned.filter(Boolean).length;
-  return { payments: payments.length, attributed, unattributed: payments.length - attributed, tradesChanged: touched.length };
+  return {
+    payments: payments.length,
+    attributed,
+    unattributed: payments.length - attributed,
+    tradesChanged: touched.length,
+  };
 }

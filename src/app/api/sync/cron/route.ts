@@ -11,6 +11,7 @@ import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { getHlClient } from "@/server/hyperliquid";
 import { syncAll } from "@/server/hyperliquid/sync";
+import { syncCtrader } from "@/server/ctrader/sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,9 +25,24 @@ async function handle(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (getConfig().isDemo) return NextResponse.json({ ok: true, done: true, skipped: "demo" });
-  const out = await syncAll(getDb(), getHlClient(), { trigger: "cron", budgetMs: getConfig().hyperliquid.cronSyncBudgetMs });
+  const cfg = getConfig();
+  const started = Date.now();
+  const out = await syncAll(getDb(), getHlClient(), {
+    trigger: "cron",
+    budgetMs: cfg.hyperliquid.cronSyncBudgetMs,
+  });
+  // cTrader goes second, inside the same 300 s function: it gets what's left up to 260 s in, and is skipped when
+  // Hyperliquid used nearly all of it (a big backfill); it catches up next hour.
+  const elapsed = Date.now() - started;
+  const ct =
+    elapsed < 230_000 ? await syncCtrader(getDb(), { cfg: cfg.ctrader, budgetMs: 260_000 - elapsed }) : null;
+  // a cTrader problem (e.g. it needs reconnecting) shows on its settings page; it doesn't fail the Hyperliquid cron
   const failed = out.results.some((r) => r.status === "error");
-  return NextResponse.json({ ok: !failed, done: out.done }, { status: failed ? 502 : 200 });
+  const ctOk = !ct || !ct.results.some((r) => r.status === "error");
+  return NextResponse.json(
+    { ok: !failed, done: out.done && (ct?.done ?? false), ctrader: ctOk },
+    { status: failed ? 502 : 200 },
+  );
 }
 
 export const GET = handle;

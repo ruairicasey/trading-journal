@@ -2,7 +2,16 @@ import type { SyncStatus } from "@/server/db/queries/sync";
 
 export type SyncResponse = {
   done: boolean;
-  results: { label: string; status: string; fillsNew: number; tradesTouched: number; gapsDetected: number; error?: string }[];
+  results: {
+    label: string;
+    status: string;
+    fillsNew: number;
+    tradesTouched: number;
+    gapsDetected: number;
+    error?: string;
+  }[];
+  /** cTrader accounts (whole-journal "Sync now" only) */
+  ctrader?: { account: string; status: string; error?: string }[];
   status: SyncStatus;
 };
 
@@ -20,14 +29,18 @@ export async function runSync(
     const res = await fetch("/api/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(round === 1 ? body : { ...body, range: undefined, trigger: body.trigger === "range" ? "manual" : body.trigger }),
+      body: JSON.stringify(
+        round === 1
+          ? body
+          : { ...body, range: undefined, trigger: body.trigger === "range" ? "manual" : body.trigger },
+      ),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json?.error ?? `Sync failed (HTTP ${res.status})`);
     last = json as SyncResponse;
     onProgress?.(last, round);
     const skippedOnly = last.results.length > 0 && last.results.every((r) => r.status === "skipped");
-    if (last.done || skippedOnly || last.results.some((r) => r.status === "error")) break;
+    if (last.done || skippedOnly || last.results.some((r) => r.status === "error")) break; // a cTrader error is shown, but doesn't stop Hyperliquid's rounds
   }
   return last!;
 }

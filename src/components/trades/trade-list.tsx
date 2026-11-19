@@ -217,7 +217,7 @@ function TradeItem({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
-  const synced = r.source === "hyperliquid";
+  const synced = r.source !== "manual";
   const time = r.entryTime ?? null;
   return (
     <li data-testid="trade-row" data-trade-id={r.id}>
@@ -282,12 +282,18 @@ function TradeItem({
             <TooltipTrigger asChild>
               <span
                 className="text-muted-foreground"
-                aria-label={synced ? "Synced from Hyperliquid" : "Manual trade"}
+                aria-label={
+                  synced
+                    ? `Synced from ${r.source === "ctrader" ? "cTrader" : "Hyperliquid"}`
+                    : "Manual trade"
+                }
               >
                 {synced ? <RefreshCw className="size-3.5" /> : <PenLine className="size-3.5" />}
               </span>
             </TooltipTrigger>
-            <TooltipContent>{synced ? "Synced from Hyperliquid" : "Manual trade"}</TooltipContent>
+            <TooltipContent>
+              {synced ? `Synced from ${r.source === "ctrader" ? "cTrader" : "Hyperliquid"}` : "Manual trade"}
+            </TooltipContent>
           </Tooltip>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -387,7 +393,11 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
           </Badge>
         )}
         <Badge variant="outline" className="text-[10px]">
-          {r.source === "hyperliquid" ? "hyperliquid auto-sync" : "manual"}
+          {r.source === "hyperliquid"
+            ? "hyperliquid auto-sync"
+            : r.source === "ctrader"
+              ? "ctrader sync"
+              : "manual"}
         </Badge>
         {r.tags.map((t) => (
           <Badge key={t} variant="outline" className="text-muted-foreground text-[10px]">
