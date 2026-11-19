@@ -54,7 +54,10 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   net) that stacks below 1024px, "Showing N of M" footer, an "Export closed trades" link. HIP-3 pairs read
   "SPX/USD (xyz)" (migration 0011 rewrites the stored labels). Manual "Add trade" from the design is not built: the
   app has no manual trade creation yet.
-  Next: cycle 4, trade detail and the edit form.
+  Cycle 4 trade detail **done**: header with pair, direction, status pill, source and the net figure; underlined
+  Basic / Analysis / Notes tabs in a one-row sticky bar with Save; form sections on hairline rules; plain fills table.
+  Every $ hint in the form now blurs in privacy mode.
+  Next: cycle 5, Analytics and Insights.
 
 ## Phase 3: insights and reports
 

@@ -108,7 +108,7 @@ test.describe("Edit trade, Basic tab (demo data)", () => {
     await page.reload();
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: "SOL/USD" })).toBeVisible();
-    await expect(page.getByText("closed", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("trade-status")).toHaveText("Closed");
     await expect(page.getByText("+$50.00").first()).toBeVisible(); // header and result
   });
 });

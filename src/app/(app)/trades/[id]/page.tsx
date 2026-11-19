@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TradeForm } from "@/components/trade-form/trade-form";
 import { cn } from "@/lib/utils";
@@ -28,40 +27,70 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <Link
-        href="/trades"
-        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
-      >
-        <ArrowLeft className="size-3.5" /> Trades
-      </Link>
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-lg font-semibold">{trade.displayPair}</h1>
-        <Direction dir={trade.direction} className="text-sm" />
-        <Badge variant="secondary" className="capitalize">
-          {trade.status}
-        </Badge>
-        <Badge variant="outline">
-          {trade.source === "hyperliquid"
-            ? "Synced from Hyperliquid"
-            : trade.source === "ctrader"
-              ? trade.flags?.imported
-                ? "Imported from a cTrader file"
-                : "Synced from cTrader"
-              : "Manual"}
-        </Badge>
-        {wallets.length > 1 && trade.walletId && (
-          <Badge variant="outline" data-testid="trade-wallet">
-            {wallets.find((w) => w.id === trade.walletId)?.label ?? "Other wallet"}
-          </Badge>
-        )}
-        <div className="flex-1" />
-        {trade.status !== "planned" && (
-          <span className={cn("money text-sm font-medium tabular-nums", pnlClass(trade.netPnl))}>
-            {fmtSignedUsd(trade.netPnl)} <span className="text-xs">({fmtPct(trade.returnPct)})</span>
-          </span>
-        )}
-      </div>
+    <div className="mx-auto max-w-[1180px] space-y-8">
+      <header className="flex flex-col gap-3">
+        <Link href="/trades" className="link w-fit text-sm">
+          All trades
+        </Link>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-22 font-semibold">{trade.displayPair}</h1>
+              <Direction dir={trade.direction} />
+              {trade.status === "open" ? (
+                <Badge className="bg-gold-tint text-gold-ink rounded-full px-2" data-testid="trade-status">
+                  Open
+                </Badge>
+              ) : trade.status === "planned" ? (
+                <Badge className="bg-subtle text-ink-2 rounded-full px-2" data-testid="trade-status">
+                  Planned
+                </Badge>
+              ) : (
+                <Badge className="bg-subtle text-ink-2 rounded-full px-2" data-testid="trade-status">
+                  Closed
+                </Badge>
+              )}
+            </div>
+            <p className="text-muted-foreground text-13">
+              <span>
+                {trade.source === "hyperliquid"
+                  ? "Synced from Hyperliquid"
+                  : trade.source === "ctrader"
+                    ? trade.flags?.imported
+                      ? "Imported from a cTrader file"
+                      : "Synced from cTrader"
+                    : "Manual"}
+              </span>
+              {wallets.length > 1 && trade.walletId && (
+                <>
+                  ,{" "}
+                  <span data-testid="trade-wallet">
+                    {wallets.find((w) => w.id === trade.walletId)?.label ?? "Other wallet"}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+          {trade.status !== "planned" && (
+            <div className="flex flex-col items-start gap-1 sm:items-end">
+              <span className="text-muted-foreground text-sm">
+                {trade.status === "open" ? "Realised so far" : "Net P&L"}
+              </span>
+              <span
+                className={cn(
+                  "money text-26 font-medium tracking-[-0.02em] tabular-nums",
+                  trade.status === "closed" && pnlClass(trade.netPnl),
+                )}
+              >
+                {fmtSignedUsd(trade.netPnl)}
+              </span>
+              <span className="text-muted-foreground text-13 tabular-nums">
+                {fmtPct(trade.returnPct)} return
+              </span>
+            </div>
+          )}
+        </div>
+      </header>
 
       <TradeForm
         data={data}
@@ -76,30 +105,32 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
       />
 
       {legs.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium">Exchange fills ({legs.length})</h2>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-xs">
-              <thead className="bg-muted/40 text-muted-foreground text-left">
+        <section className="border-rule flex flex-col gap-3.5 border-t pt-5">
+          <h2 className="text-17 font-semibold tracking-[-0.01em]">
+            Exchange fills <span className="text-muted-foreground font-normal">{legs.length}</span>
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="text-13 w-full">
+              <thead className="text-muted-foreground text-left">
                 <tr>
                   {["Time", "Role", "Price", "Size", "Closed P&L", "Fee"].map((h) => (
-                    <th key={h} className="px-3 py-1.5 font-medium">
+                    <th key={h} className="py-2 pr-4 font-normal">
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y tabular-nums">
+              <tbody className="divide-rule-faint border-rule-faint divide-y border-t tabular-nums">
                 {legs.map((l) => (
                   <tr key={`${l.tid}-${l.role}`}>
-                    <td className="px-3 py-1.5 whitespace-nowrap">{fmtDateTime(l.time, tz)}</td>
-                    <td className="px-3 py-1.5 capitalize">{l.role}</td>
-                    <td className="px-3 py-1.5">{fmtPrice(l.px)}</td>
-                    <td className="px-3 py-1.5">{fmtSize(l.sz)}</td>
-                    <td className={cn("money px-3 py-1.5", pnlClass(l.closedPnl))}>
+                    <td className="py-2 pr-4 whitespace-nowrap">{fmtDateTime(l.time, tz)}</td>
+                    <td className="py-2 pr-4 capitalize">{l.role}</td>
+                    <td className="py-2 pr-4">{fmtPrice(l.px)}</td>
+                    <td className="py-2 pr-4">{fmtSize(l.sz)}</td>
+                    <td className={cn("money py-2 pr-4", pnlClass(l.closedPnl))}>
                       {l.closedPnl ? fmtSignedUsd(l.closedPnl) : "—"}
                     </td>
-                    <td className="money px-3 py-1.5">{fmtUsd(l.fee, 4)}</td>
+                    <td className="money py-2 pr-4">{fmtUsd(l.fee, 4)}</td>
                   </tr>
                 ))}
               </tbody>

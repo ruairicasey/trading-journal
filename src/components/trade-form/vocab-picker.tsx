@@ -6,7 +6,13 @@ import { Search, Settings2, Star, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export type VocabOption = { id: string; label: string; categoryId: string | null; favorite: boolean; archived: boolean };
+export type VocabOption = {
+  id: string;
+  label: string;
+  categoryId: string | null;
+  favorite: boolean;
+  archived: boolean;
+};
 export type CategoryOption = { id: string; name: string };
 
 /**
@@ -39,7 +45,9 @@ export function VocabPicker({
 
   const groups = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const visible = items.filter((i) => (!i.archived || set.has(i.id)) && (!needle || i.label.toLowerCase().includes(needle)));
+    const visible = items.filter(
+      (i) => (!i.archived || set.has(i.id)) && (!needle || i.label.toLowerCase().includes(needle)),
+    );
     const out: { key: string; name: string; items: VocabOption[] }[] = [];
     const favs = visible.filter((i) => i.favorite);
     if (favs.length && !needle) out.push({ key: "fav", name: "Favourites", items: favs });
@@ -60,7 +68,10 @@ export function VocabPicker({
         <span className="text-muted-foreground text-xs">
           {label} {selected.length > 0 && <span className="text-foreground">({selected.length})</span>}
         </span>
-        <Link href={`/settings/journal?kind=${kind}`} className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px]">
+        <Link
+          href={`/settings/journal?kind=${kind}`}
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px]"
+        >
           <Settings2 className="size-3" /> Manage list
         </Link>
       </div>
@@ -83,16 +94,26 @@ export function VocabPicker({
 
       <div className="relative">
         <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} className="h-8 pl-8" aria-label={`Search ${label}`} />
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={placeholder}
+          className="h-8 pl-8"
+          aria-label={`Search ${label}`}
+        />
       </div>
 
       <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border p-2">
-        {groups.length === 0 && <p className="text-muted-foreground px-1 text-xs">{q ? "No matches." : "No items yet. Add some under Manage list."}</p>}
+        {groups.length === 0 && (
+          <p className="text-muted-foreground px-1 text-xs">
+            {q ? "No matches." : "No items yet. Add some under Manage list."}
+          </p>
+        )}
         {groups.map((g) => (
           <div key={g.key}>
             {g.name && (
               <div className="text-muted-foreground mb-1 flex items-center gap-1 px-1 text-[10px] font-semibold tracking-wide uppercase">
-                {g.key === "fav" && <Star className="size-3 fill-gold text-gold" />}
+                {g.key === "fav" && <Star className="fill-gold text-gold size-3" />}
                 {g.name}
               </div>
             )}
@@ -108,7 +129,9 @@ export function VocabPicker({
                     onClick={() => toggle(i.id)}
                     className={cn(
                       "rounded-full border px-2 py-0.5 text-xs transition-colors",
-                      on ? "border-primary bg-primary/15 text-foreground" : "text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                      on
+                        ? "border-primary bg-primary/15 text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:border-foreground/30",
                       i.archived && "line-through opacity-60",
                     )}
                   >
@@ -149,7 +172,9 @@ export function ChipSelect<T extends string | number>({
             onClick={() => onChange(on ? null : o.value)}
             className={cn(
               "rounded-md border px-2.5 py-1 text-xs tabular-nums transition-colors",
-              on ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              on
+                ? "border-primary bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {o.label}
@@ -183,10 +208,14 @@ export function ChipMulti<T extends string>({
             type="button"
             role="checkbox"
             aria-checked={on}
-            onClick={() => onChange(on ? value.filter((x) => x !== o) : options.filter((x) => set.has(x) || x === o))}
+            onClick={() =>
+              onChange(on ? value.filter((x) => x !== o) : options.filter((x) => set.has(x) || x === o))
+            }
             className={cn(
               "rounded-md border px-2 py-1 text-xs transition-colors",
-              on ? "border-primary bg-primary/15 text-foreground" : "text-muted-foreground hover:text-foreground",
+              on
+                ? "border-primary bg-primary/15 text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {o}

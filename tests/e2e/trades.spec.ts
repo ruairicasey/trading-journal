@@ -116,7 +116,7 @@ test.describe("Trades page (demo data)", () => {
     await page.getByRole("menuitem", { name: "Edit" }).click();
     await expect(page).toHaveURL(/\/trades\/[\w-]+$/);
     await expect(page.getByText("Synced from Hyperliquid", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Exchange fills \(\d+\)/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Exchange fills \d+/ })).toBeVisible();
   });
 });
 

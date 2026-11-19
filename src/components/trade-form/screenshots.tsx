@@ -9,18 +9,37 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
 import { MAX_SCREENSHOTS } from "@/lib/journal-options";
-import { deleteScreenshotAction, importTradingViewAction, moveScreenshotAction, updateScreenshotCaptionAction } from "@/app/(app)/trades/[id]/actions";
+import {
+  deleteScreenshotAction,
+  importTradingViewAction,
+  moveScreenshotAction,
+  updateScreenshotCaptionAction,
+} from "@/app/(app)/trades/[id]/actions";
 
 const TV_LINK = /^(https?:\/\/)?([a-z]{2,3}\.)?tradingview\.com\/x\/[A-Za-z0-9]{6,16}\/?$/i;
 
-export type Shot = { id: string; url: string; caption: string | null; width: number | null; height: number | null };
+export type Shot = {
+  id: string;
+  url: string;
+  caption: string | null;
+  width: number | null;
+  height: number | null;
+};
 type Pending = { key: string; name: string; error?: string };
 
 /**
  * Upload by click, drag-drop or paste (Cmd/Ctrl+V while `pasteEnabled`). Images are compressed in the
  * browser, then uploaded to private storage and shown through the authenticated /api/files route.
  */
-export function Screenshots({ tradeId, initial, pasteEnabled }: { tradeId: string; initial: Shot[]; pasteEnabled: boolean }) {
+export function Screenshots({
+  tradeId,
+  initial,
+  pasteEnabled,
+}: {
+  tradeId: string;
+  initial: Shot[];
+  pasteEnabled: boolean;
+}) {
   const [shots, setShots] = useState(initial);
   const [pending, setPending] = useState<Pending[]>([]);
   const [drag, setDrag] = useState(false);
@@ -67,7 +86,8 @@ export function Screenshots({ tradeId, initial, pasteEnabled }: { tradeId: strin
 
   const importLink = useCallback(
     async (link: string) => {
-      if (count.current >= MAX_SCREENSHOTS) return void toast.error(`Up to ${MAX_SCREENSHOTS} screenshots per trade`);
+      if (count.current >= MAX_SCREENSHOTS)
+        return void toast.error(`Up to ${MAX_SCREENSHOTS} screenshots per trade`);
       count.current++;
       const key = `${Date.now()}-${Math.random()}`;
       setPending((p) => [...p, { key, name: "TradingView snapshot" }]);
@@ -94,7 +114,10 @@ export function Screenshots({ tradeId, initial, pasteEnabled }: { tradeId: strin
         // a TradingView snapshot link pasted outside a text field imports the chart; any other text pastes normally
         const el = e.target as HTMLElement | null;
         const text = e.clipboardData?.getData("text")?.trim() ?? "";
-        if (TV_LINK.test(text) && !(el && (["INPUT", "TEXTAREA"].includes(el.tagName) || el.isContentEditable))) {
+        if (
+          TV_LINK.test(text) &&
+          !(el && (["INPUT", "TEXTAREA"].includes(el.tagName) || el.isContentEditable))
+        ) {
           e.preventDefault();
           void importLink(text);
         }
@@ -176,32 +199,77 @@ export function Screenshots({ tradeId, initial, pasteEnabled }: { tradeId: strin
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {shots.map((s, i) => (
             <figure key={s.id} className="group grid gap-1.5" data-testid="screenshot">
-              <button type="button" onClick={() => setView(s)} className="bg-muted overflow-hidden rounded-md border" aria-label="View screenshot">
+              <button
+                type="button"
+                onClick={() => setView(s)}
+                className="bg-muted overflow-hidden rounded-md border"
+                aria-label="View screenshot"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element -- private, authenticated URL; no image optimizer */}
-                <img src={s.url} alt={s.caption ?? `Screenshot ${i + 1}`} className="aspect-video w-full object-cover" loading="lazy" />
+                <img
+                  src={s.url}
+                  alt={s.caption ?? `Screenshot ${i + 1}`}
+                  className="aspect-video w-full object-cover"
+                  loading="lazy"
+                />
               </button>
-              <Caption shot={s} onSaved={(caption) => setShots((xs) => xs.map((x) => (x.id === s.id ? { ...x, caption } : x)))} />
+              <Caption
+                shot={s}
+                onSaved={(caption) =>
+                  setShots((xs) => xs.map((x) => (x.id === s.id ? { ...x, caption } : x)))
+                }
+              />
               <div className="flex items-center justify-between opacity-70 group-hover:opacity-100">
                 <div className="flex">
-                  <Button type="button" variant="ghost" size="icon" className="size-7" aria-label="Move left" disabled={i === 0} onClick={() => move(i, -1)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    aria-label="Move left"
+                    disabled={i === 0}
+                    onClick={() => move(i, -1)}
+                  >
                     <ChevronLeft className="size-3.5" />
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" className="size-7" aria-label="Move right" disabled={i === shots.length - 1} onClick={() => move(i, 1)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    aria-label="Move right"
+                    disabled={i === shots.length - 1}
+                    onClick={() => move(i, 1)}
+                  >
                     <ChevronRight className="size-3.5" />
                   </Button>
                 </div>
-                <Button type="button" variant="ghost" size="icon" className="size-7" aria-label="Delete screenshot" onClick={() => remove(s)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  aria-label="Delete screenshot"
+                  onClick={() => remove(s)}
+                >
                   <Trash2 className="size-3.5" />
                 </Button>
               </div>
             </figure>
           ))}
           {pending.map((p) => (
-            <div key={p.key} className="bg-muted/40 flex aspect-video flex-col items-center justify-center gap-1 rounded-md border p-2 text-center text-[11px]">
+            <div
+              key={p.key}
+              className="bg-muted/40 flex aspect-video flex-col items-center justify-center gap-1 rounded-md border p-2 text-center text-[11px]"
+            >
               {p.error ? (
                 <>
                   <span className="text-destructive">{p.error}</span>
-                  <button type="button" className="hover:underline" onClick={() => setPending((xs) => xs.filter((x) => x.key !== p.key))}>
+                  <button
+                    type="button"
+                    className="hover:underline"
+                    onClick={() => setPending((xs) => xs.filter((x) => x.key !== p.key))}
+                  >
                     Dismiss
                   </button>
                 </>
@@ -221,8 +289,14 @@ export function Screenshots({ tradeId, initial, pasteEnabled }: { tradeId: strin
           {view && (
             <figure className="grid gap-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={view.url} alt={view.caption ?? "Screenshot"} className="max-h-[85vh] w-full rounded object-contain" />
-              {view.caption && <figcaption className="text-muted-foreground px-1 text-sm">{view.caption}</figcaption>}
+              <img
+                src={view.url}
+                alt={view.caption ?? "Screenshot"}
+                className="max-h-[85vh] w-full rounded object-contain"
+              />
+              {view.caption && (
+                <figcaption className="text-muted-foreground px-1 text-sm">{view.caption}</figcaption>
+              )}
             </figure>
           )}
         </DialogContent>
@@ -279,7 +353,13 @@ function TradingViewLink({ onImport }: { onImport: (link: string) => Promise<boo
         aria-label="TradingView snapshot link"
         maxLength={300}
       />
-      <Button type="submit" variant="secondary" size="sm" className="h-8 shrink-0" disabled={!v.trim() || busy}>
+      <Button
+        type="submit"
+        variant="secondary"
+        size="sm"
+        className="h-8 shrink-0"
+        disabled={!v.trim() || busy}
+      >
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : null} Import
       </Button>
     </form>

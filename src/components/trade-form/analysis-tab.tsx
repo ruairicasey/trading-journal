@@ -17,14 +17,20 @@ type Props = Pick<FormProps, "data"> & {
 export function AnalysisTab({ data, value: a, onChange, standardRiskPct }: Props) {
   const cats = (kind: string) => data.categories.filter((c) => c.kind === kind);
   const customMaxR = a.maxRReached !== null && !(MAX_R_CHOICES as readonly number[]).includes(a.maxRReached);
-  const customMult = a.riskMultiplier !== null && !(RISK_MULTIPLIERS as readonly number[]).includes(a.riskMultiplier);
+  const customMult =
+    a.riskMultiplier !== null && !(RISK_MULTIPLIERS as readonly number[]).includes(a.riskMultiplier);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-x-12 gap-y-8 lg:grid-cols-2">
       <Section title="Context">
         <div className="grid gap-3">
           <Field label="Entry timeframe">
-            <ChipSelect aria-label="Entry timeframe" options={TIMEFRAMES.map((t) => ({ value: t, label: t }))} value={a.entryTimeframe} onChange={(v) => onChange({ entryTimeframe: v })} />
+            <ChipSelect
+              aria-label="Entry timeframe"
+              options={TIMEFRAMES.map((t) => ({ value: t, label: t }))}
+              value={a.entryTimeframe}
+              onChange={(v) => onChange({ entryTimeframe: v })}
+            />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Timeframe class">
@@ -45,12 +51,20 @@ export function AnalysisTab({ data, value: a, onChange, standardRiskPct }: Props
             </Field>
           </div>
           <Field label="Higher-timeframe confluence" hint="Timeframes that agreed with the trade">
-            <ChipMulti aria-label="Higher-timeframe confluence" options={HTF_TIMEFRAMES} value={a.htfTimeframes} onChange={(v) => onChange({ htfTimeframes: v })} />
+            <ChipMulti
+              aria-label="Higher-timeframe confluence"
+              options={HTF_TIMEFRAMES}
+              value={a.htfTimeframes}
+              onChange={(v) => onChange({ htfTimeframes: v })}
+            />
           </Field>
         </div>
       </Section>
 
-      <Section title="Confluences" description="What lined up for this entry. Star favourites in Settings to pin them here.">
+      <Section
+        title="Confluences"
+        description="What lined up for this entry. Star favourites in Settings to pin them here."
+      >
         <VocabPicker
           testId="confluence-picker"
           label="Confluences"
@@ -97,7 +111,12 @@ export function AnalysisTab({ data, value: a, onChange, standardRiskPct }: Props
             />
           </Field>
           <Field label="Trade grade" hint="How well the trade followed your plan, not how much it made">
-            <ChipSelect aria-label="Trade grade" options={GRADES.map((g) => ({ value: g, label: g }))} value={a.grade} onChange={(v) => onChange({ grade: v })} />
+            <ChipSelect
+              aria-label="Trade grade"
+              options={GRADES.map((g) => ({ value: g, label: g }))}
+              value={a.grade}
+              onChange={(v) => onChange({ grade: v })}
+            />
           </Field>
           <Field label="Entry retests" hint="Times price came back to your entry before moving">
             <div className="flex items-center gap-1">

@@ -23,7 +23,7 @@ type Props = Pick<FormProps, "data"> & {
 export function NotesTab({ data, value: n, onChange, active }: Props) {
   const [reflect, setReflect] = useState(Object.keys(n.reflection ?? {}).length > 0);
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-x-12 gap-y-8 lg:grid-cols-2">
       <Section title="Notes" className="lg:col-span-2">
         <div className="grid gap-3 lg:grid-cols-2">
           <Field label="Why did you take this trade?">
@@ -51,7 +51,8 @@ export function NotesTab({ data, value: n, onChange, active }: Props) {
           aria-expanded={reflect}
           className="text-muted-foreground hover:text-foreground mt-3 flex items-center gap-1 text-xs"
         >
-          <ChevronDown className={cn("size-3.5 transition-transform", reflect && "rotate-180")} /> Reflection prompts
+          <ChevronDown className={cn("size-3.5 transition-transform", reflect && "rotate-180")} /> Reflection
+          prompts
         </button>
         {reflect && (
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
@@ -68,7 +69,11 @@ export function NotesTab({ data, value: n, onChange, active }: Props) {
           </div>
         )}
         <div className="mt-4">
-          <TagInput value={n.tags} suggestions={data.tagSuggestions} onChange={(tags) => onChange({ tags })} />
+          <TagInput
+            value={n.tags}
+            suggestions={data.tagSuggestions}
+            onChange={(tags) => onChange({ tags })}
+          />
         </div>
       </Section>
 
@@ -91,7 +96,10 @@ export function NotesTab({ data, value: n, onChange, active }: Props) {
             />
           </Field>
           <Field label="Exit reason">
-            <Select value={n.exitReasonId ?? NONE} onValueChange={(v) => onChange({ exitReasonId: v === NONE ? null : v })}>
+            <Select
+              value={n.exitReasonId ?? NONE}
+              onValueChange={(v) => onChange({ exitReasonId: v === NONE ? null : v })}
+            >
               <SelectTrigger className="h-8 w-full" aria-label="Exit reason">
                 <SelectValue />
               </SelectTrigger>
@@ -142,12 +150,22 @@ export function NotesTab({ data, value: n, onChange, active }: Props) {
   );
 }
 
-function TagInput({ value, suggestions, onChange }: { value: string[]; suggestions: string[]; onChange: (tags: string[]) => void }) {
+function TagInput({
+  value,
+  suggestions,
+  onChange,
+}: {
+  value: string[];
+  suggestions: string[];
+  onChange: (tags: string[]) => void;
+}) {
   const [text, setText] = useState("");
   const lower = new Set(value.map((t) => t.toLowerCase()));
   const matches = useMemo(() => {
     const q = text.trim().toLowerCase();
-    return suggestions.filter((s) => !lower.has(s.toLowerCase()) && (!q || s.toLowerCase().includes(q))).slice(0, 8);
+    return suggestions
+      .filter((s) => !lower.has(s.toLowerCase()) && (!q || s.toLowerCase().includes(q)))
+      .slice(0, 8);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, suggestions, value]);
   const add = (raw: string) => {
@@ -156,7 +174,9 @@ function TagInput({ value, suggestions, onChange }: { value: string[]; suggestio
       .map((t) => t.trim().replace(/^#/, ""))
       .filter(Boolean);
     const next = [...value];
-    for (const p of parts) if (!next.some((t) => t.toLowerCase() === p.toLowerCase()) && next.length < MAX_TAGS) next.push(p.slice(0, 40));
+    for (const p of parts)
+      if (!next.some((t) => t.toLowerCase() === p.toLowerCase()) && next.length < MAX_TAGS)
+        next.push(p.slice(0, 40));
     onChange(next);
     setText("");
   };
@@ -166,7 +186,11 @@ function TagInput({ value, suggestions, onChange }: { value: string[]; suggestio
         {value.map((t) => (
           <span key={t} className="bg-secondary flex items-center gap-1 rounded-full px-2 py-0.5 text-xs">
             #{t}
-            <button type="button" aria-label={`Remove tag ${t}`} onClick={() => onChange(value.filter((x) => x !== t))}>
+            <button
+              type="button"
+              aria-label={`Remove tag ${t}`}
+              onClick={() => onChange(value.filter((x) => x !== t))}
+            >
               <X className="size-3" />
             </button>
           </span>
@@ -195,7 +219,13 @@ function TagInput({ value, suggestions, onChange }: { value: string[]; suggestio
       {text && matches.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {matches.map((m) => (
-            <button key={m} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => add(m)} className="text-muted-foreground hover:text-foreground rounded-full border px-2 py-0.5 text-[11px]">
+            <button
+              key={m}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => add(m)}
+              className="text-muted-foreground hover:text-foreground rounded-full border px-2 py-0.5 text-[11px]"
+            >
               #{m}
             </button>
           ))}

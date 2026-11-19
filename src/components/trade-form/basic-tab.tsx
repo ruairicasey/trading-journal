@@ -43,7 +43,19 @@ type Props = FormProps & {
   onStopMoves: (rows: ProtectionState["stopMoves"]) => void;
 };
 
-export function BasicTab({ data, accounts, sessions, tz, draft, update, updateManual, errors, protection, onRevert, onStopMoves }: Props) {
+export function BasicTab({
+  data,
+  accounts,
+  sessions,
+  tz,
+  draft,
+  update,
+  updateManual,
+  errors,
+  protection,
+  onRevert,
+  onStopMoves,
+}: Props) {
   const t = data.trade;
   const m = draft.manual;
   const manual = !!m;
@@ -69,9 +81,23 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
   const risk = riskUsd(entry, draft.stopLoss, size);
   const rr = rewardRisk(dir, entry, draft.stopLoss, draft.takeProfit);
   const slSide = stopOnCorrectSide(dir, entry, draft.stopLoss);
-  const tpSide = draft.takeProfit !== null && entry !== null ? (dir === "long" ? draft.takeProfit > entry : draft.takeProfit < entry) : null;
+  const tpSide =
+    draft.takeProfit !== null && entry !== null
+      ? dir === "long"
+        ? draft.takeProfit > entry
+        : draft.takeProfit < entry
+      : null;
   const net = manual
-    ? manualMetrics({ direction: dir, entry, exit, size, fees: draft.feeOverride, entryTime: m!.entryTime, exitTime: m!.exitTime, closed: status === "closed" }).netPnl
+    ? manualMetrics({
+        direction: dir,
+        entry,
+        exit,
+        size,
+        fees: draft.feeOverride,
+        entryTime: m!.entryTime,
+        exitTime: m!.exitTime,
+        closed: status === "closed",
+      }).netPnl
     : t.netPnl;
   const realizedR = status === "closed" && risk && net !== null ? net / risk : null;
   const entryTime = m?.entryTime ?? t.entryTime;
@@ -79,14 +105,15 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
   const tp = tpAllocation(draft.tpPartials);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-x-12 gap-y-8 lg:grid-cols-2">
       {/* ── Setup ── */}
       <Section
         title="Setup"
         description={
           !manual ? (
             <span className="inline-flex items-center gap-1">
-              <Lock className="size-3" /> Synced from Hyperliquid: pair, direction, status, prices, size, times and fees come from your fills and are read-only.
+              <Lock className="size-3" /> Synced from Hyperliquid: pair, direction, status, prices, size,
+              times and fees come from your fills and are read-only.
             </span>
           ) : (
             "Manual trade: every field is editable."
@@ -108,7 +135,13 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
                   ))}
                 </SelectContent>
               </Select>
-              <Button asChild variant="ghost" size="icon" className="size-8 shrink-0" aria-label="Manage accounts">
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0"
+                aria-label="Manage accounts"
+              >
                 <Link href="/settings/accounts">
                   <Settings2 className="size-4" />
                 </Link>
@@ -135,7 +168,9 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
                         onClick={() => updateManual({ coin: c })}
                         className={cn(
                           "rounded-full border px-2 py-0.5 text-[11px]",
-                          m!.coin === c ? "border-primary text-foreground" : "text-muted-foreground hover:text-foreground",
+                          m!.coin === c
+                            ? "border-primary text-foreground"
+                            : "text-muted-foreground hover:text-foreground",
                         )}
                       >
                         {displayPair(c)}
@@ -194,42 +229,107 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
       </Section>
 
       {/* ── Prices ── */}
-      <Section title="Prices" description={draft.stopLoss === null ? undefined : rr !== null ? `Planned reward:risk ${rr.toFixed(2)} : 1` : undefined}>
+      <Section
+        title="Prices"
+        description={
+          draft.stopLoss === null
+            ? undefined
+            : rr !== null
+              ? `Planned reward:risk ${rr.toFixed(2)} : 1`
+              : undefined
+        }
+      >
         {draft.stopLoss === null && (
-          <div className="mb-3 flex items-center gap-2 rounded-md border border-rule bg-subtle px-3 py-2 text-xs text-ink-2" data-testid="sl-prompt">
+          <div
+            className="border-rule bg-subtle text-ink-2 mb-3 flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
+            data-testid="sl-prompt"
+          >
             <Info className="size-3.5 shrink-0" /> Add a stop loss to unlock R:R analytics.
           </div>
         )}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={dcaAvg !== null ? "Entry (avg of partial entries)" : "Entry"}>
             {manual && dcaAvg === null ? (
-              <NumberInput aria-label="Entry price" value={m!.entry} onChange={(v) => updateManual({ entry: v })} min={0} />
+              <NumberInput
+                aria-label="Entry price"
+                value={m!.entry}
+                onChange={(v) => updateManual({ entry: v })}
+                min={0}
+              />
             ) : (
-              <Locked title={manual ? "Weighted average of partial entries" : undefined}>{fmtPrice(entry)}</Locked>
+              <Locked title={manual ? "Weighted average of partial entries" : undefined}>
+                {fmtPrice(entry)}
+              </Locked>
             )}
           </Field>
-          <Field label="Exit" hint={manual && status !== "closed" ? "Set when the trade is closed" : undefined}>
+          <Field
+            label="Exit"
+            hint={manual && status !== "closed" ? "Set when the trade is closed" : undefined}
+          >
             {manual ? (
-              <NumberInput aria-label="Exit price" value={m!.exit} onChange={(v) => updateManual({ exit: v })} min={0} disabled={status !== "closed"} />
+              <NumberInput
+                aria-label="Exit price"
+                value={m!.exit}
+                onChange={(v) => updateManual({ exit: v })}
+                min={0}
+                disabled={status !== "closed"}
+              />
             ) : (
               <Locked>{status === "open" ? "Open" : fmtPrice(exit)}</Locked>
             )}
           </Field>
           <Field
             label="Stop loss"
-            error={slSide === false ? `A ${dir} stop should be ${dir === "long" ? "below" : "above"} entry` : null}
-            hint={risk !== null ? `Risk ${fmtUsd(risk)}${balance > 0 ? ` (${fmtPct((risk / balance) * 100).replace("+", "")} of account)` : ""}` : undefined}
+            error={
+              slSide === false ? `A ${dir} stop should be ${dir === "long" ? "below" : "above"} entry` : null
+            }
+            hint={
+              risk !== null ? (
+                <>
+                  Risk <span className="money">{fmtUsd(risk)}</span>
+                  {balance > 0 ? ` (${fmtPct((risk / balance) * 100).replace("+", "")} of account)` : ""}
+                </>
+              ) : undefined
+            }
           >
-            <NumberInput aria-label="Stop loss" value={draft.stopLoss} onChange={(v) => update({ stopLoss: v })} min={0} />
-            <ProtectionHint field="stopLoss" value={draft.stopLoss} state={protection} tz={tz} entryTime={entryTime} onRevert={onRevert} />
+            <NumberInput
+              aria-label="Stop loss"
+              value={draft.stopLoss}
+              onChange={(v) => update({ stopLoss: v })}
+              min={0}
+            />
+            <ProtectionHint
+              field="stopLoss"
+              value={draft.stopLoss}
+              state={protection}
+              tz={tz}
+              entryTime={entryTime}
+              onRevert={onRevert}
+            />
           </Field>
           <Field
             label="Take profit"
-            error={tpSide === false ? `A ${dir} target should be ${dir === "long" ? "above" : "below"} entry` : null}
+            error={
+              tpSide === false
+                ? `A ${dir} target should be ${dir === "long" ? "above" : "below"} entry`
+                : null
+            }
             hint={rr !== null ? `${rr.toFixed(2)}R target` : undefined}
           >
-            <NumberInput aria-label="Take profit" value={draft.takeProfit} onChange={(v) => update({ takeProfit: v })} min={0} />
-            <ProtectionHint field="takeProfit" value={draft.takeProfit} state={protection} tz={tz} entryTime={entryTime} onRevert={onRevert} />
+            <NumberInput
+              aria-label="Take profit"
+              value={draft.takeProfit}
+              onChange={(v) => update({ takeProfit: v })}
+              min={0}
+            />
+            <ProtectionHint
+              field="takeProfit"
+              value={draft.takeProfit}
+              state={protection}
+              tz={tz}
+              entryTime={entryTime}
+              onRevert={onRevert}
+            />
           </Field>
         </div>
         {(realizedR !== null || (!manual && status === "closed")) && (
@@ -248,7 +348,9 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
           initialStop={draft.stopLoss}
           detectedInitial={protection.detected?.stopLoss ?? null}
           initialDiffers={
-            draft.stopLoss !== null && !!protection.detected?.stopLoss && Math.abs(protection.detected.stopLoss.price - draft.stopLoss) > Math.abs(draft.stopLoss) * 1e-12
+            draft.stopLoss !== null &&
+            !!protection.detected?.stopLoss &&
+            Math.abs(protection.detected.stopLoss.price - draft.stopLoss) > Math.abs(draft.stopLoss) * 1e-12
           }
           moves={protection.stopMoves}
           entryTime={manual ? (m!.entryTime ?? null) : t.entryTime}
@@ -291,7 +393,15 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
       </Section>
 
       {/* ── More details ── */}
-      <MoreDetails defaultOpen={draft.tpPartials.length > 0 || (protection.detected?.tpPartials.length ?? 0) > 0 || (m?.dca.length ?? 0) > 0 || draft.checklist.length > 0 || !!draft.session}>
+      <MoreDetails
+        defaultOpen={
+          draft.tpPartials.length > 0 ||
+          (protection.detected?.tpPartials.length ?? 0) > 0 ||
+          (m?.dca.length ?? 0) > 0 ||
+          draft.checklist.length > 0 ||
+          !!draft.session
+        }
+      >
         <div className="grid gap-5">
           <PartialEntries
             manual={manual}
@@ -301,21 +411,37 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
             onChange={(dca) => updateManual({ dca })}
           />
           <div className="grid gap-1">
-            <PartialTps rows={draft.tpPartials} onChange={(tpPartials) => update({ tpPartials })} total={tp.total} error={errors.tpPartials} />
+            <PartialTps
+              rows={draft.tpPartials}
+              onChange={(tpPartials) => update({ tpPartials })}
+              total={tp.total}
+              error={errors.tpPartials}
+            />
             <PartialsHint rows={draft.tpPartials} state={protection} onRevert={onRevert} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Fees" hint={manual ? "Total fees for this trade" : "From your fills (maker rebates reduce it)"}>
+            <Field
+              label="Fees"
+              hint={manual ? "Total fees for this trade" : "From your fills (maker rebates reduce it)"}
+            >
               {manual ? (
-                <NumberInput aria-label="Fees" value={draft.feeOverride} onChange={(v) => update({ feeOverride: v })} />
+                <NumberInput
+                  aria-label="Fees"
+                  value={draft.feeOverride}
+                  onChange={(v) => update({ feeOverride: v })}
+                />
               ) : (
-                <Locked>{fmtUsd(t.fees)}</Locked>
+                <Locked>
+                  <span className="money">{fmtUsd(t.fees)}</span>
+                </Locked>
               )}
             </Field>
             {!manual && (
               <Field label="Funding" hint="Paid (−) or received (+) while this position was open">
-                <Locked>{t.funding ? fmtSignedUsd(t.funding) : "—"}</Locked>
+                <Locked>
+                  <span className="money">{t.funding ? fmtSignedUsd(t.funding) : "—"}</span>
+                </Locked>
               </Field>
             )}
             <Field label="Trade type">
@@ -363,13 +489,20 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
               label="Session"
               hint={
                 suggestedSession && draft.session !== suggestedSession ? (
-                  <button type="button" className="text-primary hover:underline" onClick={() => update({ session: suggestedSession })}>
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => update({ session: suggestedSession })}
+                  >
                     Use {suggestedSession} (from entry time)
                   </button>
                 ) : undefined
               }
             >
-              <Select value={draft.session ?? NONE} onValueChange={(v) => update({ session: v === NONE ? null : v })}>
+              <Select
+                value={draft.session ?? NONE}
+                onValueChange={(v) => update({ session: v === NONE ? null : v })}
+              >
                 <SelectTrigger className="h-8 w-full" aria-label="Session">
                   <SelectValue />
                 </SelectTrigger>
@@ -380,13 +513,19 @@ export function BasicTab({ data, accounts, sessions, tz, draft, update, updateMa
                       {s.name}
                     </SelectItem>
                   ))}
-                  {draft.session && !sessions.some((s) => s.name === draft.session) && <SelectItem value={draft.session}>{draft.session}</SelectItem>}
+                  {draft.session && !sessions.some((s) => s.name === draft.session) && (
+                    <SelectItem value={draft.session}>{draft.session}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </Field>
           </div>
 
-          <Checklist items={data.checklistItems} checked={draft.checklist} onChange={(checklist) => update({ checklist })} />
+          <Checklist
+            items={data.checklistItems}
+            checked={draft.checklist}
+            onChange={(checklist) => update({ checklist })}
+          />
         </div>
       </MoreDetails>
     </div>
@@ -425,7 +564,14 @@ function StrategyField({
             });
           }}
         >
-          <Input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="New strategy" className="h-8" aria-label="New strategy name" />
+          <Input
+            autoFocus
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="New strategy"
+            className="h-8"
+            aria-label="New strategy name"
+          />
           <Button type="submit" size="sm" className="h-8" disabled={pending}>
             Add
           </Button>
@@ -448,10 +594,23 @@ function StrategyField({
               ))}
             </SelectContent>
           </Select>
-          <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0" aria-label="Add strategy" onClick={() => setAdding(true)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0"
+            aria-label="Add strategy"
+            onClick={() => setAdding(true)}
+          >
             <Plus className="size-4" />
           </Button>
-          <Button asChild variant="ghost" size="icon" className="size-8 shrink-0" aria-label="Manage strategies">
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0"
+            aria-label="Manage strategies"
+          >
             <Link href="/settings/journal?kind=strategy">
               <Settings2 className="size-4" />
             </Link>
@@ -491,35 +650,85 @@ function SizeFields(p: {
           className="sm:col-span-2"
           hint={
             <span className="flex flex-wrap items-center gap-x-3">
-              {p.plannedRisk !== null && p.balance > 0 && <span>{((p.plannedRisk / p.balance) * 100).toFixed(2)}% of account</span>}
+              {p.plannedRisk !== null && p.balance > 0 && (
+                <span>{((p.plannedRisk / p.balance) * 100).toFixed(2)}% of account</span>
+              )}
               {p.stdRisk !== null && (
-                <button type="button" className="text-primary hover:underline" onClick={() => p.onRisk(Number(p.stdRisk!.toFixed(2)))}>
-                  Use standard {p.stdRiskPct}% ({fmtUsd(p.stdRisk)})
+                <button
+                  type="button"
+                  className="text-primary hover:underline"
+                  onClick={() => p.onRisk(Number(p.stdRisk!.toFixed(2)))}
+                >
+                  Use standard {p.stdRiskPct}% (<span className="money">{fmtUsd(p.stdRisk)}</span>)
                 </button>
               )}
-              {!p.manual && p.actualRisk !== null && <span>Actual risk from stop: {fmtUsd(p.actualRisk)}</span>}
-              {p.manual && p.stop === null && <span className="text-gold-ink">Set a stop loss to size from risk</span>}
+              {!p.manual && p.actualRisk !== null && (
+                <span>
+                  Actual risk from stop: <span className="money">{fmtUsd(p.actualRisk)}</span>
+                </span>
+              )}
+              {p.manual && p.stop === null && (
+                <span className="text-gold-ink">Set a stop loss to size from risk</span>
+              )}
             </span>
           }
         >
           <NumberInput aria-label="Risk amount" value={p.plannedRisk} onChange={p.onRisk} min={0} />
         </Field>
       )}
-      <Field label="Size (units)" hint={p.hasDca && p.manual ? "Sum of partial entries" : p.riskMode && p.manual ? "Derived from risk ÷ stop distance" : undefined}>
-        {sizeLocked ? <Locked title={p.manual ? "Derived" : undefined}>{fmtSize(p.size)}</Locked> : <NumberInput aria-label="Size in units" value={p.size} onChange={p.onSize} min={0} />}
-      </Field>
-      <Field label="Size (USD)" hint={p.manual && !sizeLocked && p.entry === null ? "Enter an entry price to use USD" : undefined}>
+      <Field
+        label="Size (units)"
+        hint={
+          p.hasDca && p.manual
+            ? "Sum of partial entries"
+            : p.riskMode && p.manual
+              ? "Derived from risk ÷ stop distance"
+              : undefined
+        }
+      >
         {sizeLocked ? (
-          <Locked title={p.manual ? "Derived" : undefined}>{fmtUsd(usd)}</Locked>
+          <Locked title={p.manual ? "Derived" : undefined}>{fmtSize(p.size)}</Locked>
         ) : (
-          <NumberInput aria-label="Size in USD" value={usd} onChange={(v) => p.onSize(usdToUnits(v, p.entry))} min={0} disabled={p.entry === null} />
+          <NumberInput aria-label="Size in units" value={p.size} onChange={p.onSize} min={0} />
+        )}
+      </Field>
+      <Field
+        label="Size (USD)"
+        hint={p.manual && !sizeLocked && p.entry === null ? "Enter an entry price to use USD" : undefined}
+      >
+        {sizeLocked ? (
+          <Locked title={p.manual ? "Derived" : undefined}>
+            <span className="money">{fmtUsd(usd)}</span>
+          </Locked>
+        ) : (
+          <NumberInput
+            aria-label="Size in USD"
+            value={usd}
+            onChange={(v) => p.onSize(usdToUnits(v, p.entry))}
+            min={0}
+            disabled={p.entry === null}
+          />
         )}
       </Field>
       <Field
         label="Leverage"
-        hint={lev && usd ? `Margin ≈ ${fmtUsd(usd / lev)}` : !p.manual && p.exchangeLeverage ? `Exchange: ${p.exchangeLeverage}×` : undefined}
+        hint={
+          lev && usd ? (
+            <>
+              Margin ≈ <span className="money">{fmtUsd(usd / lev)}</span>
+            </>
+          ) : !p.manual && p.exchangeLeverage ? (
+            `Exchange: ${p.exchangeLeverage}×`
+          ) : undefined
+        }
       >
-        <NumberInput aria-label="Leverage" value={p.leverage} onChange={p.onLeverage} min={0} placeholder={p.exchangeLeverage ? `${p.exchangeLeverage}` : "e.g. 10"} />
+        <NumberInput
+          aria-label="Leverage"
+          value={p.leverage}
+          onChange={p.onLeverage}
+          min={0}
+          placeholder={p.exchangeLeverage ? `${p.exchangeLeverage}` : "e.g. 10"}
+        />
       </Field>
     </div>
   );
@@ -528,20 +737,22 @@ function SizeFields(p: {
 function MoreDetails({ children, defaultOpen }: { children: React.ReactNode; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="rounded-lg border lg:col-span-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium"
-      >
-        More details
-        <span className="text-muted-foreground flex items-center gap-1 text-xs font-normal">
-          Partial entries, take profits, fees, timing, session, trade type, checklist
-          <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-        </span>
-      </button>
-      {open && <div className="border-t p-4">{children}</div>}
+    <section className="border-rule border-t lg:col-span-2">
+      <h2 className="text-17 font-semibold tracking-[-0.01em]">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex w-full items-center justify-between py-4 text-left"
+        >
+          More details
+          <span className="text-muted-foreground flex items-center gap-1 text-xs font-normal">
+            Partial entries, take profits, fees, timing, session, trade type, checklist
+            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+          </span>
+        </button>
+      </h2>
+      {open && <div className="pt-1">{children}</div>}
     </section>
   );
 }
@@ -574,12 +785,25 @@ function RowsEditor<T extends string>({
               onChange={(v) => onChange(rows.map((x, j) => (j === i ? { ...x, [c.key]: v } : x)))}
             />
           ))}
-          <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0" aria-label={`Remove row ${i + 1}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0"
+            aria-label={`Remove row ${i + 1}`}
+            onClick={() => onChange(rows.filter((_, j) => j !== i))}
+          >
             <Trash2 className="size-3.5" />
           </Button>
         </div>
       ))}
-      <Button type="button" variant="secondary" size="sm" className="h-7 w-fit" onClick={() => onChange([...rows, empty])}>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="h-7 w-fit"
+        onClick={() => onChange([...rows, empty])}
+      >
         <Plus className="size-3.5" /> {addLabel}
       </Button>
     </div>
@@ -601,24 +825,39 @@ function PartialEntries({
 }) {
   if (!manual) {
     return (
-      <Field label={`Entries (${legs.length} fill${legs.length === 1 ? "" : "s"})`} hint="From the exchange. Your average entry is weighted by size.">
+      <Field
+        label={`Entries (${legs.length} fill${legs.length === 1 ? "" : "s"})`}
+        hint="From the exchange. Your average entry is weighted by size."
+      >
         <div className="rounded-md border text-xs">
           {legs.map((l, i) => (
-            <div key={i} className="flex justify-between gap-3 border-b px-2.5 py-1.5 tabular-nums last:border-0">
+            <div
+              key={i}
+              className="flex justify-between gap-3 border-b px-2.5 py-1.5 tabular-nums last:border-0"
+            >
               <span className="text-muted-foreground">{fmtDateTime(l.time, tz)}</span>
               <span>
                 {fmtSize(l.size)} @ {fmtPrice(l.price)}
               </span>
             </div>
           ))}
-          {legs.length === 0 && <div className="text-muted-foreground px-2.5 py-1.5">No entry fills in stored history</div>}
+          {legs.length === 0 && (
+            <div className="text-muted-foreground px-2.5 py-1.5">No entry fills in stored history</div>
+          )}
         </div>
       </Field>
     );
   }
   const avg = weightedAvg(rows);
   return (
-    <Field label="Partial entries (DCA)" hint={avg !== null ? `Weighted entry ${fmtPrice(avg)} for ${fmtSize(totalSize(rows))} units` : "Add each fill to use a weighted entry"}>
+    <Field
+      label="Partial entries (DCA)"
+      hint={
+        avg !== null
+          ? `Weighted entry ${fmtPrice(avg)} for ${fmtSize(totalSize(rows))} units`
+          : "Add each fill to use a weighted entry"
+      }
+    >
       <RowsEditor
         testId="dca-rows"
         rows={rows}
@@ -648,7 +887,9 @@ function PartialTps({
   return (
     <Field
       label="Partial take profits"
-      error={error ?? (off ? `Allocations total ${Number(total.toFixed(2))}%; they must add up to 100%` : null)}
+      error={
+        error ?? (off ? `Allocations total ${Number(total.toFixed(2))}%; they must add up to 100%` : null)
+      }
       hint={rows.length ? "Allocations total 100% ✓" : "Plan scaling out at several levels"}
     >
       <RowsEditor
@@ -665,7 +906,15 @@ function PartialTps({
   );
 }
 
-function Checklist({ items, checked, onChange }: { items: { id: string; label: string }[]; checked: string[]; onChange: (ids: string[]) => void }) {
+function Checklist({
+  items,
+  checked,
+  onChange,
+}: {
+  items: { id: string; label: string }[];
+  checked: string[];
+  onChange: (ids: string[]) => void;
+}) {
   const set = new Set(checked);
   return (
     <Field
