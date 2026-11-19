@@ -52,8 +52,7 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   word; risk and drawdown moved to Analytics → Risk; no desktop top bar (search and privacy in the sidebar).
   Cycle 3 Trades **done**: underlined status tabs, search and chips, a table (pair, side, opened, stop, review, return,
   net) that stacks below 1024px, "Showing N of M" footer, an "Export closed trades" link. HIP-3 pairs read
-  "SPX/USD (xyz)" (migration 0011 rewrites the stored labels). Manual "Add trade" from the design is not built: the
-  app has no manual trade creation yet.
+  "SPX/USD (xyz)" (migration 0011 rewrites the stored labels). Manual "Add trade" is now built (see below).
   Cycle 4 trade detail **done**: header with pair, direction, status pill, source and the net figure; underlined
   Basic / Analysis / Notes tabs in a one-row sticky bar with Save; form sections on hairline rules; plain fills table.
   Every $ hint in the form now blurs in privacy mode.
@@ -79,3 +78,8 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   key figures, grade, strategy, emotions, exit reason, mistakes, notes), with ← / → and ⌘↵ / ⌘S. Opened from the week
   card's "Review the N unreviewed trades" and a Reviews callout on the dashboard for the current period. Saving writes
   only the review fields you changed and marks the trade reviewed, so edits made elsewhere survive.
+- ~~Manual trade entry~~ **done**: Trades → Add trade (`/trades/new`) for a trade sync can't see: pair, direction, status
+  (closed, open or planned), prices, size, stop, times in your timezone and fees, with a live net figure; then the full
+  Edit form for setup, review and screenshots. Crypto accounts use Hyperliquid's names (BTC, kPEPE, xyz:SPX); prop and
+  other accounts store cTrader-style CFD symbols (EURUSD), reusing a spelling the account already has. Manual trades
+  belong to no wallet (they show under All wallets) and count in P&L, but not in the balance curve.

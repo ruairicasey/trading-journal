@@ -118,14 +118,23 @@ export default async function TradesPage({
           {isNotes ? (
             <AddNoteButton />
           ) : (
-            <a
-              href={`/api/export/trades.csv?period=${filters.period ?? (active.journalStart !== null ? SINCE_START : "all")}`}
-              className="bg-subtle hover:bg-hover text-ink rounded-[9px] px-3.5 py-2 text-sm"
-              data-testid="trades-export"
-              title="CSV of the trades that closed in this period (the same file as Reports)"
-            >
-              Export closed trades
-            </a>
+            <>
+              <Link
+                href="/trades/new"
+                className="bg-ink hover:bg-ink/90 rounded-[9px] px-3.5 py-2 text-sm font-medium text-white"
+                data-testid="add-trade"
+              >
+                Add trade
+              </Link>
+              <a
+                href={`/api/export/trades.csv?period=${filters.period ?? (active.journalStart !== null ? SINCE_START : "all")}`}
+                className="bg-subtle hover:bg-hover text-ink rounded-[9px] px-3.5 py-2 text-sm"
+                data-testid="trades-export"
+                title="CSV of the trades that closed in this period (the same file as Reports)"
+              >
+                Export closed trades
+              </a>
+            </>
           )}
         </div>
       </header>

@@ -8,12 +8,12 @@
  */
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { displayPair, parseCoin } from "../hyperliquid/markets";
 import type { DB } from "../db/client";
 import * as s from "../db/schema";
 import { manualMetrics, sizeFromRisk, totalSize, tpAllocation, weightedAvg } from "../../lib/trade-math";
 import { MAX_TAGS, REFLECTION_PROMPTS } from "../../lib/journal-options";
 import { detectForTrade } from "../protection/apply";
+import { resolveMarket } from "./manual";
 
 const num = z.number().finite();
 const price = num.positive().max(1e12);
@@ -248,8 +248,17 @@ export async function saveTradeBasic(
     if (!st || st.kind !== "strategy") errors.strategyId = "Unknown strategy";
   }
   if (!tpAllocation(input.tpPartials).valid) errors.tpPartials = "Take-profit allocations must add up to 100%";
+  // manual trades: an unchanged pair keeps exactly what's stored (older trades may predate the naming rules); a new
+  // one is stored the way the trade's account names markets (src/server/trades/manual.ts)
+  const market =
+    manual && input.manual && account
+      ? input.manual.coin === trade.coin
+        ? { coin: trade.coin, displayPair: trade.displayPair, dex: trade.dex, marketType: trade.marketType }
+        : await resolveMarket(db, input.accountId, input.manual.coin, account.type)
+      : null;
   if (manual && input.manual) {
     const m = input.manual;
+    if (!market) errors.manual = "Enter a pair, like BTC or EURUSD";
     if (m.status === "closed" && (m.exit === null || (m.size === null && !m.dca.length && input.sizeMode !== "risk"))) {
       errors.manual = "A closed trade needs an exit price and a size";
     }
@@ -316,15 +325,10 @@ export async function saveTradeBasic(
       const entry = m.dca.length ? weightedAvg(m.dca) : m.entry;
       let size = m.dca.length ? totalSize(m.dca) : m.size;
       if (input.sizeMode === "risk" && !m.dca.length) size = sizeFromRisk(input.plannedRiskUsd, entry, input.stopLoss) ?? size;
-      const coin = m.coin;
-      const p = parseCoin(coin);
       Object.assign(
         tradeSet,
         {
-          coin,
-          displayPair: displayPair(coin),
-          dex: p.dex,
-          marketType: p.marketType,
+          ...market,
           direction: m.direction,
           status: m.status,
           fillCount: 0,

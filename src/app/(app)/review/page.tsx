@@ -67,12 +67,17 @@ export default async function ReviewPage({
   const all = await queue(filters);
   const ids = all.slice(0, MAX_QUEUE);
 
+  const verb = filters.dateBy === "exit" ? "Closed" : "Opened";
   const scope =
     filters.from && filters.to
-      ? `${filters.dateBy === "exit" ? "Closed" : "Opened"} ${day(filters.from)} to ${day(filters.to)}`
-      : filters.period
-        ? `Closed trades, ${periodPhrase({ period: filters.period })}`
-        : "Closed trades";
+      ? `${verb} ${day(filters.from)} to ${day(filters.to)}`
+      : filters.from
+        ? `${verb} since ${day(filters.from)}`
+        : filters.to
+          ? `${verb} up to ${day(filters.to)}`
+          : filters.period
+            ? `Closed trades, ${periodPhrase({ period: filters.period })}`
+            : "Closed trades";
 
   const first = ids.length ? await loadTradeForEdit(db, active.id, ids[0]) : null;
 
