@@ -81,7 +81,8 @@ async function runBulk(fn: (acc: string) => Promise<number | string[]>): Promise
     revalidatePath("/analytics");
     return Array.isArray(out) ? { ok: true, n: out.length, ids: out } : { ok: true, n: out };
   } catch (e) {
-    if (e instanceof bulk.BulkError || e instanceof z.ZodError) return { ok: false, error: e instanceof z.ZodError ? "Invalid selection" : e.message };
+    if (e instanceof bulk.BulkError || e instanceof z.ZodError)
+      return { ok: false, error: e instanceof z.ZodError ? "Invalid selection" : e.message };
     throw e;
   }
 }
@@ -90,10 +91,19 @@ export async function bulkAddTagAction(tradeIds: string[], tag: string) {
   return runBulk((acc) => bulk.bulkAddTag(getDb(), acc, ids.parse(tradeIds), z.string().max(60).parse(tag)));
 }
 export async function bulkSetGradeAction(tradeIds: string[], grade: string | null) {
-  return runBulk((acc) => bulk.bulkSetGrade(getDb(), acc, ids.parse(tradeIds), grade as Parameters<typeof bulk.bulkSetGrade>[3]));
+  return runBulk((acc) =>
+    bulk.bulkSetGrade(getDb(), acc, ids.parse(tradeIds), grade as Parameters<typeof bulk.bulkSetGrade>[3]),
+  );
 }
 export async function bulkSetStrategyAction(tradeIds: string[], strategyId: string | null) {
-  return runBulk((acc) => bulk.bulkSetStrategy(getDb(), acc, ids.parse(tradeIds), strategyId === null ? null : id.parse(strategyId)));
+  return runBulk((acc) =>
+    bulk.bulkSetStrategy(
+      getDb(),
+      acc,
+      ids.parse(tradeIds),
+      strategyId === null ? null : id.parse(strategyId),
+    ),
+  );
 }
 export async function bulkDeleteAction(tradeIds: string[]) {
   return runBulk((acc) => bulk.bulkSoftDelete(getDb(), acc, ids.parse(tradeIds)));
@@ -108,13 +118,25 @@ export async function matchingTradeIdsAction(params: Record<string, string>) {
   const { active, walletId } = await getActiveScope();
   if (!active) throw new Error("No account");
   const f = parseFilters(z.record(z.string(), z.string().max(200)).parse(params));
-  return matchingTradeIds(getDb(), active.id, { ...f, page: 1 }, { tz, walletId, limit: bulk.BULK_MAX + 1 });
+  return matchingTradeIds(
+    getDb(),
+    active.id,
+    { ...f, page: 1 },
+    { tz, walletId, limit: bulk.BULK_MAX + 1, journalStart: active.journalStart },
+  );
 }
 
 // ─── saved filters ────────────────────────────────────────────────────────────────────
-export async function saveFilterAction(name: string, params: Record<string, string>): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function saveFilterAction(
+  name: string,
+  params: Record<string, string>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    await saved.saveFilter(getDb(), z.string().max(60).parse(name), parseFilters(z.record(z.string(), z.string().max(200)).parse(params)));
+    await saved.saveFilter(
+      getDb(),
+      z.string().max(60).parse(name),
+      parseFilters(z.record(z.string(), z.string().max(200)).parse(params)),
+    );
     revalidatePath("/trades");
     return { ok: true };
   } catch (e) {

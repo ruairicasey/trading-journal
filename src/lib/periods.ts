@@ -5,7 +5,7 @@
 import { TZDate } from "@date-fns/tz";
 import { addDays, startOfMonth, startOfWeek, startOfYear } from "date-fns";
 
-export const PERIODS = ["7d", "30d", "week", "month", "year", "all"] as const;
+export const PERIODS = ["7d", "30d", "week", "month", "year", "start", "all"] as const;
 export type Period = (typeof PERIODS)[number];
 export const PERIOD_LABELS: Record<Period, string> = {
   "7d": "7D",
@@ -13,7 +13,8 @@ export const PERIOD_LABELS: Record<Period, string> = {
   week: "This week",
   month: "This month",
   year: "This year",
-  all: "All",
+  start: "Since start",
+  all: "All time",
 };
 
 /** [from, to) in UTC ms; null = unbounded. */
@@ -30,6 +31,7 @@ export function periodRange(period: Period, now: number, tz: string): { from: nu
       return { from: startOfMonth(local).getTime(), to: null };
     case "year":
       return { from: startOfYear(local).getTime(), to: null };
+    case "start": // from the account's journal start (applied by the caller: src/lib/journal-start.ts)
     case "all":
       return { from: null, to: null };
   }

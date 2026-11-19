@@ -5,6 +5,7 @@ import { CustomizeWidgets } from "@/components/analytics/customize";
 import { DashboardControls } from "@/components/dashboard/controls";
 import { EmptyState } from "@/components/shell/empty-state";
 import { DASH_PERIODS, dashHref, type DashParams } from "@/lib/dashboard-params";
+import { baseAtFloor, clampStart, fromFloor, journalFloor, SINCE_START } from "@/lib/journal-start";
 import { setupBreakdowns, SETUP_WIDGETS } from "@/lib/analytics/setup";
 import { TIMING_WIDGETS, timingBreakdowns } from "@/lib/analytics/timing";
 import { RISK_WIDGETS, riskBreakdowns } from "@/lib/analytics/risk";
@@ -55,11 +56,17 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const hidden = await getSetting<string[]>("analytics_hidden", []);
   const now = Date.now();
 
-  const rawPeriod = one(sp.period) ?? "all";
+  // with a journal start, the default view is "Since start"; All time still looks further back
+  const defaultPeriod = active.journalStart !== null ? SINCE_START : "all";
+  const rawPeriod = one(sp.period) ?? defaultPeriod;
   const from = one(sp.from);
   const to = one(sp.to);
   const custom = rawPeriod === "custom" && !!from && DATE.test(from);
-  const period = custom ? "custom" : (PERIODS as readonly string[]).includes(rawPeriod) ? rawPeriod : "all";
+  const period = custom
+    ? "custom"
+    : (PERIODS as readonly string[]).includes(rawPeriod)
+      ? rawPeriod
+      : defaultPeriod;
   const unit = one(sp.unit) === "r" ? "r" : "usd";
   const rawSection = one(sp.section);
   const section =
@@ -86,16 +93,29 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     start = periodRange(period as Period, now, tz).from;
   }
 
-  const all = await analyticsTrades(getDb(), active.id, walletId);
+  const floor = journalFloor(active.journalStart, period);
+  start = clampStart(start, floor);
+  const all = fromFloor(await analyticsTrades(getDb(), active.id, walletId), floor);
   // Risk & execution opens with the risk-adjusted card (daily returns need the plain closed trades and the balance)
   const risk =
     section === "risk"
       ? await Promise.all([
           closedTrades(getDb(), active.id, walletId),
           balanceInputs(getDb(), active.id, walletId),
-        ]).then(([closed, bal]) =>
-          computeRisk(closed, bal, walletId ? 0 : active.startingBalance, { from: start, to: end, tz, now }),
-        )
+        ]).then(([closedAll, bal]) => {
+          const closed = fromFloor(closedAll, floor);
+          return computeRisk(
+            closed,
+            bal,
+            baseAtFloor(closedAll, floor, walletId ? 0 : active.startingBalance),
+            {
+              from: start,
+              to: end,
+              tz,
+              now,
+            },
+          );
+        })
       : null;
   const trades = all.filter(
     (t) => (start === null || t.exitTime >= start) && (end === null || t.exitTime < end),
@@ -244,7 +264,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Analytics</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <DashboardControls params={params} base="/analytics" defaultPeriod="all" />
+          <DashboardControls
+            params={params}
+            base="/analytics"
+            defaultPeriod={defaultPeriod}
+            hasStart={active.journalStart !== null}
+          />
           {section !== "insights" && <CustomizeWidgets widgets={widgets} hidden={hidden} />}
         </div>
       </div>
@@ -262,7 +287,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           ) : (
             <Link
               key={s.id}
-              href={dashHref(params, { section: s.id === "setup" ? undefined : s.id }, "/analytics", "all")}
+              href={dashHref(
+                params,
+                { section: s.id === "setup" ? undefined : s.id },
+                "/analytics",
+                defaultPeriod,
+              )}
               aria-current={section === s.id ? "page" : undefined}
               className={cn(
                 "-mb-px border-b-2 px-3 py-1.5 text-sm",

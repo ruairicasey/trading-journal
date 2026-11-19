@@ -13,6 +13,7 @@ import { balanceInputs, closedTrades } from "@/server/db/queries/dashboard";
 import { computeKpis } from "@/lib/stats";
 import { fmtPct, fmtR, fmtSignedUsd, fmtUsd, pnlClass } from "@/lib/format";
 import { reportRange } from "@/lib/report-range";
+import { baseAtFloor, fromFloor } from "@/lib/journal-start";
 import { cn } from "@/lib/utils";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
@@ -44,14 +45,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     return <EmptyState icon={FileText} title="No account" body="Create an account in Settings first." />;
   const tz = await getSetting("timezone", getConfig().timezone);
   const now = Date.now();
-  const range = reportRange(sp, now, tz);
+  const range = reportRange(sp, now, tz, "month", active.journalStart);
   const db = getDb();
-  const [all, rich, closed, bal] = await Promise.all([
+  const [all, richAll, closedAll, bal] = await Promise.all([
     reportTrades(db, active.id, walletId),
     analyticsTrades(db, active.id, walletId, { light: true }),
     closedTrades(db, active.id, walletId),
     balanceInputs(db, active.id, walletId),
   ]);
+  // the journal start's floor applies to the context trades too (insights, scores, risk)
+  const rich = fromFloor(richAll, range.floor);
+  const closed = fromFloor(closedAll, range.floor);
   const trades = all.filter(range.inRange);
   const richIn = rich.filter(range.inRange);
   const k = computeKpis(trades.map((t) => ({ ...t, fees: t.fees ?? 0 })));
@@ -68,7 +72,13 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <div className="flex flex-wrap items-center justify-between gap-2" data-print="hide">
         <h1 className="text-lg font-semibold">Reports</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <DashboardControls params={range.params} base="/reports" defaultPeriod="month" showUnit={false} />
+          <DashboardControls
+            params={range.params}
+            base="/reports"
+            defaultPeriod="month"
+            showUnit={false}
+            hasStart={active.journalStart !== null}
+          />
           <PrintButton />
         </div>
       </div>
@@ -127,12 +137,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </section>
 
           <RiskCard
-            m={computeRisk(closed, bal, walletId ? 0 : active.startingBalance, {
-              from: range.start,
-              to: range.end,
-              tz,
-              now,
-            })}
+            m={computeRisk(
+              closed,
+              bal,
+              baseAtFloor(closedAll, range.floor, walletId ? 0 : active.startingBalance),
+              {
+                from: range.start,
+                to: range.end,
+                tz,
+                now,
+              },
+            )}
             title="Risk-adjusted"
           />
           <ScoresCard s={scores(richIn, rich, tz)} title="Scores" />

@@ -16,17 +16,19 @@ type Account = {
   startingBalance: number;
   standardRiskPct: number;
   currency: string;
+  /** YYYY-MM-DD in your timezone, or "" */
+  journalStartDate: string;
 };
 
-export function AccountsEditor({ accounts }: { accounts: Account[] }) {
+export function AccountsEditor({ accounts, timezone }: { accounts: Account[]; timezone: string }) {
   const [adding, setAdding] = useState(accounts.length === 0);
   return (
     <div className="space-y-4">
       {accounts.map((a) => (
-        <AccountForm key={a.id} account={a} canArchive={accounts.length > 1} />
+        <AccountForm key={a.id} account={a} canArchive={accounts.length > 1} timezone={timezone} />
       ))}
       {adding ? (
-        <AccountForm onDone={() => setAdding(false)} />
+        <AccountForm onDone={() => setAdding(false)} timezone={timezone} />
       ) : (
         <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
           <Plus className="size-4" /> New account
@@ -36,7 +38,17 @@ export function AccountsEditor({ accounts }: { accounts: Account[] }) {
   );
 }
 
-function AccountForm({ account, canArchive, onDone }: { account?: Account; canArchive?: boolean; onDone?: () => void }) {
+function AccountForm({
+  account,
+  canArchive,
+  onDone,
+  timezone,
+}: {
+  account?: Account;
+  canArchive?: boolean;
+  onDone?: () => void;
+  timezone: string;
+}) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [type, setType] = useState<Account["type"]>(account?.type ?? "crypto");
@@ -60,6 +72,7 @@ function AccountForm({ account, canArchive, onDone }: { account?: Account; canAr
                   startingBalance: String(fd.get("startingBalance") ?? "0"),
                   standardRiskPct: String(fd.get("standardRiskPct") ?? "1"),
                   currency: String(fd.get("currency") ?? "USD"),
+                  journalStartDate: String(fd.get("journalStartDate") ?? ""),
                 });
                 setMsg("Saved");
                 onDone?.();
@@ -85,13 +98,33 @@ function AccountForm({ account, canArchive, onDone }: { account?: Account; canAr
             </Select>
           </Field>
           <Field label="Starting balance">
-            <Input name="startingBalance" type="number" step="any" min={0} defaultValue={account?.startingBalance ?? 0} />
+            <Input
+              name="startingBalance"
+              type="number"
+              step="any"
+              min={0}
+              defaultValue={account?.startingBalance ?? 0}
+            />
           </Field>
           <Field label="Standard risk % per trade">
-            <Input name="standardRiskPct" type="number" step="any" min={0} max={100} defaultValue={account?.standardRiskPct ?? 1} />
+            <Input
+              name="standardRiskPct"
+              type="number"
+              step="any"
+              min={0}
+              max={100}
+              defaultValue={account?.standardRiskPct ?? 1}
+            />
           </Field>
           <Field label="Currency">
             <Input name="currency" defaultValue={account?.currency ?? "USD"} maxLength={8} />
+          </Field>
+          <Field label="Journal starts on">
+            <Input name="journalStartDate" type="date" defaultValue={account?.journalStartDate ?? ""} />
+            <span className="text-muted-foreground text-xs">
+              Stats, reports and lists use trades opened from midnight that day ({timezone}). Choose All time
+              to see older ones. Leave empty to use everything.
+            </span>
           </Field>
           <div className="flex items-end gap-2 sm:col-span-2">
             <Button type="submit" size="sm" disabled={pending}>

@@ -82,6 +82,8 @@ export const accounts = sqliteTable("accounts", {
   startingBalance: real("starting_balance").notNull().default(0),
   standardRiskPct: real("standard_risk_pct").notNull().default(1),
   currency: text("currency").notNull().default("USD"),
+  /** "Journal starts on": views hide trades opened before this (UTC ms) unless set to All time; null = no floor */
+  journalStart: integer("journal_start"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   sort: integer("sort").notNull().default(0),
   createdAt: createdAt(),

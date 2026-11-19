@@ -5,7 +5,8 @@ export const DASH_PERIODS = [
   { id: "week", label: "Week" },
   { id: "month", label: "Month" },
   { id: "year", label: "Year" },
-  { id: "all", label: "All" },
+  { id: "start", label: "Since start" },
+  { id: "all", label: "All time" },
 ] as const;
 
 export type DashParams = { period: string; from?: string; to?: string; unit: "usd" | "r"; month?: string; week?: string; section?: string };

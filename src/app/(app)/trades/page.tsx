@@ -11,6 +11,7 @@ import { listSavedFilters, pickSaved } from "@/server/trades/saved-filters";
 import { parseSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { PERIOD_LABELS } from "@/lib/periods";
+import { journalFloor, SINCE_START } from "@/lib/journal-start";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { getActiveScope, getSessions, getSetting } from "@/server/db/queries/settings";
@@ -35,10 +36,15 @@ const TAB_LABELS: Record<(typeof TABS)[number], string> = {
   notes: "Notes",
 };
 
-export default async function TradesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function TradesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const filters = parseFilters(await searchParams);
   const { active, wallets, walletId } = await getActiveScope();
-  if (!active) return <EmptyState icon={ListOrdered} title="No account" body="Create an account in Settings first." />;
+  if (!active)
+    return <EmptyState icon={ListOrdered} title="No account" body="Create an account in Settings first." />;
 
   const db = getDb();
   const [tz, sessions, options, savedFilters] = await Promise.all([
@@ -51,11 +57,21 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
   const current = pickSaved(filters);
   const params = Object.fromEntries(Object.entries(current).map(([k, v]) => [k, String(v)]));
   const sameAs = (f: Record<string, unknown>) =>
-    Object.keys(f).length === Object.keys(current).length && Object.entries(f).every(([k, v]) => params[k] === String(v));
-  const savedChips = savedFilters.map((sf) => ({ id: sf.id, name: sf.name, href: tradesHref(sf.filters), active: sameAs(sf.filters) }));
+    Object.keys(f).length === Object.keys(current).length &&
+    Object.entries(f).every(([k, v]) => params[k] === String(v));
+  const savedChips = savedFilters.map((sf) => ({
+    id: sf.id,
+    name: sf.name,
+    href: tradesHref(sf.filters),
+    active: sameAs(sf.filters),
+  }));
   const isNotes = filters.tab === "notes";
   const [trades, notesCount, notes] = await Promise.all([
-    listTrades(db, active.id, isNotes ? { ...filters, page: 1 } : filters, { tz, walletId }),
+    listTrades(db, active.id, isNotes ? { ...filters, page: 1 } : filters, {
+      tz,
+      walletId,
+      journalStart: active.journalStart,
+    }),
     countNotes(db, active.id, filters.q),
     isNotes ? listNotes(db, active.id, filters) : Promise.resolve(null),
   ]);
@@ -81,6 +97,17 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
     return String(v);
   };
   const pills = FILTER_KEYS.filter((k) => filters[k] !== undefined);
+  // the journal start hides older trades unless the filter asks for All time
+  const floor = journalFloor(active.journalStart, filters.period ?? SINCE_START);
+  const floorLabel =
+    floor === null
+      ? null
+      : new Intl.DateTimeFormat("en-AU", {
+          timeZone: tz,
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }).format(floor);
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
@@ -97,7 +124,9 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
             aria-current={filters.tab === tab ? "page" : undefined}
             className={cn(
               "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
-              filters.tab === tab ? "border-primary text-foreground" : "text-muted-foreground hover:text-foreground border-transparent",
+              filters.tab === tab
+                ? "border-primary text-foreground"
+                : "text-muted-foreground hover:text-foreground border-transparent",
             )}
           >
             {TAB_LABELS[tab]}
@@ -106,9 +135,25 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
         ))}
       </nav>
 
+      {floorLabel && (
+        <p className="text-muted-foreground text-xs" data-testid="journal-start-note">
+          Trades opened from {floorLabel}, your journal start.{" "}
+          <Link
+            href={tradesHref(filters, { period: "all", page: 1 })}
+            className="text-foreground underline underline-offset-2"
+          >
+            Show all time
+          </Link>
+        </p>
+      )}
+
       <TradesToolbar
         filters={filters}
-        options={{ pairs: options.pairs, strategies: options.strategies, sessions: sessions.map((s) => s.name) }}
+        options={{
+          pairs: options.pairs,
+          strategies: options.strategies,
+          sessions: sessions.map((s) => s.name),
+        }}
         activeCount={activeFilterCount(filters)}
       />
 
@@ -123,7 +168,9 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                 aria-pressed={on}
                 className={cn(
                   "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
-                  on ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  on
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {chip.label}
@@ -142,7 +189,10 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
             </Link>
           ))}
           {(pills.length > 0 || filters.q) && (
-            <Link href={tradesHref({ tab: filters.tab })} className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline">
+            <Link
+              href={tradesHref({ tab: filters.tab })}
+              className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+            >
               Clear all
             </Link>
           )}
@@ -156,7 +206,11 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           <EmptyState
             icon={filters.q ? SearchX : ListOrdered}
             title={filters.q ? "No matching notes" : "No notes yet"}
-            body={filters.q ? "Try a different search." : "Notes are for anything not tied to one trade: market reads, weekly reviews, rules."}
+            body={
+              filters.q
+                ? "Try a different search."
+                : "Notes are for anything not tied to one trade: market reads, weekly reviews, rules."
+            }
           />
         )
       ) : trades.rows.length ? (
@@ -164,7 +218,9 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           key={JSON.stringify(params) + (walletId ?? "")}
           rows={trades.rows}
           tz={tz}
-          walletLabels={wallets.length > 1 ? Object.fromEntries(wallets.map((w) => [w.id, w.label])) : undefined}
+          walletLabels={
+            wallets.length > 1 ? Object.fromEntries(wallets.map((w) => [w.id, w.label])) : undefined
+          }
           bulk={{ total: trades.total, params, strategies: options.strategies }}
           terms={parseSearch(filters.q)}
         />

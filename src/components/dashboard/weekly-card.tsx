@@ -18,6 +18,7 @@ export function WeeklyCard({
   prevHref,
   nextHref,
   note,
+  allTime,
 }: {
   week: Week;
   score: WeekScore;
@@ -27,16 +28,25 @@ export function WeeklyCard({
   prevHref: string;
   nextHref: string | null;
   note: Note | null;
+  /** the dashboard looks past the journal start (All time): the links must too */
+  allTime?: boolean;
 }) {
   const r = unit === "r";
   const k = score.kpis;
   const range = new Intl.DateTimeFormat("en-AU", { timeZone: "UTC", day: "numeric", month: "short" });
   const ymd = (d: string) => new Date(`${d}T00:00:00Z`);
   const title = `${range.format(ymd(week.monday))} – ${range.format(ymd(week.sunday))} ${week.sunday.slice(0, 4)}`;
-  const dayName = (d: string) => new Intl.DateTimeFormat("en-AU", { timeZone: "UTC", weekday: "short", day: "numeric" }).format(ymd(d));
+  const dayName = (d: string) =>
+    new Intl.DateTimeFormat("en-AU", { timeZone: "UTC", weekday: "short", day: "numeric" }).format(ymd(d));
   const reviewed = missing.total - missing.review;
   const coverage = missing.total ? reviewed / missing.total : null;
-  const base = { tab: "closed" as const, from: week.monday, to: week.sunday, dateBy: "exit" as const };
+  const base = {
+    tab: "closed" as const,
+    from: week.monday,
+    to: week.sunday,
+    dateBy: "exit" as const,
+    ...(allTime ? { period: "all" as const } : {}),
+  };
   const money = (v: number | null) => <span className={cn("money", pnlClass(v))}>{fmtSignedUsd(v)}</span>;
 
   const draft = {
@@ -61,14 +71,22 @@ export function WeeklyCard({
       <header className="mb-3 flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-medium">Weekly reflection</h2>
         <div className="flex items-center gap-1">
-          <Link href={prevHref} className="text-muted-foreground hover:text-foreground rounded p-0.5" aria-label="Previous week">
+          <Link
+            href={prevHref}
+            className="text-muted-foreground hover:text-foreground rounded p-0.5"
+            aria-label="Previous week"
+          >
             <ChevronLeft className="size-4" />
           </Link>
           <span className="text-xs tabular-nums" data-testid="weekly-range">
             {title}
           </span>
           {nextHref ? (
-            <Link href={nextHref} className="text-muted-foreground hover:text-foreground rounded p-0.5" aria-label="Next week">
+            <Link
+              href={nextHref}
+              className="text-muted-foreground hover:text-foreground rounded p-0.5"
+              aria-label="Next week"
+            >
               <ChevronRight className="size-4" />
             </Link>
           ) : (
@@ -76,7 +94,11 @@ export function WeeklyCard({
               <ChevronRight className="size-4" />
             </span>
           )}
-          {week.isCurrent && <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">This week</span>}
+          {week.isCurrent && (
+            <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
+              This week
+            </span>
+          )}
         </div>
         <div className="flex-1" />
         <WeeklyNoteButton existing={note} draft={draft} />
@@ -87,12 +109,17 @@ export function WeeklyCard({
       ) : (
         <>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
-            <Item label="Net">{r ? <span className={pnlClass(k.totalR)}>{fmtR(k.totalR)}</span> : money(k.net)}</Item>
+            <Item label="Net">
+              {r ? <span className={pnlClass(k.totalR)}>{fmtR(k.totalR)}</span> : money(k.net)}
+            </Item>
             <Item label="Trades" sub={`${k.wins}W / ${k.losses}L / ${k.breakeven}BE`}>
               {k.count}
             </Item>
             <Item label="Win rate">{k.winRate === null ? "—" : `${(k.winRate * 100).toFixed(0)}%`}</Item>
-            <Item label="Avg R" sub={k.rCount ? `median ${fmtR(k.medianR)} · ${k.rCount} with a stop` : "no stops"}>
+            <Item
+              label="Avg R"
+              sub={k.rCount ? `median ${fmtR(k.medianR)} · ${k.rCount} with a stop` : "no stops"}
+            >
               <span className={pnlClass(k.avgR)}>{fmtR(k.avgR)}</span>
             </Item>
             <Item label="Best day" sub={score.bestDay ? dayName(score.bestDay.date) : undefined}>
@@ -102,10 +129,22 @@ export function WeeklyCard({
               {score.worstDay ? money(score.worstDay.net) : "—"}
             </Item>
             <Item label="Best trade" sub={score.bestTrade?.displayPair}>
-              {score.bestTrade ? <TradeLink id={score.bestTrade.id}>{r ? fmtR(score.bestTrade.r) : money(score.bestTrade.netPnl)}</TradeLink> : "—"}
+              {score.bestTrade ? (
+                <TradeLink id={score.bestTrade.id}>
+                  {r ? fmtR(score.bestTrade.r) : money(score.bestTrade.netPnl)}
+                </TradeLink>
+              ) : (
+                "—"
+              )}
             </Item>
             <Item label="Worst trade" sub={score.worstTrade?.displayPair}>
-              {score.worstTrade ? <TradeLink id={score.worstTrade.id}>{r ? fmtR(score.worstTrade.r) : money(score.worstTrade.netPnl)}</TradeLink> : "—"}
+              {score.worstTrade ? (
+                <TradeLink id={score.worstTrade.id}>
+                  {r ? fmtR(score.worstTrade.r) : money(score.worstTrade.netPnl)}
+                </TradeLink>
+              ) : (
+                "—"
+              )}
             </Item>
           </dl>
 
@@ -113,20 +152,35 @@ export function WeeklyCard({
             <div className="flex items-baseline justify-between text-xs">
               <span className="text-muted-foreground">Review coverage</span>
               <span className="tabular-nums" data-testid="review-coverage">
-                {reviewed} of {missing.total} reviewed{coverage !== null && ` · ${(coverage * 100).toFixed(0)}%`}
+                {reviewed} of {missing.total} reviewed
+                {coverage !== null && ` · ${(coverage * 100).toFixed(0)}%`}
               </span>
             </div>
-            <div className="bg-muted mt-1.5 h-1.5 overflow-hidden rounded-full" role="progressbar" aria-valuenow={Math.round((coverage ?? 0) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Review coverage">
-              <div className="bg-primary h-full rounded-full" style={{ width: `${(coverage ?? 0) * 100}%` }} />
+            <div
+              className="bg-muted mt-1.5 h-1.5 overflow-hidden rounded-full"
+              role="progressbar"
+              aria-valuenow={Math.round((coverage ?? 0) * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Review coverage"
+            >
+              <div
+                className="bg-primary h-full rounded-full"
+                style={{ width: `${(coverage ?? 0) * 100}%` }}
+              />
             </div>
             <p className="text-muted-foreground mt-3 mb-1.5 text-xs">Missing context</p>
             <ul className="grid gap-1 text-xs sm:grid-cols-2" data-testid="missing-context">
               {MISSING_KINDS.filter((kind) => kind !== "review").map((kind) => (
                 <li key={kind}>
                   {missing[kind] > 0 ? (
-                    <Link href={tradesHref(base, { missing: kind })} className="hover:bg-muted flex items-center justify-between gap-2 rounded px-1.5 py-1" title={MISSING_LABELS[kind].long}>
+                    <Link
+                      href={tradesHref(base, { missing: kind })}
+                      className="hover:bg-muted flex items-center justify-between gap-2 rounded px-1.5 py-1"
+                      title={MISSING_LABELS[kind].long}
+                    >
                       <span>{MISSING_LABELS[kind].short}</span>
-                      <span className="tabular-nums font-medium">{missing[kind]} →</span>
+                      <span className="font-medium tabular-nums">{missing[kind]} →</span>
                     </Link>
                   ) : (
                     <span className="text-muted-foreground flex items-center justify-between gap-2 px-1.5 py-1">
@@ -138,7 +192,10 @@ export function WeeklyCard({
               ))}
               {missing.review > 0 && (
                 <li className="sm:col-span-2">
-                  <Link href={tradesHref(base, { missing: "review" })} className="text-sky-400 hover:underline px-1.5 text-xs">
+                  <Link
+                    href={tradesHref(base, { missing: "review" })}
+                    className="px-1.5 text-xs text-sky-400 hover:underline"
+                  >
                     Review the {missing.review} unreviewed trade{missing.review === 1 ? "" : "s"} →
                   </Link>
                 </li>

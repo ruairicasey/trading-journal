@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ file: st
   // `at`: the time the Reports page was built (so a rolling period matches the page); never in the future
   const at = Number(sp.at);
   const now = Number.isInteger(at) && at > 0 && at <= Date.now() ? at : Date.now();
-  const range = reportRange(sp, now, tz);
+  const range = reportRange(sp, now, tz, "month", active.journalStart);
   const trades = (await reportTrades(getDb(), active.id, walletId)).filter(range.inRange);
   const body = kind === "trades" ? tradesCsv(trades, tz) : monthlyCsv(monthly(trades, tz));
   const stamp = new Date().toISOString().slice(0, 10);

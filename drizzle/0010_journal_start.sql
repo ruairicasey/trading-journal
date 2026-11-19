@@ -1,0 +1,1 @@
+ALTER TABLE `accounts` ADD `journal_start` integer;

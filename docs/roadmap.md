@@ -36,6 +36,10 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   pair, notes, reflection, tags, strategy, confluences, mistakes, reasons, emotions, captions and stop-move notes, with
   highlighted snippets.
 
+- ~~Journal start date~~ **done**: Settings → Accounts → "Journal starts on". Every view uses only trades opened on or after
+  it (the new "Since start" period is Analytics' default); "All time" looks further back. Nothing is deleted; sync is
+  unaffected; the balance curve starts at the real balance on that date.
+
 ## Phase 3: insights and reports
 
 - ~~Rule-based insights (revenge trades, tilt, worst hour/day, missing stops…) ranked by $ impact~~ **done**: Analytics →

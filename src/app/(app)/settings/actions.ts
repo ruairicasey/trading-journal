@@ -6,9 +6,16 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { getConfig } from "@/server/config";
+import { dayBoundsLocal, localDateKey } from "@/lib/periods";
 import { getDb } from "@/server/db/client";
 import * as s from "@/server/db/schema";
-import { ACTIVE_ACCOUNT_COOKIE, ACTIVE_WALLET_COOKIE, getSetting, setSetting } from "@/server/db/queries/settings";
+import {
+  ACTIVE_ACCOUNT_COOKIE,
+  ACTIVE_WALLET_COOKIE,
+  getSetting,
+  setSetting,
+} from "@/server/db/queries/settings";
 
 const kind = z.enum(s.VOCAB_KINDS);
 const label = z.string().trim().min(1).max(120);
@@ -32,7 +39,9 @@ export async function addVocabItem(input: { kind: string; label: string; categor
       ),
     );
   const sort = siblings.reduce((m, r) => Math.max(m, r.sort), -1) + 1;
-  await db.insert(s.vocabItems).values({ kind: p.kind, label: p.label, categoryId: p.categoryId ?? null, sort });
+  await db
+    .insert(s.vocabItems)
+    .values({ kind: p.kind, label: p.label, categoryId: p.categoryId ?? null, sort });
   done();
 }
 
@@ -114,22 +123,48 @@ const AccountInput = z.object({
   startingBalance: z.coerce.number().min(0).max(1e12),
   standardRiskPct: z.coerce.number().min(0).max(100),
   currency: z.string().trim().min(1).max(8).default("USD"),
+  /** "Journal starts on" as a local date (YYYY-MM-DD, in your timezone), or empty for none */
+  journalStartDate: z
+    .string()
+    .trim()
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/, "Pick a date")
+    .optional(),
 });
 
 export async function saveAccount(input: { id?: string } & z.input<typeof AccountInput>) {
   const { id, ...rest } = input;
-  const p = AccountInput.parse(rest);
+  const { journalStartDate, ...fields } = AccountInput.parse(rest);
+  const tz = await getSetting("timezone", getConfig().timezone);
+  // midnight at the start of that day in your timezone; empty clears it (no floor)
+  const journalStart =
+    journalStartDate === undefined
+      ? undefined
+      : journalStartDate
+        ? (dayBoundsLocal(journalStartDate, tz)?.start ?? null)
+        : null;
+  if (journalStartDate && journalStart === null) throw new Error("That date isn't valid.");
+  const p = { ...fields, ...(journalStart === undefined ? {} : { journalStart }) };
   const db = getDb();
-  if (id) await db.update(s.accounts).set(p).where(eq(s.accounts.id, idStr.parse(id)));
+  if (id)
+    await db
+      .update(s.accounts)
+      .set(p)
+      .where(eq(s.accounts.id, idStr.parse(id)));
   else await db.insert(s.accounts).values(p);
   revalidatePath("/", "layout");
 }
 
 export async function archiveAccount(id: string) {
   const db = getDb();
-  const active = await db.select({ id: s.accounts.id }).from(s.accounts).where(eq(s.accounts.archived, false));
+  const active = await db
+    .select({ id: s.accounts.id })
+    .from(s.accounts)
+    .where(eq(s.accounts.archived, false));
   if (active.length <= 1) throw new Error("You need at least one active account.");
-  await db.update(s.accounts).set({ archived: true }).where(eq(s.accounts.id, idStr.parse(id)));
+  await db
+    .update(s.accounts)
+    .set({ archived: true })
+    .where(eq(s.accounts.id, idStr.parse(id)));
   revalidatePath("/", "layout");
 }
 
@@ -171,7 +206,11 @@ const Session = z.object({
   }, "Unknown time zone"),
 });
 
-export async function saveGeneralSettings(input: { timezone: string; sessions: z.input<typeof Session>[]; includeFunding?: boolean }) {
+export async function saveGeneralSettings(input: {
+  timezone: string;
+  sessions: z.input<typeof Session>[];
+  includeFunding?: boolean;
+}) {
   const p = z
     .object({
       timezone: z.string().refine((tz) => {
@@ -186,7 +225,18 @@ export async function saveGeneralSettings(input: { timezone: string; sessions: z
       includeFunding: z.boolean().optional(),
     })
     .parse(input);
+  const oldTz = await getSetting("timezone", getConfig().timezone);
   await setSetting("timezone", p.timezone);
+  if (oldTz !== p.timezone) {
+    // "Journal starts on" is a calendar day: keep it the same day, at midnight in the new timezone
+    const db = getDb();
+    for (const a of await db.select({ id: s.accounts.id, js: s.accounts.journalStart }).from(s.accounts)) {
+      if (a.js === null) continue;
+      const moved = dayBoundsLocal(localDateKey(a.js, oldTz), p.timezone)?.start;
+      if (moved !== undefined && moved !== a.js)
+        await db.update(s.accounts).set({ journalStart: moved }).where(eq(s.accounts.id, a.id));
+    }
+  }
   await setSetting("sessions", p.sessions);
   if (p.includeFunding !== undefined) {
     const before = (await getSetting<boolean>(INCLUDE_FUNDING_KEY, true)) !== false;

@@ -30,6 +30,7 @@ import { getDb } from "@/server/db/client";
 import { balanceInputs, closedTrades, openTrades } from "@/server/db/queries/dashboard";
 import { getActiveScope, getSetting } from "@/server/db/queries/settings";
 import { fmtUsd } from "@/lib/format";
+import { baseAtFloor, clampStart, fromFloor, journalFloor, SINCE_START } from "@/lib/journal-start";
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -82,13 +83,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // the starting balance is the whole account's: one wallet on its own starts from $0 (realised P&L only)
   const startBal = walletId ? 0 : active.startingBalance;
   const db = getDb();
-  const [all, open, bal, rich] = await Promise.all([
+  const [allTrades, open, bal, richAll] = await Promise.all([
     closedTrades(db, active.id, walletId),
     openTrades(db, active.id, walletId),
     balanceInputs(db, active.id, walletId),
     analyticsTrades(db, active.id, walletId, { light: true }),
   ]);
-  if (all.length === 0 && open.length === 0) {
+  // journal start: views hide trades opened before it unless the period is All time (src/lib/journal-start.ts)
+  const floor = journalFloor(active.journalStart, period);
+  start = clampStart(start, floor);
+  const all = fromFloor(allTrades, floor);
+  // without a ledger the curve is rebuilt from trades: start it at the real balance at the floor
+  const base = baseAtFloor(allTrades, floor, startBal);
+  const rich = fromFloor(richAll, floor);
+  if (allTrades.length === 0 && open.length === 0) {
     return (
       <div className="space-y-4">
         <h1 className="text-lg font-semibold">Dashboard</h1>
@@ -108,7 +116,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const balanceView = unit === "usd" && bal !== null;
   const curve = balanceView
     ? balanceCurve(all, bal.flows, bal.cash, { from: start, to: end })
-    : equityCurve(end === null ? all : all.filter((t) => t.exitTime < end), startBal, start);
+    : equityCurve(end === null ? all : all.filter((t) => t.exitTime < end), base, start);
   const lastPoint = curve.at(-1);
   const deposited: number | null = balanceView && lastPoint ? (lastPoint as BalancePoint).deposited : null;
   const cal = calendarMonth(all, cy, cm, tz);
@@ -119,7 +127,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return `${y}-${String(mm).padStart(2, "0")}`;
   };
   // drawdown: computed over all history (the running peak includes earlier trades), shown for the period
-  const underwater = underwaterSeries(end === null ? all : all.filter((t) => t.exitTime < end), startBal);
+  const underwater = underwaterSeries(
+    end === null ? all : all.filter((t) => t.exitTime < end),
+    startBal > 0 ? base : startBal,
+  );
   const dd = drawdownStats(underwater, { from: start, to: end, now });
   const ddPoints = sliceUnderwater(underwater, start);
 
@@ -132,7 +143,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     score = weekScore(all, week, tz);
   }
   const [missing, note] = await Promise.all([
-    missingCounts(db, active.id, week.start, week.end, walletId),
+    missingCounts(db, active.id, week.start, week.end, walletId, floor),
     weeklyNote(db, active.id, week.start, week.end),
   ]);
   const richInRange = rich.filter(
@@ -140,7 +151,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   );
   const leaks = insights(richInRange, rich, tz).list.slice(0, 3);
   const sc = richInRange.length ? scores(richInRange, rich, tz) : null;
-  const risk = inRange.length ? computeRisk(all, bal, startBal, { from: start, to: end, tz, now }) : null;
+  const risk = inRange.length ? computeRisk(all, bal, base, { from: start, to: end, tz, now }) : null;
 
   const recent = [...all].sort((a, b) => b.exitTime - a.exitTime).slice(0, 7);
   const dateFmt = new Intl.DateTimeFormat("en-AU", {
@@ -157,7 +168,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Dashboard</h1>
-        <DashboardControls params={params} />
+        <DashboardControls params={params} hasStart={active.journalStart !== null} />
       </div>
 
       <OpenTradesBanner trades={open} demo={getConfig().isDemo} />
@@ -190,7 +201,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 { ...params, month: undefined, week: undefined },
                 { section: "insights" },
                 "/analytics",
-                "all",
+                active.journalStart !== null ? SINCE_START : "all", // Analytics' own default, so All time survives
               )}
               className="text-xs text-sky-400 hover:underline"
             >
@@ -204,6 +215,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <WeeklyCard
+            allTime={floor === null && active.journalStart !== null}
             week={week}
             score={score}
             missing={missing}
@@ -253,7 +265,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               )}
             </span>
           </header>
-          <EquityChart points={curve} unit={unit} baseline={startBal} tz={tz} />
+          <EquityChart points={curve} unit={unit} baseline={base} tz={tz} />
         </section>
         <RecentTrades trades={recent} tz={tz} unit={unit} />
       </div>

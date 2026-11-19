@@ -2,13 +2,14 @@
  * Trades list / notes / search queries for the Trades page and ⌘K.
  * Always scoped to one account and always excludes soft-deleted and superseded trades.
  */
-import { and, asc, desc, eq, gte, isNull, lt, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lt, ne, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { BE_MIN_USD, BE_NOTIONAL_FRACTION } from "../../../lib/outcome";
 import { MISSING_KINDS, type MissingKind } from "../../../lib/missing";
 import { dayBoundsLocal, periodRange } from "../../../lib/periods";
 import { PAGE_SIZE, type TradeFilters } from "../../trades/filters";
 import { parseSearch } from "../../../lib/search";
+import { journalFloor, SINCE_START } from "../../../lib/journal-start";
 import type { DB } from "../client";
 import * as s from "../schema";
 
@@ -73,16 +74,38 @@ export function missingCondition(kind: MissingKind): SQL {
 }
 
 /** Per-kind missing-context counts over closed trades that EXITED in [start, end). */
-export async function missingCounts(db: DB, accountId: string, start: number, end: number, walletId: string | null = null) {
+export async function missingCounts(
+  db: DB,
+  accountId: string,
+  start: number,
+  end: number,
+  walletId: string | null = null,
+  /** the journal start's floor: trades opened before it don't count (same rule as the stats) */
+  floor: number | null = null,
+) {
   const cols = Object.fromEntries(
-    MISSING_KINDS.map((k) => [k, sql<number>`coalesce(sum(case when ${missingCondition(k)} then 1 else 0 end), 0)`]),
+    MISSING_KINDS.map((k) => [
+      k,
+      sql<number>`coalesce(sum(case when ${missingCondition(k)} then 1 else 0 end), 0)`,
+    ]),
   ) as Record<MissingKind, SQL<number>>;
   const [row] = await db
     .select({ total: sql<number>`count(*)`, ...cols })
     .from(t)
     .leftJoin(j, eq(j.tradeId, t.id))
-    .where(and(...baseConditions(accountId, walletId), eq(t.status, "closed"), gte(t.exitTime, start), lt(t.exitTime, end)));
-  return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, Number(v ?? 0)])) as Record<MissingKind | "total", number>;
+    .where(
+      and(
+        ...baseConditions(accountId, walletId),
+        eq(t.status, "closed"),
+        gte(t.exitTime, start),
+        lt(t.exitTime, end),
+        ...(floor === null ? [] : [gte(t.entryTime, floor)]),
+      ),
+    );
+  return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, Number(v ?? 0)])) as Record<
+    MissingKind | "total",
+    number
+  >;
 }
 
 function baseConditions(accountId: string, walletId: string | null = null): SQL[] {
@@ -94,9 +117,18 @@ function baseConditions(accountId: string, walletId: string | null = null): SQL[
   ];
 }
 
-/** All non-tab filter conditions. */
-function filterConditions(f: TradeFilters, tz: string, now: number): SQL[] {
+/** All non-tab filter conditions. `journalStart`: the account's floor (see src/lib/journal-start.ts); it's ignored
+ *  only when the filter asks for All time (dates combine with it). Planned trades (no entry yet) are kept. */
+function filterConditions(
+  f: TradeFilters,
+  tz: string,
+  now: number,
+  journalStart: number | null = null,
+): SQL[] {
   const c: SQL[] = [];
+  const floor = journalFloor(journalStart, f.period ?? SINCE_START);
+  // same rule as the stats (fromFloor): opened at or after the floor; only not-yet-closed trades without an entry stay
+  if (floor !== null) c.push(or(and(isNull(t.entryTime), ne(t.status, "closed")), gte(t.entryTime, floor))!);
   if (f.pair) c.push(eq(t.coin, f.pair));
   if (f.dir) c.push(eq(t.direction, f.dir));
   if (f.strategy) c.push(eq(j.strategyId, f.strategy));
@@ -135,9 +167,17 @@ const tabCondition = (tab: TradeFilters["tab"]): SQL[] =>
 
 export type TradeRow = Awaited<ReturnType<typeof listTrades>>["rows"][number];
 
-export async function listTrades(db: DB, accountId: string, f: TradeFilters, opts: { tz: string; now?: number; walletId?: string | null }) {
+export async function listTrades(
+  db: DB,
+  accountId: string,
+  f: TradeFilters,
+  opts: { tz: string; now?: number; walletId?: string | null; journalStart?: number | null },
+) {
   const now = opts.now ?? Date.now();
-  const common = [...baseConditions(accountId, opts.walletId ?? null), ...filterConditions(f, opts.tz, now)];
+  const common = [
+    ...baseConditions(accountId, opts.walletId ?? null),
+    ...filterConditions(f, opts.tz, now, opts.journalStart ?? null),
+  ];
   const from = () =>
     db
       .select({
@@ -221,13 +261,24 @@ export async function listTrades(db: DB, accountId: string, f: TradeFilters, opt
 }
 
 /** Every trade id the filters match (all pages, current tab), newest first, for "select all matching". */
-export async function matchingTradeIds(db: DB, accountId: string, f: TradeFilters, opts: { tz: string; now?: number; walletId?: string | null; limit: number }) {
+export async function matchingTradeIds(
+  db: DB,
+  accountId: string,
+  f: TradeFilters,
+  opts: { tz: string; now?: number; walletId?: string | null; limit: number; journalStart?: number | null },
+) {
   const rows = await db
     .select({ id: t.id })
     .from(t)
     .leftJoin(j, eq(j.tradeId, t.id))
     .leftJoin(strategy, eq(strategy.id, j.strategyId))
-    .where(and(...baseConditions(accountId, opts.walletId ?? null), ...filterConditions(f, opts.tz, opts.now ?? Date.now()), ...tabCondition(f.tab)))
+    .where(
+      and(
+        ...baseConditions(accountId, opts.walletId ?? null),
+        ...filterConditions(f, opts.tz, opts.now ?? Date.now(), opts.journalStart ?? null),
+        ...tabCondition(f.tab),
+      ),
+    )
     .orderBy(desc(sql`coalesce(${t.entryTime}, ${t.createdAt})`), desc(t.id))
     .limit(opts.limit);
   return rows.map((r) => r.id);
@@ -249,7 +300,10 @@ export async function listNotes(db: DB, accountId: string, f: Pick<TradeFilters,
       .orderBy(desc(n.date), desc(n.createdAt))
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE),
-    db.select({ n: sql<number>`count(*)` }).from(n).where(and(...c)),
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(n)
+      .where(and(...c)),
   ]);
   return { rows, total: Number(total[0]?.n ?? 0), page, pageSize: PAGE_SIZE };
 }
@@ -276,7 +330,12 @@ export async function filterOptions(db: DB, accountId: string, walletId: string 
 }
 
 /** ⌘K live results. */
-export async function searchEverything(db: DB, accountId: string, q: string, opts: { tz: string; walletId?: string | null }) {
+export async function searchEverything(
+  db: DB,
+  accountId: string,
+  q: string,
+  opts: { tz: string; walletId?: string | null },
+) {
   if (!q.trim()) return { trades: [], notes: [] };
   const base = { tab: "all" as const, page: 1, q };
   const [tr, no] = await Promise.all([

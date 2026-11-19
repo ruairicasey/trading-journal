@@ -35,11 +35,25 @@ async function main() {
   for (const [ai, acc] of (await db.select().from(s.accounts)).entries()) {
     const gaps: number[] = [];
     const [all, bal] = await Promise.all([closedTrades(db, acc.id, null), balanceInputs(db, acc.id, null)]);
-    for (const label of ["all", ...starts]) {
-      const from = label === "all" ? null : dayBoundsLocal(label, tz)!.start;
-      const m = computeRisk(all, bal, acc.startingBalance, { from, to: null, tz, now });
+    const js = acc.journalStart;
+    if (js !== null) {
+      // journal start: trades opened before + on/after it must add up to all closed trades, in count and net
+      const before = all.filter((t) => t.entryTime === null || t.entryTime < js);
+      const after = all.filter((t) => t.entryTime !== null && t.entryTime >= js);
+      const sum = (xs: typeof all) => xs.reduce((x, t) => x + t.netPnl, 0);
+      const total = sum(all);
       console.log(
-        `\naccount ${ai + 1} · ${label === "all" ? "all time" : `since ${label}`} · basis ${m.basis} · ${m.days.length} days with capital · ${m.trades} trades`,
+        `
+account ${ai + 1} · journal start ${new Date(js).toISOString()} · before ${before.length} (${pc(sum(before) / total)} of all-time net) + after ${after.length} (${pc(sum(after) / total)}) = ${before.length + after.length} of ${all.length} trades · net ${Math.abs(sum(before) + sum(after) - total) < 0.005 ? "adds up" : "DOES NOT add up"}`,
+      );
+    }
+    for (const label of [...(js !== null ? ["start"] : []), "all", ...starts]) {
+      const from = label === "all" ? null : label === "start" ? js : dayBoundsLocal(label, tz)!.start;
+      // the "start" view: only trades opened on/after the journal start (what the app shows by default)
+      const view = label === "start" ? all.filter((t) => t.entryTime !== null && t.entryTime >= js!) : all;
+      const m = computeRisk(view, bal, acc.startingBalance, { from, to: null, tz, now });
+      console.log(
+        `\naccount ${ai + 1} · ${label === "all" ? "all time" : label === "start" ? "since journal start (default view)" : `since ${label}`} · basis ${m.basis} · ${m.days.length} days with capital · ${m.trades} trades`,
       );
       console.log(
         `  Sharpe ${f2(m.sharpe)} · Sortino ${f2(m.sortino)} · return ${pc(m.totalReturn)} (annualised ${pc(m.annualised)})`,
@@ -50,7 +64,7 @@ async function main() {
       console.log(
         `  expectancy ${f2(m.expectancyR)}R (${m.rCount} with a stop) · payoff ${f2(m.payoff)} · SQN ${f2(m.sqn)}`,
       );
-      const net = all.filter((t) => from === null || t.exitTime >= from).reduce((x, t) => x + t.netPnl, 0);
+      const net = view.filter((t) => from === null || t.exitTime >= from).reduce((x, t) => x + t.netPnl, 0);
       const gap = m.pnl - net;
       gaps.push(gap);
       console.log(

@@ -21,12 +21,15 @@ export function DashboardControls({
   base = "/dashboard",
   defaultPeriod = "30d",
   showUnit = true,
+  hasStart = false,
 }: {
   params: DashParams;
   base?: string;
   defaultPeriod?: string;
   /** off where the page has no R view (Reports) */
   showUnit?: boolean;
+  /** the account has a journal start: show "Since start" (else it would be the same as All time) */
+  hasStart?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -35,7 +38,7 @@ export function DashboardControls({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <nav aria-label="Period" className="bg-muted/40 inline-flex rounded-md border p-0.5">
-        {DASH_PERIODS.map((p) => (
+        {DASH_PERIODS.filter((p) => hasStart || p.id !== "start").map((p) => (
           <Link
             key={p.id}
             href={dashHref(params, { period: p.id }, base, defaultPeriod)}

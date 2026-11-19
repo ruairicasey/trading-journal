@@ -4,12 +4,20 @@
  */
 import { DASH_PERIODS, type DashParams } from "./dashboard-params";
 import { dayBoundsLocal, periodRange, PERIODS, type Period } from "./periods";
+import { clampStart, journalFloor } from "./journal-start";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-export function reportRange(sp: SP, now: number, tz: string, defaultPeriod: Period = "month") {
+/** `journalStart`: the account's "Journal starts on" (trades opened earlier are left out unless the period is All time). */
+export function reportRange(
+  sp: SP,
+  now: number,
+  tz: string,
+  defaultPeriod: Period = "month",
+  journalStart: number | null = null,
+) {
   const raw = one(sp.period) ?? defaultPeriod;
   const from = one(sp.from);
   const to = one(sp.to);
@@ -27,6 +35,8 @@ export function reportRange(sp: SP, now: number, tz: string, defaultPeriod: Peri
     start = dayBoundsLocal(from!, tz)!.start;
     end = params.to ? (dayBoundsLocal(params.to, tz)?.end ?? null) : null;
   } else start = periodRange(period as Period, now, tz).from;
+  const floor = journalFloor(journalStart, period);
+  start = clampStart(start, floor);
   const label = custom
     ? `${from} → ${params.to ?? "now"}`
     : (DASH_PERIODS.find((p) => p.id === period)?.label ?? period);
@@ -45,7 +55,11 @@ export function reportRange(sp: SP, now: number, tz: string, defaultPeriod: Peri
     label,
     qs,
     /** the report is as of `now`: exits after it (e.g. a sync between the page and a download) are left out */
-    inRange: (t: { exitTime: number }) =>
-      (start === null || t.exitTime >= start) && (end === null || t.exitTime < end) && t.exitTime <= now,
+    floor,
+    inRange: (t: { exitTime: number; entryTime?: number | null }) =>
+      (floor === null || (t.entryTime != null && t.entryTime >= floor)) &&
+      (start === null || t.exitTime >= start) &&
+      (end === null || t.exitTime < end) &&
+      t.exitTime <= now,
   };
 }
