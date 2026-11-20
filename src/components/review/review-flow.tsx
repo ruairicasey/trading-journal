@@ -10,12 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Direction } from "@/components/trades/direction";
 import { StrategyField } from "@/components/trade-form/basic-tab";
 import { Field } from "@/components/trade-form/fields";
+import { RulesChecklist } from "@/components/trade-form/rules-checklist";
 import { Screenshots } from "@/components/trade-form/screenshots";
 import { initialDraft } from "@/components/trade-form/types";
 import { ChipSelect, VocabPicker } from "@/components/trade-form/vocab-picker";
 import { GRADES } from "@/lib/enums";
 import { fmtDateTime, fmtDuration, fmtPct, fmtR, fmtSignedUsd, pnlClass } from "@/lib/format";
 import { rMultiple } from "@/lib/outcome";
+import { afterStrategyChange } from "@/lib/rules-check";
 import { cn } from "@/lib/utils";
 import type { TradeEditData } from "@/server/trades/journal";
 import type { ReviewFields } from "@/server/trades/review";
@@ -41,6 +43,8 @@ function fieldsOf(d: TradeEditData): ReviewFields {
     exitReasonId: dr.notes.exitReasonId,
     mistakes: dr.notes.mistakes,
     postNotes: dr.notes.postNotes,
+    rulesFollowed: dr.notes.rulesFollowed,
+    rulesCheck: dr.notes.rulesCheck ?? null,
   };
 }
 
@@ -293,7 +297,12 @@ export function ReviewFlow({
               key={`s-${t.id}`}
               strategies={d.strategies}
               value={draft.strategyId}
-              onChange={(strategyId) => patch({ strategyId })}
+              onChange={(strategyId) => patch(afterStrategyChange({ ...draft, strategyId }, strategyId))}
+            />
+            <RulesChecklist
+              strategy={d.strategies.find((x) => x.id === draft.strategyId) ?? null}
+              value={{ rulesCheck: draft.rulesCheck, rulesFollowed: draft.rulesFollowed }}
+              onChange={patch}
             />
             <Field label="Emotion before entry">
               <ChipSelect

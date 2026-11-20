@@ -1,0 +1,1 @@
+ALTER TABLE `trade_journal` ADD `rules_check` text;

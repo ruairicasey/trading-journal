@@ -94,3 +94,9 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   partial ½, no 0 over marked trades) with net split followed / partly or not / not marked. A "No strategy" card means
   the cards add up to the period's closed trades. Counted by exit over whole local days, so each card's "View N trades"
   link opens exactly its trades. Archived strategies show only with trades. `npm run debug:playbook` reconciles it.
+- ~~Rules in the review flow~~ **done**: once a trade has a strategy, "Rules followed?" (review flow and the trade's
+  Notes tab) lists its playbook rules with Kept / Broke for each (click again to unmark). Only marked rules are stored,
+  as a snapshot on the journal (migration 0014 `rules_check`); once every rule is marked the answer follows (all kept
+  Yes, none No, else Partial), and Yes / Partial / No can still be picked by hand. Changing a trade's strategy drops the
+  old check and the answer it gave; a check left by a bulk retag is ignored and never erases an answer. The Playbook
+  shows "kept X of Y" for each rule over the period.

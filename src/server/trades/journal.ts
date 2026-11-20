@@ -6,6 +6,7 @@
  * (and which account the trade belongs to) can change. Manual trades are fully user-owned, so their
  * metrics are recomputed here from the entered values.
  */
+import { RulesCheckSchema } from "../../lib/rules-check";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { DB } from "../db/client";
@@ -68,6 +69,7 @@ export const BasicInputSchema = z.object({
       reflection: z.partialRecord(z.enum(REFLECTION_PROMPTS.map((p) => p.key) as [string, ...string[]]), z.string().max(5_000)),
       tags: z.array(z.string().trim().min(1).max(40)).max(MAX_TAGS),
       rulesFollowed: z.enum(s.RULES_FOLLOWED).nullable(),
+      rulesCheck: RulesCheckSchema.nullable().optional(),
       exitReasonId: id.nullable(),
       emotionAfterId: id.nullable(),
       processCompliant: z.boolean().nullable(),
@@ -113,7 +115,7 @@ export async function loadTradeForEdit(db: DB, accountId: string, tradeId: strin
       .where(and(eq(s.tradeFills.tradeId, tradeId), eq(s.tradeFills.role, "entry")))
       .orderBy(asc(s.tradeFills.time)),
     db
-      .select({ id: s.vocabItems.id, label: s.vocabItems.label, archived: s.vocabItems.archived })
+      .select({ id: s.vocabItems.id, label: s.vocabItems.label, archived: s.vocabItems.archived, rules: s.vocabItems.rules })
       .from(s.vocabItems)
       .where(eq(s.vocabItems.kind, "strategy"))
       .orderBy(asc(s.vocabItems.sort)),
@@ -312,8 +314,12 @@ export async function saveTradeBasic(
   const tpChanged = (input.takeProfit ?? null) !== (base.takeProfit ?? null);
   const partialsChanged = JSON.stringify(input.tpPartials.map((p) => [p.price, p.pct])) !== JSON.stringify(base.tpPartials.map((p) => [p.price, p.pct]));
   const n = input.notes;
+  // a rules check counts only for the trade's strategy. One for another strategy is dropped; when this save changes the
+  // strategy, the answer it gave goes too, otherwise (e.g. after a bulk retag) both stay as stored
+  const staleCheck = !!n?.rulesCheck && n.rulesCheck.strategyId !== input.strategyId;
+  const strategyChanging = (existingJournal?.strategyId ?? null) !== input.strategyId;
   const reviewFilled =
-    !!n && (!!n.postNotes?.trim() || n.rulesFollowed !== null || n.exitReasonId !== null || n.processCompliant !== null || n.mistakes.length > 0);
+    !!n && (!!n.postNotes?.trim() || n.rulesFollowed !== null || (!!n.rulesCheck && !staleCheck) || n.exitReasonId !== null || n.processCompliant !== null || n.mistakes.length > 0);
 
   await db.transaction(async (tx) => {
     // account move is allowed for any trade (sync never rewrites account_id on existing trades)
@@ -387,7 +393,12 @@ export async function saveTradeBasic(
             reflection: Object.fromEntries(
               Object.entries(n.reflection).filter((e): e is [string, string] => typeof e[1] === "string" && e[1].trim() !== ""),
             ),
-            rulesFollowed: n.rulesFollowed,
+            // (rulesCheck undefined: an older client, keep what's stored)
+            ...(staleCheck
+              ? strategyChanging
+                ? { rulesCheck: null, rulesFollowed: null }
+                : {}
+              : { rulesFollowed: n.rulesFollowed, ...(n.rulesCheck === undefined ? {} : { rulesCheck: n.rulesCheck }) }),
             exitReasonId: validSingle(n.exitReasonId, "exit_reason"),
             emotionAfterId: validSingle(n.emotionAfterId, "emotion"),
             processCompliant: n.processCompliant,

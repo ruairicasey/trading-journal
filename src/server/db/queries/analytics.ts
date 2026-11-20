@@ -46,6 +46,7 @@ export async function analyticsTrades(
       maxRReached: j.maxRReached,
       entryRetests: j.entryRetests,
       rulesFollowed: j.rulesFollowed,
+      rulesCheck: j.rulesCheck,
       processCompliant: j.processCompliant,
       reviewedAt: j.reviewedAt,
       exitReasonId: j.exitReasonId,

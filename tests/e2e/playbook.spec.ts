@@ -68,7 +68,7 @@ test.describe("Playbook (demo data)", () => {
     await form.locator('textarea[name="description"]').fill("E2E sweep and reclaim");
     await form.locator('textarea[name="rules"]').fill("- Bias agrees\n\n2) Stop beyond the sweep");
     await form.getByRole("button", { name: "Save" }).click();
-    await expect(mine.getByTestId("strategy-rules").locator("li")).toHaveText([
+    await expect(mine.getByTestId("rule-text")).toHaveText([
       "Bias agrees",
       "Stop beyond the sweep",
     ]);

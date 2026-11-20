@@ -1,5 +1,6 @@
 import type { ClosedTrade } from "../stats";
 import type { StopClass } from "../stop-moves";
+import type { RulesCheck } from "../rules-check";
 
 export type AnalyticsTrade = ClosedTrade & {
   coin: string;
@@ -18,6 +19,8 @@ export type AnalyticsTrade = ClosedTrade & {
   maxRReached: number | null;
   entryRetests: number | null;
   rulesFollowed: "yes" | "partial" | "no" | null;
+  /** which playbook rules you ticked as kept (src/lib/rules-check.ts) */
+  rulesCheck?: RulesCheck | null;
   processCompliant: boolean | null;
   slReasons: { id: string; label: string }[];
   tpReasons: { id: string; label: string }[];

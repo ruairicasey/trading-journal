@@ -18,7 +18,7 @@ beforeAll(async () => {
   await runMigrations(db);
   await seedDefaults(db);
   accountId = (await db.select().from(s.accounts))[0].id;
-  for (const k of ["mistake", "emotion", "exit_reason", "confluence"]) {
+  for (const k of ["mistake", "emotion", "exit_reason", "confluence", "strategy"]) {
     vocab[k] = (await db.select().from(s.vocabItems).where(eq(s.vocabItems.kind, k as s.VocabKind))).map((v) => v.id);
   }
 });
@@ -41,6 +41,8 @@ const empty: ReviewFields = {
   exitReasonId: null,
   mistakes: [],
   postNotes: null,
+  rulesFollowed: null,
+  rulesCheck: null,
 };
 const journal = async () => (await getDb().query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, tradeId) }))!;
 const mistakes = async () =>
@@ -79,6 +81,34 @@ describe("review flow save", () => {
     await saveTradeReview(db, accountId, tradeId, { ...before, exitReasonId: null, mistakes: [vocab.mistake[1]] }, before);
     expect((await journal()).exitReasonId).toBeNull();
     expect(await mistakes()).toEqual([vocab.mistake[1]]);
+  });
+
+  test("saves the rules check and answer; a check for another strategy is dropped; untouched they're kept", async () => {
+    const db = getDb();
+    const [st, other] = vocab.strategy;
+    const check = { strategyId: st, rules: [{ text: "Bias agrees", kept: true }, { text: "2R+", kept: false }] };
+    const next = { ...empty, strategyId: st, rulesCheck: check, rulesFollowed: "partial" as const };
+    expect((await saveTradeReview(db, accountId, tradeId, next, empty)).ok).toBe(true);
+    expect(await journal()).toMatchObject({ strategyId: st, rulesCheck: check, rulesFollowed: "partial" });
+    // only notes changed: the check stays as stored
+    await saveTradeReview(db, accountId, tradeId, { ...next, postNotes: "ok" }, next);
+    expect(await journal()).toMatchObject({ rulesCheck: check, rulesFollowed: "partial", postNotes: "ok" });
+    // switching strategy with the old check still in the draft stores no check for the new one
+    const switched = { ...next, strategyId: other, postNotes: "ok" };
+    await saveTradeReview(db, accountId, tradeId, switched, { ...next, postNotes: "ok" });
+    expect(await journal()).toMatchObject({ strategyId: other, rulesCheck: null, rulesFollowed: null });
+  });
+
+  test("a check for the strategy the flow loaded isn't written once the trade moved to another strategy elsewhere", async () => {
+    const db = getDb();
+    const [a, b] = vocab.strategy;
+    const loaded = { ...empty, strategyId: a };
+    await saveTradeReview(db, accountId, tradeId, loaded, empty);
+    // the trade form moves it to b and answers Yes
+    await db.update(s.tradeJournal).set({ strategyId: b, rulesFollowed: "yes" }).where(eq(s.tradeJournal.tradeId, tradeId));
+    const stale = { ...loaded, rulesCheck: { strategyId: a, rules: [{ text: "x", kept: false }] }, rulesFollowed: "no" as const, postNotes: "n" };
+    expect((await saveTradeReview(db, accountId, tradeId, stale, loaded)).ok).toBe(true);
+    expect(await journal()).toMatchObject({ strategyId: b, rulesCheck: null, rulesFollowed: "yes", postNotes: "n" });
   });
 
   test("rejects wrong-kind vocab, other accounts and deleted trades", async () => {

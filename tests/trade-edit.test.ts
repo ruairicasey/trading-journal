@@ -117,6 +117,66 @@ describe("saving the Basic tab", () => {
     expect(loaded.entryLegs).toEqual([{ time: t.entryTime, price: 60000, size: 0.5 }]);
   });
 
+  test("rules check from the Notes tab: saved for the trade's strategy, dropped for another, kept when not sent", async () => {
+    const db = getDb();
+    const t = await syncedTrade();
+    const strategyId = await createStrategy(db, "Rules check strat");
+    const check = { strategyId, rules: [{ text: "Bias agrees", kept: true }] };
+    const notes = {
+      rationale: null,
+      postNotes: null,
+      reflection: {},
+      tags: [],
+      rulesFollowed: "yes" as const,
+      rulesCheck: check,
+      exitReasonId: null,
+      emotionAfterId: null,
+      processCompliant: null,
+      mistakes: [],
+    };
+    expect((await saveTradeBasic(db, accountId, t.id, { ...base({ strategyId }), notes })).ok).toBe(true);
+    let j = (await loadTradeForEdit(db, accountId, t.id))!.journal;
+    expect(j).toMatchObject({ rulesCheck: check, rulesFollowed: "yes" });
+    expect(j?.reviewedAt).not.toBeNull();
+    // an older client without the field leaves the check alone
+    const { rulesCheck: _omit, ...older } = notes;
+    void _omit;
+    await saveTradeBasic(db, accountId, t.id, { ...base({ strategyId }), notes: older });
+    j = (await loadTradeForEdit(db, accountId, t.id))!.journal;
+    expect(j?.rulesCheck).toEqual(check);
+    // the trade's strategy cleared: the check no longer applies, nor the answer it gave
+    await saveTradeBasic(db, accountId, t.id, { ...base({ strategyId: null }), notes });
+    j = (await loadTradeForEdit(db, accountId, t.id))!.journal;
+    expect(j).toMatchObject({ rulesCheck: null, rulesFollowed: null });
+  });
+
+  test("a check left from a bulk retag: an unrelated save keeps the answer and doesn't mark the trade reviewed", async () => {
+    const db = getDb();
+    const t = await syncedTrade();
+    const a = await createStrategy(db, "Retag A");
+    const b = await createStrategy(db, "Retag B");
+    const stale = { strategyId: a, rules: [{ text: "Bias", kept: false }] };
+    await db.insert(s.tradeJournal).values({ tradeId: t.id, strategyId: b, rulesCheck: stale, rulesFollowed: "partial" });
+    const notes = {
+      rationale: "typo fixed",
+      postNotes: null,
+      reflection: {},
+      tags: [],
+      rulesFollowed: null,
+      rulesCheck: stale, // an older draft still holding it
+      exitReasonId: null,
+      emotionAfterId: null,
+      processCompliant: null,
+      mistakes: [],
+    };
+    await saveTradeBasic(db, accountId, t.id, { ...base({ strategyId: b }), notes });
+    const j = (await loadTradeForEdit(db, accountId, t.id))!.journal;
+    expect(j).toMatchObject({ rationale: "typo fixed", rulesFollowed: "partial", reviewedAt: null });
+    // and the form doesn't load it for B
+    const { initialDraft } = await import("@/components/trade-form/types");
+    expect(initialDraft((await loadTradeForEdit(db, accountId, t.id))!).notes.rulesCheck).toBeNull();
+  });
+
   test("re-saving replaces checklist and partials; a re-sync keeps journal and account", async () => {
     const db = getDb();
     const t = await syncedTrade();

@@ -7,6 +7,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { DB } from "../db/client";
 import * as s from "../db/schema";
+import { RulesCheckSchema } from "../../lib/rules-check";
 
 const id = z.string().min(1).max(64);
 export const ReviewFieldsSchema = z.object({
@@ -17,6 +18,9 @@ export const ReviewFieldsSchema = z.object({
   exitReasonId: id.nullable(),
   mistakes: z.array(id).max(100),
   postNotes: z.string().max(20_000).nullable(),
+  rulesFollowed: z.enum(s.RULES_FOLLOWED).nullable(),
+  /** which playbook rules you kept; only stored for the trade's strategy */
+  rulesCheck: RulesCheckSchema.nullable(),
 });
 export type ReviewFields = z.infer<typeof ReviewFieldsSchema>;
 export type ReviewSaveResult = { ok: true; reviewedAt: number } | { ok: false; error: string };
@@ -69,6 +73,21 @@ export async function saveTradeReview(
   const mistakes = sortedSet(n.mistakes);
   if (mistakes.some((m) => kindOf.get(m) !== "mistake")) return { ok: false, error: "Unknown mistake" };
 
+  const existing = await db.query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, tradeId) });
+  // a rules check counts only for the trade's strategy: the one this save sets, else the stored one (which may have
+  // changed elsewhere since the flow loaded)
+  const strategyChanging = !same(n.strategyId, b.strategyId);
+  const strategy = strategyChanging ? n.strategyId : (existing?.strategyId ?? null);
+  if (n.rulesCheck && n.rulesCheck.strategyId !== strategy) {
+    if (strategyChanging) {
+      n.rulesCheck = null; // the new strategy has no check yet, and the old one's answer no longer applies
+      n.rulesFollowed = null;
+    } else {
+      n.rulesCheck = b.rulesCheck; // stale: leave both as stored
+      n.rulesFollowed = b.rulesFollowed;
+    }
+  }
+
   const set: Partial<typeof s.tradeJournal.$inferInsert> = {};
   for (const k of [
     "grade",
@@ -77,12 +96,13 @@ export async function saveTradeReview(
     "emotionAfterId",
     "exitReasonId",
     "postNotes",
+    "rulesFollowed",
+    "rulesCheck",
   ] as const) {
     if (!same(n[k], b[k])) (set as Record<string, unknown>)[k] = n[k];
   }
   const mistakesChanged = !same(mistakes, sortedSet(b.mistakes));
 
-  const existing = await db.query.tradeJournal.findFirst({ where: eq(s.tradeJournal.tradeId, tradeId) });
   const reviewedAt = existing?.reviewedAt ?? now;
   await db.transaction(async (tx) => {
     const row = { ...set, reviewedAt, updatedAt: now };

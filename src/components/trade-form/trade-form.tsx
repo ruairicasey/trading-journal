@@ -1,5 +1,6 @@
 "use client";
 
+import { afterStrategyChange } from "@/lib/rules-check";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AlertCircle, Check, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,20 @@ export function TradeForm(props: FormProps) {
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [dirty]);
 
-  const update = useCallback((patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch })), []);
+  // a new strategy drops the old one's rules check and the answer it gave (src/lib/rules-check.ts)
+  const update = useCallback(
+    (patch: Partial<Draft>) =>
+      setDraft((d) => {
+        const next = { ...d, ...patch };
+        if (!("strategyId" in patch) || patch.strategyId === d.strategyId) return next;
+        const n = afterStrategyChange(
+          { ...next.notes, rulesCheck: next.notes.rulesCheck ?? null },
+          next.strategyId,
+        );
+        return { ...next, notes: n };
+      }),
+    [],
+  );
   const updateAnalysis = useCallback(
     (patch: Partial<AnalysisDraft>) => setDraft((d) => ({ ...d, analysis: { ...d.analysis, ...patch } })),
     [],
@@ -240,7 +254,13 @@ export function TradeForm(props: FormProps) {
         />
       </TabsContent>
       <TabsContent value="notes" forceMount className="data-[state=inactive]:hidden">
-        <NotesTab data={props.data} value={draft.notes} onChange={updateNotes} active={tab === "notes"} />
+        <NotesTab
+          data={props.data}
+          value={draft.notes}
+          onChange={updateNotes}
+          active={tab === "notes"}
+          strategyId={draft.strategyId}
+        />
       </TabsContent>
     </Tabs>
   );

@@ -47,6 +47,7 @@ import {
   VOCAB_KINDS,
   type VocabKind,
 } from "../../lib/enums";
+import type { RulesCheck } from "../../lib/rules-check";
 
 export {
   ACCOUNT_TYPES,
@@ -493,6 +494,8 @@ export const tradeJournal = sqliteTable("trade_journal", {
   postNotes: text("post_notes"),
   reflection: text("reflection", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
   rulesFollowed: text("rules_followed", { enum: RULES_FOLLOWED }),
+  /** which playbook rules you kept (src/lib/rules-check.ts); null = not ticked */
+  rulesCheck: text("rules_check", { mode: "json" }).$type<RulesCheck>(),
   exitReasonId: text("exit_reason_id").references(() => vocabItems.id),
   emotionAfterId: text("emotion_after_id").references(() => vocabItems.id),
   processCompliant: integer("process_compliant", { mode: "boolean" }),

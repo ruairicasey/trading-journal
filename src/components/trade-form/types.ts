@@ -59,6 +59,8 @@ export function initialDraft(data: TradeEditData): Draft {
       reflection: (journal?.reflection ?? {}) as NotesDraft["reflection"],
       tags: data.tags,
       rulesFollowed: journal?.rulesFollowed ?? null,
+      // a check left from another strategy (e.g. after a bulk retag) doesn't apply
+      rulesCheck: journal?.rulesCheck?.strategyId === journal?.strategyId ? (journal?.rulesCheck ?? null) : null,
       exitReasonId: journal?.exitReasonId ?? null,
       emotionAfterId: journal?.emotionAfterId ?? null,
       processCompliant: journal?.processCompliant ?? null,

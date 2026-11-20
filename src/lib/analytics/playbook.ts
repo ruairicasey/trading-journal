@@ -7,6 +7,7 @@
  *   the trades you marked. The followed / not followed / not marked split also adds up to the row.
  * - Strategies you haven't archived show even with no trades in the period; an archived one shows only when it has some.
  */
+import { ruleRecord } from "../rules-check";
 import { bucketOf } from "./group";
 import type { AnalyticsTrade, Bucket } from "./types";
 
@@ -27,6 +28,8 @@ export type PlaybookRow = {
   description: string | null;
   /** the written rules, one per non-empty line */
   rules: string[];
+  /** each rule's record in the period: trades you ticked it on, and how many kept it (src/lib/rules-check.ts) */
+  ruleStats: { text: string; kept: number; of: number }[];
   /** the rules as you wrote them (for editing) */
   rulesText: string | null;
   archived: boolean;
@@ -42,9 +45,12 @@ export type PlaybookRow = {
   };
 };
 
-/** The rules text as a list: one per line, trimmed, blank lines and leading bullets or numbers dropped. */
+/**
+ * The rules text as a list: one per line, trimmed, blank lines and leading bullets or numbers dropped, and a repeated
+ * rule kept once (a trade's check matches rules by their text).
+ */
 export function ruleLines(text: string | null | undefined): string[] {
-  return (text ?? "")
+  const lines = (text ?? "")
     .split(/\r?\n/)
     .map((l) =>
       l
@@ -53,6 +59,7 @@ export function ruleLines(text: string | null | undefined): string[] {
         .trim(),
     )
     .filter(Boolean);
+  return [...new Set(lines)];
 }
 
 function compliance(list: AnalyticsTrade[]): PlaybookRow["compliance"] {
@@ -96,11 +103,17 @@ export function playbook(
     s: Pick<PlaybookStrategy, "description" | "rules" | "archived"> | null,
   ): PlaybookRow => {
     const list = by.get(id) ?? [];
+    const rules = ruleLines(s?.rules);
     return {
       id,
       label,
       description: s?.description ?? null,
-      rules: ruleLines(s?.rules),
+      rules,
+      ruleStats: ruleRecord(
+        list.map((t) => ({ strategyId: t.strategyId, rulesCheck: t.rulesCheck ?? null })),
+        id,
+        rules,
+      ),
       rulesText: s?.rules ?? null,
       archived: s?.archived ?? false,
       stats: bucketOf(id, label, list, minN),

@@ -166,9 +166,22 @@ function StrategyCard({ r, href, editable }: { r: PlaybookRow; href: string | nu
         <div className="flex flex-col gap-2">
           {r.rules.length ? (
             <ol className="list-decimal space-y-0.5 pl-5 text-sm" data-testid="strategy-rules">
-              {r.rules.map((rule, i) => (
-                <li key={i}>{rule}</li>
-              ))}
+              {r.rules.map((rule, i) => {
+                const st = r.ruleStats[i];
+                return (
+                  <li key={i}>
+                    <span data-testid="rule-text">{rule}</span>
+                    {st && st.of > 0 && (
+                      <span
+                        className="text-muted-foreground ml-2 text-xs tabular-nums"
+                        data-testid="rule-kept"
+                      >
+                        kept {st.kept} of {st.of}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
           ) : (
             <p className="text-muted-foreground text-sm">No rules written yet.</p>

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { MAX_TAGS, REFLECTION_PROMPTS } from "@/lib/journal-options";
 import { Field, Section, Segmented } from "./fields";
+import { RulesChecklist } from "./rules-checklist";
 import { Screenshots } from "./screenshots";
 import type { FormProps, NotesDraft } from "./types";
 import { ChipSelect, VocabPicker } from "./vocab-picker";
@@ -18,9 +19,11 @@ type Props = Pick<FormProps, "data"> & {
   value: NotesDraft;
   onChange: (p: Partial<NotesDraft>) => void;
   active: boolean;
+  /** the trade's strategy (Basic tab), whose playbook rules you tick here */
+  strategyId: string | null;
 };
 
-export function NotesTab({ data, value: n, onChange, active }: Props) {
+export function NotesTab({ data, value: n, onChange, active, strategyId }: Props) {
   const [reflect, setReflect] = useState(Object.keys(n.reflection ?? {}).length > 0);
   return (
     <div className="grid gap-x-12 gap-y-8 lg:grid-cols-2">
@@ -83,18 +86,11 @@ export function NotesTab({ data, value: n, onChange, active }: Props) {
 
       <Section title="Review">
         <div className="grid gap-4">
-          <Field label="Rules followed?">
-            <Segmented
-              aria-label="Rules followed"
-              value={n.rulesFollowed}
-              onChange={(v) => onChange({ rulesFollowed: v })}
-              options={[
-                { value: "yes", label: "Yes", className: "text-profit" },
-                { value: "partial", label: "Partial", className: "text-gold-ink" },
-                { value: "no", label: "No", className: "text-loss" },
-              ]}
-            />
-          </Field>
+          <RulesChecklist
+            strategy={data.strategies.find((x) => x.id === strategyId) ?? null}
+            value={{ rulesCheck: n.rulesCheck ?? null, rulesFollowed: n.rulesFollowed }}
+            onChange={onChange}
+          />
           <Field label="Exit reason">
             <Select
               value={n.exitReasonId ?? NONE}
