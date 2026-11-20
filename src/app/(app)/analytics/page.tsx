@@ -5,7 +5,8 @@ import { CustomizeWidgets } from "@/components/analytics/customize";
 import { DashboardControls } from "@/components/dashboard/controls";
 import { EmptyState } from "@/components/shell/empty-state";
 import { dashHref, type DashParams, periodPhrase } from "@/lib/dashboard-params";
-import { baseAtFloor, clampStart, fromFloor, journalFloor, SINCE_START } from "@/lib/journal-start";
+import { baseAtFloor, fromFloor } from "@/lib/journal-start";
+import { resolveView } from "@/lib/view-period";
 import { setupBreakdowns, SETUP_WIDGETS } from "@/lib/analytics/setup";
 import { TIMING_WIDGETS, timingBreakdowns } from "@/lib/analytics/timing";
 import { RISK_WIDGETS, riskBreakdowns } from "@/lib/analytics/risk";
@@ -32,7 +33,6 @@ import type { Breakdown } from "@/lib/analytics/types";
 import { describeSession, sessionHoursIn } from "@/lib/sessions";
 import { cn } from "@/lib/utils";
 import { KeepActiveVisible } from "@/components/shell/keep-active-visible";
-import { dayBoundsLocal, periodRange, PERIODS, type Period } from "@/lib/periods";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { analyticsTrades } from "@/server/db/queries/analytics";
@@ -40,7 +40,6 @@ import { getActiveScope, getSessions, getSetting } from "@/server/db/queries/set
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const SECTIONS = [
   { id: "setup", label: "Setup" },
@@ -59,18 +58,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const hidden = await getSetting<string[]>("analytics_hidden", []);
   const now = Date.now();
 
-  // with a journal start, the default view is "Since start"; All time still looks further back
-  const defaultPeriod = active.journalStart !== null ? SINCE_START : "all";
-  const rawPeriod = one(sp.period) ?? defaultPeriod;
-  const from = one(sp.from);
-  const to = one(sp.to);
-  const custom = rawPeriod === "custom" && !!from && DATE.test(from);
-  const period = custom
-    ? "custom"
-    : (PERIODS as readonly string[]).includes(rawPeriod)
-      ? rawPeriod
-      : defaultPeriod;
-  const unit = one(sp.unit) === "r" ? "r" : "usd";
+  const view = resolveView(sp, now, tz, active.journalStart);
+  const { defaultPeriod, start, end, floor } = view;
+  const unit = view.params.unit;
   const rawSection = one(sp.section);
   const section =
     rawSection === "timing" ||
@@ -80,24 +70,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       ? rawSection
       : "setup";
   const params: DashParams = {
-    period,
-    from: custom ? from : undefined,
-    to: custom && to && DATE.test(to) ? to : undefined,
-    unit,
+    ...view.params,
     section: section === "setup" ? undefined : section,
   };
-
-  let start: number | null = null;
-  let end: number | null = null;
-  if (custom) {
-    start = dayBoundsLocal(from!, tz)!.start;
-    end = params.to ? (dayBoundsLocal(params.to, tz)?.end ?? null) : null;
-  } else {
-    start = periodRange(period as Period, now, tz).from;
-  }
-
-  const floor = journalFloor(active.journalStart, period);
-  start = clampStart(start, floor);
   const all = fromFloor(await analyticsTrades(getDb(), active.id, walletId), floor);
   const limits = section === "insights" ? await riskScope(getDb(), active) : null;
   // Risk & execution opens with the risk-adjusted card (daily returns need the plain closed trades and the balance)

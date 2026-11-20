@@ -1,0 +1,1 @@
+ALTER TABLE `vocab_items` ADD `rules` text;

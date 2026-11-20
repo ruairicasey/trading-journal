@@ -92,6 +92,13 @@
       "when": 1795126013482,
       "tag": "0012_risk_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1795146880879,
+      "tag": "0013_playbook_rules",
+      "breakpoints": true
     }
   ]
 }

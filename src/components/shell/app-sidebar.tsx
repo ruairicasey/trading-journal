@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, LayoutDashboard, FileText, ListOrdered, Settings, type LucideIcon } from "lucide-react";
+import { BarChart3, BookOpen, LayoutDashboard, FileText, ListOrdered, Settings, type LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +31,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/trades", label: "Trades", icon: ListOrdered },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/playbook", label: "Playbook", icon: BookOpen },
   { href: "/reports", label: "Reports", icon: FileText },
 ];
 

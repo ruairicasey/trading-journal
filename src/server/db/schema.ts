@@ -448,6 +448,8 @@ export const vocabItems = sqliteTable(
     categoryId: text("category_id").references(() => vocabCategories.id),
     label: text("label").notNull(),
     description: text("description"),
+    /** strategies only: the playbook's written rules, one per line (src/app/(app)/playbook) */
+    rules: text("rules"),
     favorite: integer("favorite", { mode: "boolean" }).notNull().default(false),
     sort: integer("sort").notNull().default(0),
     archived: integer("archived", { mode: "boolean" }).notNull().default(false),

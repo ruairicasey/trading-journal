@@ -89,3 +89,8 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   row that day. Judged over the whole account, whatever wallet is picked. A Today card on the dashboard (within / close /
   stop for today), a "Past your limits" insight, and "Within your limits" in discipline (only when a rule is set, so the
   score is unchanged otherwise). `npm run debug:insights` prints the breach counts.
+- ~~Strategy playbook~~ **done**: `/playbook` (sidebar) shows one card per strategy for the period: what it is, its
+  written rules (one per line, edited in place), trades, win rate, net, avg trade and avg R, and rules followed (yes 1,
+  partial ½, no 0 over marked trades) with net split followed / partly or not / not marked. A "No strategy" card means
+  the cards add up to the period's closed trades. Counted by exit over whole local days, so each card's "View N trades"
+  link opens exactly its trades. Archived strategies show only with trades. `npm run debug:playbook` reconciles it.
