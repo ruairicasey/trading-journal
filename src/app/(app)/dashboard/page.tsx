@@ -25,8 +25,10 @@ import { getConfig } from "@/server/config";
 import { reviewHref } from "@/server/trades/filters";
 import { todayLimits } from "@/lib/analytics/limits";
 import { LimitsCard } from "@/components/dashboard/limits-card";
+import { GoalsCard } from "@/components/dashboard/goals-card";
+import { monthGoals } from "@/lib/analytics/goals";
 import { getDb } from "@/server/db/client";
-import { balanceInputs, closedTrades, openTrades, riskScope } from "@/server/db/queries/dashboard";
+import { balanceInputs, closedTrades, goalScope, openTrades, riskScope } from "@/server/db/queries/dashboard";
 import { getActiveScope, getSetting } from "@/server/db/queries/settings";
 import { fmtR, fmtUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -154,6 +156,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         limits,
         now,
       )
+    : null;
+  // this month against the account's goals (whatever period is shown; whole account, from the journal start)
+  const goalData = await goalScope(db, active);
+  const goals = goalData
+    ? monthGoals(goalData.closed, goalData.openEntries, tz, goalData.goals, now, goalData.floor)
     : null;
   const leaks = insights(richInRange, rich, tz, limits).list.slice(0, 3);
   const sc = richInRange.length ? scores(richInRange, rich, tz, limits) : null;
@@ -297,6 +304,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
         <div className="flex min-w-0 flex-col gap-10">
           {today && <LimitsCard t={today} tz={tz} />}
+          {goals && <GoalsCard m={goals.current} history={goals.history} tz={tz} allWallets={walletId !== null} />}
           {leaks.length > 0 && (
             <section className={SECTION} aria-label="Top leaks" data-testid="leaks-card">
               <header className="flex items-baseline justify-between gap-2">

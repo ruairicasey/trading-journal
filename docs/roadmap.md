@@ -100,3 +100,8 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   Yes, none No, else Partial), and Yes / Partial / No can still be picked by hand. Changing a trade's strategy drops the
   old check and the answer it gave; a check left by a bulk retag is ignored and never erases an answer. The Playbook
   shows "kept X of Y" for each rule over the period.
+- ~~Monthly goals~~ **done**: Settings → Accounts → Monthly goals: a net target ($), most trades a month and a review
+  target (%), each off until set (migration 0015). A dashboard card for this month: net against the target with a pace
+  mark (met / on pace / behind), trades opened against the cap (open trades count), reviewed share of closed trades,
+  days left, and how many of the last six full months hit each goal (none before the journal start or the first trade).
+  Calendar months in your timezone, over the whole account. `npm run debug:insights` prints the states and counts.

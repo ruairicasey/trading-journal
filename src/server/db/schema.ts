@@ -89,6 +89,10 @@ export const accounts = sqliteTable("accounts", {
   dailyLossLimit: real("daily_loss_limit"),
   maxTradesPerDay: integer("max_trades_per_day"),
   maxLossStreak: integer("max_loss_streak"),
+  /** Monthly goals (null = off): realised net target ($), most trades to open, share of closed trades reviewed (%) */
+  goalMonthlyNet: real("goal_monthly_net"),
+  goalMonthlyTrades: integer("goal_monthly_trades"),
+  goalReviewPct: integer("goal_review_pct"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   sort: integer("sort").notNull().default(0),
   createdAt: createdAt(),

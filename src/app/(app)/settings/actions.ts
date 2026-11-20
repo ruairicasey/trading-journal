@@ -139,6 +139,10 @@ const AccountInput = z.object({
   dailyLossLimit: optionalNum(z.number().positive("The daily loss limit must be above 0").max(1e9)),
   maxTradesPerDay: optionalNum(z.number().int("Max trades a day is a whole number").min(1).max(1000)),
   maxLossStreak: optionalNum(z.number().int("Losses in a row is a whole number").min(1).max(100)),
+  /** monthly goals: empty = off */
+  goalMonthlyNet: optionalNum(z.number().positive("The monthly net target must be above 0").max(1e12)),
+  goalMonthlyTrades: optionalNum(z.number().int("Trades a month is a whole number").min(1).max(100_000)),
+  goalReviewPct: optionalNum(z.number().int("Review target is a whole %").min(1).max(100)),
 });
 
 export async function saveAccount(input: { id?: string } & z.input<typeof AccountInput>) {

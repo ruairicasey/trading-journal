@@ -2,7 +2,7 @@
  * npm run debug:insights               — the Insights rules and Scores over your local database
  * npm run debug:insights -- --remote   — same, against the deployed Turso database (.env.production.local)
  *
- * READ-ONLY. For every account and period (all time, 30 days), prints each rule's trade count, win rate and its
+ * READ-ONLY. Prints each account's monthly goals (states and counts) first. For every account and period (all time, 30 days), prints each rule's trade count, win rate and its
  * net as a % of that period's total |net|, ranked like the Insights page. Counts and percentages only: never an
  * address or a $ amount, so the output is safe to paste back. Use it to reconcile the page's counts.
  */
@@ -26,7 +26,8 @@ async function main() {
   const { periodRange } = await import("../src/lib/periods");
   const { scores } = await import("../src/lib/analytics/scores");
   const { limitBreaches } = await import("../src/lib/analytics/limits");
-  const { riskScope } = await import("../src/server/db/queries/dashboard");
+  const { riskScope, goalScope } = await import("../src/server/db/queries/dashboard");
+  const { monthGoals } = await import("../src/lib/analytics/goals");
   const db = getDb();
   const tzRow = await db.query.settings.findFirst({ where: eq(s.settings.key, "timezone") });
   const tz = (tzRow?.value as string) ?? getConfig().timezone;
@@ -35,6 +36,15 @@ async function main() {
   for (const [ai, acc] of (await db.select().from(s.accounts)).entries()) {
     const all = await analyticsTrades(db, acc.id, null);
     const limits = await riskScope(db, acc);
+    const gs = await goalScope(db, acc);
+    if (gs) {
+      const g = monthGoals(gs.closed, gs.openEntries, tz, gs.goals, Date.now(), gs.floor);
+      const c = g.current;
+      const h = (x: { hit: number; of: number } | null) => (x ? `${x.hit} of ${x.of}` : "off");
+      console.log(
+        `\naccount ${ai + 1} · goals ${c.key}: net ${c.netGoal ? c.netGoal.state : "off"} · trades opened ${c.opened}${c.tradesGoal ? ` of cap ${c.tradesGoal.cap} (${c.tradesGoal.state})` : " (no cap)"} · reviewed ${c.reviewed} of ${c.closed}${c.reviewGoal ? ` (target ${c.reviewGoal.target}%)` : ""} · last ${g.history.months} months hit: net ${h(g.history.net)}, trades ${h(g.history.trades)}, reviews ${h(g.history.review)}`,
+      );
+    } else console.log(`\naccount ${ai + 1} · goals: none set`);
     for (const period of ["all", "30d"] as const) {
       const from = periodRange(period, Date.now(), tz).from;
       const trades = all.filter((t) => from === null || t.exitTime >= from);

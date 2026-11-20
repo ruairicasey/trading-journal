@@ -21,6 +21,9 @@ type Account = {
   dailyLossLimit: number | null;
   maxTradesPerDay: number | null;
   maxLossStreak: number | null;
+  goalMonthlyNet: number | null;
+  goalMonthlyTrades: number | null;
+  goalReviewPct: number | null;
 };
 
 export function AccountsEditor({ accounts, timezone }: { accounts: Account[]; timezone: string }) {
@@ -79,6 +82,9 @@ function AccountForm({
                   dailyLossLimit: String(fd.get("dailyLossLimit") ?? ""),
                   maxTradesPerDay: String(fd.get("maxTradesPerDay") ?? ""),
                   maxLossStreak: String(fd.get("maxLossStreak") ?? ""),
+                  goalMonthlyNet: String(fd.get("goalMonthlyNet") ?? ""),
+                  goalMonthlyTrades: String(fd.get("goalMonthlyTrades") ?? ""),
+                  goalReviewPct: String(fd.get("goalReviewPct") ?? ""),
                 });
                 setMsg("Saved");
                 onDone?.();
@@ -168,6 +174,45 @@ function AccountForm({
               Days run midnight to midnight ({timezone}). A trade breaks a rule when you opened it after that
               day&apos;s realised loss reached the limit, beyond the day&apos;s trade cap, or after that many
               losses in a row that day. Leave a box empty to turn that rule off.
+            </span>
+          </fieldset>
+          <fieldset className="grid gap-3 sm:col-span-2 sm:grid-cols-3" aria-label="Monthly goals">
+            <legend className="text-13 mb-1 font-medium">Monthly goals</legend>
+            <Field label="Net target ($)">
+              <Input
+                name="goalMonthlyNet"
+                type="number"
+                step="any"
+                min={0}
+                placeholder="Off"
+                defaultValue={account?.goalMonthlyNet ?? ""}
+              />
+            </Field>
+            <Field label="Most trades a month">
+              <Input
+                name="goalMonthlyTrades"
+                type="number"
+                step={1}
+                min={1}
+                placeholder="Off"
+                defaultValue={account?.goalMonthlyTrades ?? ""}
+              />
+            </Field>
+            <Field label="Review at least (%)">
+              <Input
+                name="goalReviewPct"
+                type="number"
+                step={1}
+                min={1}
+                max={100}
+                placeholder="Off"
+                defaultValue={account?.goalReviewPct ?? ""}
+              />
+            </Field>
+            <span className="text-muted-foreground text-xs sm:col-span-3">
+              Calendar months ({timezone}), over the whole account. Net counts trades closed that month, trades
+              count those opened that month, and review counts closed trades marked reviewed. The dashboard shows
+              this month and how many of the last six you hit. Leave a box empty to turn that goal off.
             </span>
           </fieldset>
           <div className="flex items-end gap-2 sm:col-span-2">

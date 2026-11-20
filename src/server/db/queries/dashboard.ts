@@ -4,6 +4,9 @@ import type { DB } from "../client";
 import * as s from "../schema";
 import { rExpr } from "./trades";
 import { limitsSet, type LimitScope } from "../../../lib/analytics/limits";
+import { goalsSet, type GoalTrade, type Goals } from "../../../lib/analytics/goals";
+import { fromFloor } from "../../../lib/journal-start";
+import { analyticsTrades } from "./analytics";
 
 /** null = every wallet on the account (and its manual trades); otherwise just that wallet's trades */
 export type WalletScope = string | null;
@@ -179,5 +182,42 @@ export async function riskScope(
     maxLossStreak: account.maxLossStreak,
     context,
     open: open.map((o) => ({ id: o.id, entryTime: o.entryTime })),
+  };
+}
+
+/**
+ * The account's monthly goals with the trades they're judged on: every wallet, from the journal start when one is
+ * set (src/lib/analytics/goals.ts). null when no goal is set, so nothing extra loads.
+ */
+export async function goalScope(
+  db: DB,
+  account: Pick<
+    typeof s.accounts.$inferSelect,
+    "id" | "journalStart" | "goalMonthlyNet" | "goalMonthlyTrades" | "goalReviewPct"
+  >,
+): Promise<{ goals: Goals; closed: GoalTrade[]; openEntries: number[]; floor: number | null } | null> {
+  const goals: Goals = {
+    goalMonthlyNet: account.goalMonthlyNet,
+    goalMonthlyTrades: account.goalMonthlyTrades,
+    goalReviewPct: account.goalReviewPct,
+  };
+  if (!goalsSet(goals)) return null;
+  const floor = account.journalStart;
+  const [rich, open] = await Promise.all([
+    analyticsTrades(db, account.id, null, { light: true }),
+    openTrades(db, account.id, null),
+  ]);
+  return {
+    goals,
+    floor,
+    closed: fromFloor(rich, floor).map((t) => ({
+      entryTime: t.entryTime,
+      exitTime: t.exitTime,
+      netPnl: t.netPnl,
+      reviewed: t.reviewed,
+    })),
+    openEntries: open
+      .map((o) => o.entryTime)
+      .filter((e): e is number => e !== null && (floor === null || e >= floor)),
   };
 }
