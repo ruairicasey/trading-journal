@@ -49,6 +49,11 @@ const CONTENT_RULES = [
   },
   { name: "bcrypt hash", re: /\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/g },
   { name: "scrypt password hash", re: /scrypt:\d+:\d+:\d+:[A-Za-z0-9_-]{16,}:[A-Za-z0-9_-]{40,}/g },
+  {
+    name: "Lighter read-only token",
+    re: /ro:\d+:(?:single|all):\d{9,11}:[0-9a-fA-F]{8,}/g,
+    allowMatch: (m) => /:(?:ab)+$/.test(m), // the fixtures' made-up value
+  },
   { name: "JWT / bearer token", re: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
   {
     // KEY=value (env files, shell, docs). Any non-placeholder value is a leak.
@@ -148,6 +153,8 @@ function selfTest() {
   const fakeScrypt = ["scrypt", 32768, 8, 1, "A".repeat(22), "B".repeat(86)].join(":");
   a(checkContent("src/x.ts", `const h = "${fakeScrypt}"`).length === 1, "scrypt hash blocked");
   a(checkContent("src/x.ts", 'if (!hash.startsWith("scrypt:")) fail()').length === 0, "scrypt prefix mention allowed");
+  a(checkContent("src/x.ts", `t = "ro:12:single:1893456000:${"c4".repeat(10)}"`).length === 1, "lighter token blocked");
+  a(checkContent("src/x.ts", `t = "ro:12:single:1893456000:${"ab".repeat(8)}"`).length === 0, "made-up lighter token allowed");
   console.log("check-secrets self-test passed");
 }
 

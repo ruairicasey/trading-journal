@@ -25,6 +25,10 @@ Cloudflare Worker cron trigger as the primary sync scheduler (moved up from Phas
   with a preview. Built against the documented messages with synthetic fixtures; verify with `npm run debug:ctrader`
   once the first real trade closes (commission semantics, JSON encoding, the CSV's exact headers). Non-USD accounts
   aren't converted to USD yet.
+- ~~Lighter~~ **built, awaiting real data**: Settings → Wallets → Add wallet → Lighter takes a read-only token (encrypted at
+  rest) and syncs that account's perp fills, stop and take-profit orders, funding, deposits, withdrawals and transfers on
+  the existing cron, as another wallet of the account (migration 0016). Built from the published schemas with synthetic
+  fixtures; verify with `npm run debug:lighter` after the first real trade (docs/lighter.md lists what is assumed).
 - ~~Bulk select actions and custom saved filters on the Trades page; TradingView snapshot-link import~~ **done**: select rows,
   a page or every matching trade, then add a tag, set grade or strategy, or delete with Undo; save the current filters
   as a chip; paste a `tradingview.com/x/…` link to store the chart as a screenshot.

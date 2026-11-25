@@ -1,6 +1,6 @@
 # Trading Journal
 
-A self-hosted trading journal for **Hyperliquid** perps traders.
+A self-hosted trading journal for **Hyperliquid** and **Lighter** perps traders.
 
 It imports your fills automatically and rebuilds them into round-trip trades, including scale-ins, partial closes,
 position flips and HIP-3 markets. You then journal each trade (setup, confluences, stops, grades, notes and
@@ -73,6 +73,8 @@ exit reasons, mistakes and emotions are all editable under **Settings → Journa
 - **No personal data in the repo.** Everything personal (database, screenshots, exports, logs) lives in one gitignored folder, `DATA_DIR` (default `./data`).
   Secrets live in `.env.local`, or in your host's settings when deployed.
 - **A wallet address is read-only.** The app only calls Hyperliquid's public `info` API. It never asks for a private key and can't trade.
+- **Lighter uses a read-only token** (`ro:…`), which can't trade or withdraw. Any other kind of key is refused, and the token is stored
+  encrypted. See [docs/lighter.md](docs/lighter.md).
   Hyperliquid activity is public on-chain, so the goal is to keep your journal (notes, grades, screenshots, rule breaks) private
   and never to tie an address to a person in this repo.
 - **Guard rails.** A pre-commit hook (`scripts/check-secrets.mjs`) and CI (the same script plus gitleaks) block env files, databases,

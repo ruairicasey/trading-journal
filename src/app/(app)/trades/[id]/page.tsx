@@ -1,3 +1,4 @@
+import { SOURCE_LABEL } from "@/lib/enums";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
@@ -53,13 +54,11 @@ export default async function TradePage({ params }: { params: Promise<{ id: stri
             </div>
             <p className="text-muted-foreground text-13">
               <span>
-                {trade.source === "hyperliquid"
-                  ? "Synced from Hyperliquid"
-                  : trade.source === "ctrader"
-                    ? trade.flags?.imported
-                      ? "Imported from a cTrader file"
-                      : "Synced from cTrader"
-                    : "Manual"}
+                {trade.source === "manual"
+                  ? "Manual"
+                  : trade.flags?.imported
+                    ? "Imported from a cTrader file"
+                    : `Synced from ${SOURCE_LABEL[trade.source]}`}
               </span>
               {wallets.length > 1 && trade.walletId && (
                 <>

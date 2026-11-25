@@ -13,7 +13,16 @@ export default async function WalletsPage() {
     listAccounts(),
     getSetting("timezone", getConfig().timezone),
   ]);
-  const [runs, fillCounts, tradeCounts] = await Promise.all([
+  const [lighter, runs, fillCounts, tradeCounts] = await Promise.all([
+    // never the token itself, only whether there is one and until when
+    db
+      .select({
+        walletId: s.lighterState.walletId,
+        hasToken: sql<number>`${s.lighterState.tokenEnc} is not null`,
+        expiresAt: s.lighterState.tokenExpiresAt,
+        reconciledAt: s.lighterState.reconciledAt,
+      })
+      .from(s.lighterState),
     recentRuns(
       db,
       wallets.map((w) => w.id),
@@ -30,13 +39,16 @@ export default async function WalletsPage() {
   ]);
   const fillsBy = new Map(fillCounts.map((r) => [r.walletId, Number(r.n)]));
   const tradesBy = new Map(tradeCounts.map((r) => [r.walletId, Number(r.n)]));
+  const lighterBy = new Map(lighter.map((l) => [l.walletId, l]));
   const labelBy = new Map(wallets.map((w) => [w.id, w.label]));
 
   return (
     <div className="space-y-3">
       <p className="text-muted-foreground text-sm">
         Add a Hyperliquid wallet address to import its fills. An address gives <strong>read-only</strong> access to
-        public on-chain data; never enter a private key. Addresses are stored only in your private database.
+        public on-chain data; never enter a private key. Addresses are stored only in your private database. A Lighter
+        account needs a <strong>read-only token</strong> instead: it can&apos;t trade or withdraw, and it&apos;s stored
+        encrypted.
       </p>
       <WalletsEditor
         isDemo={getConfig().isDemo}
@@ -44,6 +56,15 @@ export default async function WalletsPage() {
         accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
         wallets={wallets.map((w) => ({
           id: w.id,
+          exchange: w.exchange,
+          accountIndex: w.accountIndex,
+          lighter: lighterBy.has(w.id)
+            ? {
+                hasToken: !!lighterBy.get(w.id)!.hasToken,
+                expiresAt: lighterBy.get(w.id)!.expiresAt,
+                reconciledAt: lighterBy.get(w.id)!.reconciledAt,
+              }
+            : null,
           address: w.address,
           label: w.label,
           kind: w.kind,

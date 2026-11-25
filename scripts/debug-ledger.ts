@@ -24,7 +24,7 @@ async function main() {
   if (remote && !getConfig().db.url.startsWith("libsql:")) throw new Error("--remote needs DATABASE_URL=libsql://… and DATABASE_AUTH_TOKEN in .env.production.local");
   const { getDb } = await import("../src/server/db/client");
   const s = await import("../src/server/db/schema");
-  const { eq, min } = await import("drizzle-orm");
+  const { and, eq, min } = await import("drizzle-orm");
   const { getHlClient } = await import("../src/server/hyperliquid");
   const { classifyLedger } = await import("../src/server/hyperliquid/ledger");
   const { LEDGER_PAGE_LIMIT } = await import("../src/server/hyperliquid/schemas");
@@ -32,7 +32,7 @@ async function main() {
   const db = getDb();
   const client = getHlClient();
 
-  const wallets = await db.select().from(s.wallets).where(eq(s.wallets.enabled, true));
+  const wallets = await db.select().from(s.wallets).where(and(eq(s.wallets.enabled, true), eq(s.wallets.exchange, "hyperliquid")));
   if (!wallets.length) throw new Error("No enabled wallets in this database.");
   for (const w of wallets) {
     console.log(`\n=== Wallet "${w.label}" (${remote ? "deployed database" : "local database"}) ===`);

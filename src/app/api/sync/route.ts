@@ -9,6 +9,7 @@ import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { getSyncStatus } from "@/server/db/queries/sync";
 import { getHlClient } from "@/server/hyperliquid";
+import { lighterDeps } from "@/server/lighter/sync";
 import { syncAll } from "@/server/hyperliquid/sync";
 import { syncCtrader } from "@/server/ctrader/sync";
 
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
     trigger: range ? "range" : trigger,
     walletId,
     range,
+    lighter: await lighterDeps(),
     budgetMs: getConfig().hyperliquid.syncBudgetMs,
   });
   // "Sync now" on the whole journal (no wallet or range picked) also pulls cTrader; the background auto-sync doesn't

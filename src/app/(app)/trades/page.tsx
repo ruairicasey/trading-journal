@@ -252,7 +252,7 @@ export default async function TradesPage({
         <EmptyState
           icon={ListOrdered}
           title="No trades yet"
-          body="Add a Hyperliquid wallet under Settings → Wallets & sync, or run npm run dev:demo to explore fake data."
+          body="Add a Hyperliquid wallet or Lighter account under Settings → Wallets & sync, or run npm run dev:demo to explore fake data."
         />
       ) : (
         <EmptyState icon={SearchX} title="No trades match" body="Loosen the filters or clear the search." />

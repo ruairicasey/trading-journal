@@ -4,6 +4,8 @@ export type SyncResponse = {
   done: boolean;
   results: {
     label: string;
+    exchange?: string;
+    done?: boolean;
     status: string;
     fillsNew: number;
     tradesTouched: number;
@@ -40,7 +42,8 @@ export async function runSync(
     last = json as SyncResponse;
     onProgress?.(last, round);
     const skippedOnly = last.results.length > 0 && last.results.every((r) => r.status === "skipped");
-    if (last.done || skippedOnly || last.results.some((r) => r.status === "error")) break; // a cTrader error is shown, but doesn't stop Hyperliquid's rounds
+    if (last.done || skippedOnly || last.results.some((r) => r.status === "error" && r.exchange !== "lighter")) break;
+    // a cTrader or Lighter error is shown, but doesn't stop Hyperliquid's rounds
   }
   return last!;
 }

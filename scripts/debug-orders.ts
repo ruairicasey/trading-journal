@@ -45,7 +45,7 @@ async function main() {
   const db = getDb();
   const { runMigrations } = await import("../src/server/db/bootstrap");
   await runMigrations(db);
-  const wallets = await db.select().from(s.wallets).where(eq(s.wallets.enabled, true));
+  const wallets = await db.select().from(s.wallets).where(and(eq(s.wallets.enabled, true), eq(s.wallets.exchange, "hyperliquid")));
   if (!wallets.length) throw new Error("No wallets. Run npm run sync:backfill first.");
   const client = getHlClient();
 

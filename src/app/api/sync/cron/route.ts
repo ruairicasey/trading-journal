@@ -10,7 +10,9 @@ import { bearerToken, safeEqual } from "@/server/auth/password";
 import { getConfig } from "@/server/config";
 import { getDb } from "@/server/db/client";
 import { getHlClient } from "@/server/hyperliquid";
+import { lighterDeps } from "@/server/lighter/sync";
 import { syncAll } from "@/server/hyperliquid/sync";
+import { cronOutcome } from "@/server/sync/runs";
 import { syncCtrader } from "@/server/ctrader/sync";
 
 export const runtime = "nodejs";
@@ -29,6 +31,7 @@ async function handle(req: Request) {
   const started = Date.now();
   const out = await syncAll(getDb(), getHlClient(), {
     trigger: "cron",
+    lighter: await lighterDeps(),
     budgetMs: cfg.hyperliquid.cronSyncBudgetMs,
   });
   // cTrader goes second, inside the same 300 s function: it gets what's left up to 260 s in, and is skipped when
@@ -37,11 +40,12 @@ async function handle(req: Request) {
   const ct =
     elapsed < 230_000 ? await syncCtrader(getDb(), { cfg: cfg.ctrader, budgetMs: 260_000 - elapsed }) : null;
   // a cTrader problem (e.g. it needs reconnecting) shows on its settings page; it doesn't fail the Hyperliquid cron
-  const failed = out.results.some((r) => r.status === "error");
+  // likewise Lighter, whose token can expire: the wallet card and the sync warnings show it
+  const { status, lighterOk } = cronOutcome(out.results);
   const ctOk = !ct || !ct.results.some((r) => r.status === "error");
   return NextResponse.json(
-    { ok: !failed, done: out.done && (ct?.done ?? false), ctrader: ctOk },
-    { status: failed ? 502 : 200 },
+    { ok: status === 200, done: out.done && (ct?.done ?? false), ctrader: ctOk, lighter: lighterOk },
+    { status },
   );
 }
 

@@ -33,6 +33,7 @@ export async function closedTrades(
       fees: s.trades.fees,
       funding: s.trades.funding,
       source: s.trades.source,
+      walletId: s.trades.walletId,
       notionalUsd: s.trades.notionalUsd,
       entryTime: s.trades.entryTime,
       exitTime: s.trades.exitTime,
@@ -73,9 +74,9 @@ export async function balanceInputs(
   db: DB,
   accountId: string,
   walletId: WalletScope = null,
-): Promise<{ flows: BalanceFlow[]; cash: BalanceCash[] } | null> {
+): Promise<{ flows: BalanceFlow[]; cash: BalanceCash[]; /** Lighter wallets left out until they match the exchange */ excluded: string[]; excludedIds: string[] } | null> {
   // disabled wallets are never synced, so they are left out of both the gate and the money
-  const wallets = await db
+  const enabled = await db
     .select()
     .from(s.wallets)
     .where(
@@ -85,14 +86,17 @@ export async function balanceInputs(
         ...(walletId ? [eq(s.wallets.id, walletId)] : []),
       ),
     );
-  if (
-    !wallets.length ||
-    wallets.some(
-      (w) => !w.ledgerCompletedAt || !w.fundingCompletedAt || !w.backfillCompletedAt || w.historyTruncated,
-    )
-  )
-    return null;
+  const ready = (w: (typeof enabled)[number]) =>
+    !!w.ledgerCompletedAt && !!w.fundingCompletedAt && !!w.backfillCompletedAt && !w.historyTruncated;
+  // a Lighter wallet whose books don't match the exchange (yet) is left out and named, so adding one never takes the
+  // Hyperliquid balance away
+  const left = enabled.filter((w) => w.exchange === "lighter" && !ready(w));
+  const excluded = left.map((w) => w.label);
+  const excludedIds = left.map((w) => w.id);
+  const wallets = enabled.filter((w) => w.exchange !== "lighter" || ready(w));
+  if (!wallets.length || !wallets.every(ready)) return null;
   const ids = wallets.map((w) => w.id);
+  const exchangeOf = new Map(wallets.map((w) => [w.id, w.exchange as string]));
   const unified = new Set(wallets.filter((w) => w.accountMode === "unifiedAccount").map((w) => w.id));
   const [ledger, fills, funding] = await Promise.all([
     db
@@ -133,7 +137,7 @@ export async function balanceInputs(
     const usd = Number(p.usdc);
     if (Number.isFinite(usd) && usd !== 0) cash.push({ t: p.t, usd });
   }
-  return { flows: foldOwnTransfers(ledger), cash };
+  return { excluded, excludedIds, flows: foldOwnTransfers(ledger.map((l) => ({ ...l, exchange: exchangeOf.get(l.walletId) }))), cash };
 }
 
 export async function openTrades(db: DB, accountId: string, walletId: WalletScope = null) {

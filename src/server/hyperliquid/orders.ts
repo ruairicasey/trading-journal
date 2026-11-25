@@ -79,7 +79,11 @@ const NEW_WINS = sql.raw(
 );
 
 export async function storeOrders(db: DB, walletId: string, rows: HlHistoricalOrder[]): Promise<{ orders: number }> {
-  const recs = mergeOrderRows(walletId, rows);
+  return upsertOrders(db, mergeOrderRows(walletId, rows));
+}
+
+/** The upsert on its own: Lighter maps its orders to the same records. */
+export async function upsertOrders(db: DB, recs: OrderRecord[]): Promise<{ orders: number }> {
   for (let i = 0; i < recs.length; i += 50) {
     await db
       .insert(s.orders)

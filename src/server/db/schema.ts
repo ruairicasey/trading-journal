@@ -32,6 +32,7 @@ const updatedAt = () =>
 import {
   ACCOUNT_TYPES,
   WALLET_KINDS,
+  EXCHANGES,
   TRADE_SOURCES,
   TRADE_STATUSES,
   DIRECTIONS,
@@ -52,6 +53,7 @@ import type { RulesCheck } from "../../lib/rules-check";
 export {
   ACCOUNT_TYPES,
   WALLET_KINDS,
+  EXCHANGES,
   TRADE_SOURCES,
   TRADE_STATUSES,
   DIRECTIONS,
@@ -108,6 +110,9 @@ export const wallets = sqliteTable(
       .notNull()
       .references(() => accounts.id),
     address: text("address").notNull(), // lowercase; stored in DB only, never in code
+    exchange: text("exchange", { enum: EXCHANGES }).notNull().default("hyperliquid"),
+    /** Lighter account index (a wallet can hold several); always 0 for Hyperliquid, so the unique index holds */
+    accountIndex: integer("account_index").notNull().default(0),
     label: text("label").notNull().default("Main"),
     kind: text("kind", { enum: WALLET_KINDS }).notNull().default("main"),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
@@ -130,7 +135,8 @@ export const wallets = sqliteTable(
     accountMode: text("account_mode"), // e.g. "unifiedAccount" (spot stablecoins are the perp collateral)
     historyTruncated: integer("history_truncated", { mode: "boolean" }).notNull().default(false),
   },
-  (t) => [uniqueIndex("wallets_address_uq").on(t.address)],
+  // one address can trade on several exchanges, and hold several Lighter accounts
+  (t) => [uniqueIndex("wallets_exchange_address_uq").on(t.exchange, t.address, t.accountIndex)],
 );
 
 // ─── [X] sync_runs ──────────────────────────────────────────────────────────────────
@@ -277,6 +283,29 @@ export const ledgerEvents = sqliteTable(
   ],
 );
 
+// ─── [X] Lighter sync state (src/server/lighter): one row per Lighter wallet ─────────
+export const lighterState = sqliteTable("lighter_state", {
+  walletId: text("wallet_id")
+    .primaryKey()
+    .references(() => wallets.id),
+  /** read-only API token, AES-256-GCM (key derived from AUTH_SECRET); null once removed */
+  tokenEnc: text("token_enc"),
+  tokenExpiresAt: integer("token_expires_at"),
+  /** newest fill time of the last pass that ran to its end: everything up to here is stored */
+  fillsThrough: integer("fills_through"),
+  /** a pass in progress: the API's opaque cursor, and what fillsThrough becomes when the pass ends */
+  fillsCursor: text("fills_cursor"),
+  passThrough: integer("pass_through"),
+  /** inactive-order window end (ms) of the last complete order pass */
+  ordersThrough: integer("orders_through"),
+  /** an order pass in progress: its cursor, window start and the time it began */
+  ordersCursor: text("orders_cursor"),
+  ordersPassSince: integer("orders_pass_since"),
+  ordersPassStart: integer("orders_pass_start"),
+  /** set while the stored ledger + P&L + funding matches the exchange's collateral; the balance view needs it */
+  reconciledAt: integer("reconciled_at"),
+});
+
 // ─── [X] cTrader Open API (src/server/ctrader) ──────────────────────────────────────
 // One OAuth grant, "accounts" (view-only) scope. Tokens are encrypted at rest (AES-256-GCM, CTRADER_TOKEN_KEY).
 export const ctraderConnections = sqliteTable("ctrader_connections", {
@@ -351,7 +380,7 @@ export const ctraderDeals = sqliteTable(
   (t) => [primaryKey({ columns: [t.ctid, t.dealId] }), index("ctrader_deals_position_idx").on(t.ctid, t.positionId)],
 );
 
-// ─── trades ([X] for source=hyperliquid|ctrader; [U] for source=manual) ──────────────
+// ─── trades ([X] for source=hyperliquid|lighter|ctrader; [U] for source=manual) ──────────────
 export type TradeFlags = {
   partialHistory?: boolean;
   gap?: boolean;

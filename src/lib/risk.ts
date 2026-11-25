@@ -204,14 +204,14 @@ export function stepsFromTrades(trades: ClosedTrade[], startingBalance: number):
  */
 export function computeRisk(
   all: ClosedTrade[],
-  bal: { flows: { t: number; usd: number }[]; cash: { t: number; usd: number }[] } | null,
+  bal: { flows: { t: number; usd: number }[]; cash: { t: number; usd: number }[]; excluded?: string[] } | null,
   startingBalance: number,
   o: { from: number | null; to: number | null; tz: string; now: number },
-): RiskMetrics & { basis: "balance" | "trades" } {
+): RiskMetrics & { basis: "balance" | "trades"; excluded?: string[] } {
   const to = Math.min(o.to ?? o.now, o.now);
   const steps = bal ? balanceSteps(bal.flows, bal.cash) : stepsFromTrades(all, startingBalance);
   const days = dailyReturns(steps, { from: o.from, to, tz: o.tz });
   // trade stats use exactly the KPI card's trades; only the daily returns snap to whole days
   const inRange = all.filter((t) => (o.from === null || t.exitTime >= o.from) && t.exitTime < to);
-  return { ...riskMetrics(days, inRange), basis: bal ? "balance" : "trades" };
+  return { ...riskMetrics(days, inRange), basis: bal ? "balance" : "trades", ...(bal?.excluded?.length ? { excluded: bal.excluded } : {}) };
 }

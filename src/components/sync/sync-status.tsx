@@ -90,13 +90,14 @@ export function SyncProvider({
   const warnings: string[] = [];
   if (status.stale)
     warnings.push(
-      status.lastSuccessAt ? `Last successful sync ${timeAgo(status.lastSuccessAt, now)}` : "Never synced",
+      (status.staleWallets.length ? `${status.staleWallets.join(", ")}: ` : "") +
+        (status.lastSuccessAt ? `Last successful sync ${timeAgo(status.lastSuccessAt, now)}` : "Never synced"),
     );
   if (status.backfillPending) warnings.push("Initial import still in progress");
   if (status.historyTruncated)
     warnings.push("Hyperliquid only serves your 10,000 most recent fills; older history may be missing");
   if (status.gapTrades) warnings.push(`${status.gapTrades} trade(s) with a coverage gap`);
-  if (status.lastRun?.status === "error") warnings.push("Last sync failed");
+  if (status.lastRun?.status === "error") warnings.push(status.failedWallets.length ? `Last sync failed: ${status.failedWallets.join(", ")}` : "Last sync failed");
 
   return (
     <Ctx.Provider value={{ status, isDemo, syncing, error, now, nextIn, autoEnabled, warnings, sync }}>

@@ -15,7 +15,7 @@ export function RiskCard({
   title,
   plain = false,
 }: {
-  m: RiskMetrics & { basis: "balance" | "trades" };
+  m: RiskMetrics & { basis: "balance" | "trades"; excluded?: string[] };
   title: string;
   /** the redesigned dashboard: no card border, a larger heading */
   plain?: boolean;
@@ -87,6 +87,7 @@ export function RiskCard({
         {m.basis === "balance"
           ? "Daily trading returns on the real balance: deposits and withdrawals are taken out, days at $0 are skipped."
           : "Daily returns on the starting balance + realised P&L (the ledger isn't synced, so deposits are unknown)."}{" "}
+        {m.excluded && `Not counted in the returns until its balance matches Lighter: ${m.excluded.join(", ")}. `}
         Whole days in your timezone; open positions not marked to market (a trade counts on the day it
         closes). 365-day year, risk-free rate 0; annualised figures need {MIN_SAMPLE}+ days.
       </p>

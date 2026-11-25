@@ -8,6 +8,7 @@
  */
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { DB } from "../db/client";
+import { EXCHANGES, isExchangeSource } from "../../lib/enums";
 import * as s from "../db/schema";
 import { detectProtection, type DetectedProtection, type ProtectionOrder } from "./detect";
 
@@ -31,7 +32,7 @@ async function loadOrders(db: DB, walletId: string, coins?: string[]): Promise<P
 
 /** Detection for one trade (used by the Edit page and "Revert to auto"). */
 export async function detectForTrade(db: DB, trade: Trade, now = Date.now()): Promise<DetectedProtection | null> {
-  if (trade.source !== "hyperliquid" || !trade.walletId) return null;
+  if (!isExchangeSource(trade.source) || !trade.walletId) return null;
   return detectProtection(trade, await loadOrders(db, trade.walletId, [trade.coin]), now);
 }
 
@@ -50,7 +51,7 @@ export async function applyProtection(db: DB, walletId: string, opts: { now?: nu
     .where(
       and(
         eq(s.trades.walletId, walletId),
-        eq(s.trades.source, "hyperliquid"),
+        inArray(s.trades.source, [...EXCHANGES]),
         isNull(s.trades.deletedAt),
         inArray(s.trades.coin, [...byCoin.keys()]),
         ...(opts.tradeIds ? [inArray(s.trades.id, opts.tradeIds)] : []),

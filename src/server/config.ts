@@ -18,6 +18,7 @@ const EnvSchema = z.object({
   DATABASE_AUTH_TOKEN: optional,
   APP_TIMEZONE: z.string().default("Australia/Melbourne"),
   HL_API_URL: z.string().url().default("https://api.hyperliquid.xyz"),
+  LIGHTER_API_URL: z.string().url().default("https://mainnet.zklighter.elliot.ai"),
   HL_WALLET_ADDRESS: optional.refine((v) => !v || /^0x[0-9a-fA-F]{40}$/.test(v), {
     message: "HL_WALLET_ADDRESS must be a 0x-prefixed 40-hex address",
   }),
@@ -66,6 +67,11 @@ function buildConfig(env: NodeJS.ProcessEnv) {
       syncBudgetMs: e.SYNC_BUDGET_MS,
       /** Scheduled runs have no user waiting, so they get a longer budget (still under maxDuration 300s). */
       cronSyncBudgetMs: e.CRON_SYNC_BUDGET_MS,
+    },
+    lighter: {
+      apiUrl: e.LIGHTER_API_URL,
+      /** encrypts the stored read-only tokens; without it Lighter accounts can't be added */
+      tokenSecret: e.AUTH_SECRET && e.AUTH_SECRET.length >= 32 ? e.AUTH_SECRET : undefined,
     },
     ctrader: {
       clientId: e.CTRADER_CLIENT_ID,

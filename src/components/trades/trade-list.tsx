@@ -1,5 +1,6 @@
 "use client";
 
+import { SOURCE_LABEL } from "@/lib/enums";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -318,7 +319,7 @@ function TradeItem({
                 className="text-muted-foreground"
                 aria-label={
                   synced
-                    ? `Synced from ${r.source === "ctrader" ? "cTrader" : "Hyperliquid"}`
+                    ? `Synced from ${SOURCE_LABEL[r.source]}`
                     : "Manual trade"
                 }
               >
@@ -326,7 +327,7 @@ function TradeItem({
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              {synced ? `Synced from ${r.source === "ctrader" ? "cTrader" : "Hyperliquid"}` : "Manual trade"}
+              {synced ? `Synced from ${SOURCE_LABEL[r.source]}` : "Manual trade"}
             </TooltipContent>
           </Tooltip>
           <DropdownMenu>
@@ -428,11 +429,7 @@ function TradeDetails({ row: r, tz }: { row: TradeRow; tz: string }) {
           </Badge>
         )}
         <Badge variant="outline" className="text-[10px]">
-          {r.source === "hyperliquid"
-            ? "hyperliquid auto-sync"
-            : r.source === "ctrader"
-              ? "ctrader sync"
-              : "manual"}
+          {r.source === "manual" ? "manual" : r.source === "ctrader" ? "ctrader sync" : `${r.source} auto-sync`}
         </Badge>
         {r.tags.map((t) => (
           <Badge key={t} variant="outline" className="text-muted-foreground text-[10px]">

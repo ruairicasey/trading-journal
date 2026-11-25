@@ -1,12 +1,15 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/server/db/client";
 import * as s from "@/server/db/schema";
 import { ADDRESS_RE } from "@/lib/format";
 import { moveWalletTo } from "@/server/wallets/move";
+import { getConfig } from "@/server/config";
+import { connectLighter, removeToken, replaceToken } from "@/server/lighter/connect";
+import { lighterDeps } from "@/server/lighter/sync";
 
 const idStr = z.string().min(1).max(64);
 
@@ -24,7 +27,7 @@ export async function addWallet(input: { address: string; label: string; kind: s
     })
     .parse(input);
   const db = getDb();
-  const existing = await db.query.wallets.findFirst({ where: eq(s.wallets.address, p.address) });
+  const existing = await db.query.wallets.findFirst({ where: and(eq(s.wallets.exchange, "hyperliquid"), eq(s.wallets.address, p.address)) });
   if (existing) {
     if (existing.enabled) throw new Error("That wallet is already added.");
     await db.update(s.wallets).set({ enabled: true, label: p.label, kind: p.kind }).where(eq(s.wallets.id, existing.id));
@@ -60,4 +63,34 @@ export async function moveWallet(input: { id: string; accountId: string }) {
   const moved = await moveWalletTo(getDb(), p.id, p.accountId);
   revalidatePath("/", "layout");
   return moved;
+}
+
+const token = z.string().trim().min(1).max(400);
+type LighterResult = { ok: true } | { ok: false; error: string };
+
+/** Results, not exceptions: production hides a server action's error text. The token is never echoed back. */
+export async function addLighterAccount(input: { token: string; label: string; accountId: string }): Promise<LighterResult> {
+  if (getConfig().isDemo) return { ok: false, error: "Not available for the demo account." };
+  const p = z.object({ token, label: z.string().trim().min(1).max(60), accountId: idStr }).safeParse(input);
+  if (!p.success) return { ok: false, error: "Paste the token and give the account a name." };
+  const r = await connectLighter(getDb(), await lighterDeps(), p.data);
+  if (!r.ok) return r;
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function replaceLighterToken(input: { id: string; token: string }): Promise<LighterResult> {
+  if (getConfig().isDemo) return { ok: false, error: "Not available for the demo account." };
+  const p = z.object({ id: idStr, token }).safeParse(input);
+  if (!p.success) return { ok: false, error: "Paste the token." };
+  const r = await replaceToken(getDb(), await lighterDeps(), { walletId: p.data.id, token: p.data.token });
+  if (!r.ok) return r;
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function removeLighterToken(input: { id: string }) {
+  const p = z.object({ id: idStr }).parse(input);
+  await removeToken(getDb(), p.id);
+  revalidatePath("/", "layout");
 }

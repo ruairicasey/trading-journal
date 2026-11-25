@@ -1,5 +1,5 @@
 /**
- * GET /api/positions — live open positions (all perp dexes) for the active account's wallets.
+ * GET /api/positions — live open positions (Hyperliquid, all perp dexes, and Lighter) for the active account's wallets.
  * Session-protected by middleware. Cached briefly to stay well inside Hyperliquid's rate limits.
  * Never returns wallet addresses.
  */
@@ -10,25 +10,14 @@ import { getDb } from "@/server/db/client";
 import { getActiveScope } from "@/server/db/queries/settings";
 import * as s from "@/server/db/schema";
 import { getHlClient } from "@/server/hyperliquid";
-import { displayPair } from "@/server/hyperliquid/markets";
-import { fetchPositions } from "@/server/hyperliquid/sync";
-import { sanitizeError } from "@/server/hyperliquid/sync";
+import { getLighterClient } from "@/server/lighter";
+import { loadLivePositions, type LivePosition } from "@/server/sync/live-positions";
+import { sanitizeError } from "@/server/sync/runs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export type LivePosition = {
-  wallet: string;
-  coin: string;
-  displayPair: string;
-  size: number;
-  entryPx: number | null;
-  positionValue: number | null;
-  unrealizedPnl: number | null;
-  returnOnEquity: number | null;
-  leverage: number | null;
-  liquidationPx: number | null;
-};
+export type { LivePosition };
 
 const CACHE_MS = 15_000;
 const g = globalThis as unknown as { __posCache?: Map<string, { at: number; body: unknown }> };
@@ -48,26 +37,8 @@ export async function GET() {
     .where(and(eq(s.wallets.accountId, active.id), eq(s.wallets.enabled, true), ...(walletId ? [eq(s.wallets.id, walletId)] : [])));
   if (!wallets.length) return NextResponse.json({ live: false, reason: "No wallet", positions: [] });
   try {
-    const client = getHlClient();
-    const positions: LivePosition[] = [];
-    for (const w of wallets) {
-      for (const p of await fetchPositions(client, w.address)) {
-        const num = (v: string | null | undefined) => (v === null || v === undefined ? null : Number(v));
-        positions.push({
-          wallet: w.label,
-          coin: p.coin,
-          displayPair: displayPair(p.coin),
-          size: Number(p.szi),
-          entryPx: num(p.entryPx),
-          positionValue: num(p.positionValue),
-          unrealizedPnl: num(p.unrealizedPnl),
-          returnOnEquity: num(p.returnOnEquity),
-          leverage: p.leverage?.value ?? null,
-          liquidationPx: num(p.liquidationPx),
-        });
-      }
-    }
-    const body = { live: true, at: Date.now(), positions };
+    const { positions, missing } = await loadLivePositions(wallets, { hl: getHlClient(), lighter: getLighterClient() });
+    const body = { live: true, at: Date.now(), positions, missing };
     cache.set(key, { at: Date.now(), body });
     return NextResponse.json(body);
   } catch (e) {

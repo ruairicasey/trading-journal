@@ -13,6 +13,7 @@ async function main() {
   const { runMigrations, seedDefaults, ensureBootstrapWallet } = await import("../src/server/db/bootstrap");
   const { getHlClient } = await import("../src/server/hyperliquid");
   const { syncAll } = await import("../src/server/hyperliquid/sync");
+  const { lighterDeps } = await import("../src/server/lighter/sync");
   const s = await import("../src/server/db/schema");
   const { eq } = await import("drizzle-orm");
 
@@ -32,6 +33,7 @@ async function main() {
   const t0 = Date.now();
   const out = await syncAll(db, getHlClient(), {
     trigger: "backfill",
+    lighter: await lighterDeps(),
     onProgress: (label, e) => {
       if (e.phase === "fills" || e.phase === "funding") {
         console.log(`  [${label}] ${e.phase} page ${e.page}: ${e.fetched} fetched, ${e.inserted} new so far`);

@@ -4,8 +4,7 @@
  * are written. Backfill and funding are resumable: cursors are saved after every page and each call
  * respects a time budget, so serverless invocations (and the UI/cron) can loop until `done`.
  */
-import { and, desc, eq, gt, inArray, isNull, max, min, sql } from "drizzle-orm";
-import { maskAddress } from "../config";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { DB } from "../db/client";
 import * as s from "../db/schema";
 import { applyProtection } from "../protection/apply";
@@ -14,40 +13,26 @@ import { storeOrders } from "./orders";
 import { syncLedger } from "./ledger-sync";
 import { attributeFunding } from "../funding/attribute";
 import type { FillInput } from "../reconstruct/types";
+import { applyPositions } from "../sync/positions";
+import { syncLighterWallet, type LighterDeps } from "../lighter/sync";
+import {
+  beginRun,
+  emptyResult,
+  finishRun,
+  sanitizeError,
+  type SyncProgress,
+  type SyncTrigger,
+  type WalletSyncResult,
+} from "../sync/runs";
 import type { HlClient } from "./client";
 import { FILLS_HISTORY_LIMIT, FILLS_PAGE_LIMIT, TIME_RANGE_PAGE_LIMIT, type HlFill, type HlPosition } from "./schemas";
 
+export { sanitizeError, LOCK_TTL_MS } from "../sync/runs";
+export type { SyncProgress, SyncTrigger, WalletSyncResult } from "../sync/runs";
+
 export const INCREMENTAL_OVERLAP_MS = 10 * 60_000;
-export const LOCK_TTL_MS = 5 * 60_000;
 
-export type SyncProgress = { phase: "fills" | "rebuild" | "orders" | "positions" | "funding" | "ledger"; page?: number; fetched?: number; inserted?: number; detail?: string };
-
-export type SyncTrigger = "manual" | "auto" | "cron" | "range" | "backfill";
 type Wallet = typeof s.wallets.$inferSelect;
-
-export type WalletSyncResult = {
-  walletId: string;
-  label: string;
-  status: "success" | "partial" | "error" | "skipped";
-  done: boolean;
-  pages: number;
-  fillsFetched: number;
-  fillsNew: number;
-  tradesTouched: number;
-  gapsDetected: number;
-  fundingNew: number;
-  openPositions: number;
-  ordersStored: number;
-  protectionUpdated: number;
-  ledgerNew: number;
-  error?: string;
-};
-
-/** Strip anything that looks like an address from error text before it is stored or shown. */
-export function sanitizeError(e: unknown): string {
-  const msg = e instanceof Error ? e.message : String(e);
-  return msg.replace(/0x[0-9a-fA-F]{40}/g, (m) => maskAddress(m)).slice(0, 500);
-}
 
 function toFillInput(f: HlFill): FillInput {
   return { ...f, builderFee: f.builderFee ?? null, liquidation: f.liquidation ?? null, twapId: f.twapId ?? null };
@@ -74,48 +59,11 @@ export async function syncWallet(
   const startedAt = now();
   const deadline = startedAt + (opts.budgetMs ?? Infinity);
   const outOfTime = () => now() >= deadline;
-  const result: WalletSyncResult = {
-    walletId: wallet.id,
-    label: wallet.label,
-    status: "success",
-    done: true,
-    pages: 0,
-    fillsFetched: 0,
-    fillsNew: 0,
-    tradesTouched: 0,
-    gapsDetected: 0,
-    fundingNew: 0,
-    openPositions: 0,
-    ordersStored: 0,
-    protectionUpdated: 0,
-    ledgerNew: 0,
-  };
+  const result = emptyResult(wallet);
 
-  // ── lock: one sync per wallet at a time (stale locks expire) ──
-  const running = await db
-    .select({ id: s.syncRuns.id })
-    .from(s.syncRuns)
-    .where(
-      and(
-        eq(s.syncRuns.walletId, wallet.id),
-        eq(s.syncRuns.status, "running"),
-        gt(s.syncRuns.startedAt, startedAt - LOCK_TTL_MS),
-      ),
-    )
-    .limit(1);
-  if (running.length) return { ...result, status: "skipped", done: false };
-
-  const [run] = await db
-    .insert(s.syncRuns)
-    .values({
-      walletId: wallet.id,
-      trigger: opts.trigger,
-      rangeStart: opts.range?.start ?? null,
-      rangeEnd: opts.range?.end ?? null,
-      startedAt,
-      status: "running",
-    })
-    .returning({ id: s.syncRuns.id });
+  // ── lock: one sync per wallet at a time ──
+  const runId = await beginRun(db, wallet.id, { trigger: opts.trigger, startedAt, range: opts.range });
+  if (!runId) return { ...result, status: "skipped", done: false };
 
   const user = wallet.address;
   const touched = new Set<string>();
@@ -232,37 +180,8 @@ export async function syncWallet(
     result.error = [sanitizeError(e), result.error].filter(Boolean).join("; ");
   }
 
-  // ── bookkeeping ──
-  const [agg] = await db
-    .select({ first: min(s.fills.time), last: max(s.fills.time), n: sql<number>`count(*)` })
-    .from(s.fills)
-    .where(eq(s.fills.walletId, wallet.id));
-  const finishedAt = now();
-  await db
-    .update(s.wallets)
-    .set({
-      lastSyncedAt: finishedAt,
-      ...(result.status !== "error" ? { lastSuccessAt: finishedAt } : {}),
-      lastFillTime: agg?.last ?? null,
-      oldestFillTime: agg?.first ?? null,
-      // Hyperliquid only serves the 10k most recent fills; with that many, older history may be unreachable.
-      historyTruncated: Number(agg?.n ?? 0) >= FILLS_HISTORY_LIMIT,
-    })
-    .where(eq(s.wallets.id, wallet.id));
-  await db
-    .update(s.syncRuns)
-    .set({
-      finishedAt,
-      status: result.status as "success" | "partial" | "error",
-      pages: result.pages,
-      fillsFetched: result.fillsFetched,
-      fillsNew: result.fillsNew,
-      tradesTouched: result.tradesTouched,
-      gapsDetected: result.gapsDetected,
-      done: result.done,
-      error: result.error ?? null,
-    })
-    .where(eq(s.syncRuns.id, run.id));
+  // Hyperliquid only serves the 10k most recent fills; with that many, older history may be unreachable.
+  await finishRun(db, runId, result, { finishedAt: now(), historyLimit: FILLS_HISTORY_LIMIT });
   return result;
 }
 
@@ -330,37 +249,6 @@ export async function fetchPositions(client: HlClient, user: string): Promise<Hl
   return out;
 }
 
-/**
- * Copy live leverage / liquidation price onto matching open trades (exchange-owned columns only).
- * Returns the number of mismatches between exchange positions and reconstructed open trades.
- */
-async function applyPositions(db: DB, walletId: string, positions: HlPosition[]): Promise<number> {
-  const open = await db
-    .select()
-    .from(s.trades)
-    .where(and(eq(s.trades.walletId, walletId), eq(s.trades.status, "open"), isNull(s.trades.deletedAt)));
-  const live = open.filter((t) => !t.flags?.superseded);
-  const byCoin = new Map(positions.map((p) => [p.coin, p]));
-  let mismatches = 0;
-  for (const t of live) {
-    const p = byCoin.get(t.coin);
-    if (!p) {
-      mismatches++;
-      continue;
-    }
-    await db
-      .update(s.trades)
-      .set({
-        leverage: p.leverage?.value ?? null,
-        liqPx: p.liquidationPx != null ? Number(p.liquidationPx) : null,
-      })
-      .where(eq(s.trades.id, t.id));
-  }
-  const openCoins = new Set(live.map((t) => t.coin));
-  for (const p of positions) if (!openCoins.has(p.coin)) mismatches++;
-  return mismatches;
-}
-
 /** Sync every enabled wallet (auto/cron only touch wallets with auto-sync on). */
 export async function syncAll(
   db: DB,
@@ -371,6 +259,8 @@ export async function syncAll(
     range?: { start: number; end: number };
     budgetMs?: number;
     now?: () => number;
+    /** how to sync Lighter wallets; without it they are left alone */
+    lighter?: LighterDeps;
     onProgress?: (walletLabel: string, e: SyncProgress) => void;
   },
 ) {
@@ -387,8 +277,23 @@ export async function syncAll(
       ),
     );
   const results: WalletSyncResult[] = [];
-  for (const w of wallets) {
+  // Hyperliquid first: a slow or failing Lighter wallet never holds its sync up
+  const ordered = [...wallets].sort((a, b) => Number(a.exchange === "lighter") - Number(b.exchange === "lighter"));
+  for (const w of ordered) {
     const remaining = opts.budgetMs === undefined ? undefined : Math.max(0, opts.budgetMs - (now() - started));
+    if (w.exchange === "lighter") {
+      // a date-range re-sync is a Hyperliquid feature; Lighter passes always cover everything since the last one
+      if (!opts.lighter || (opts.range && !opts.walletId)) continue;
+      results.push(
+        await syncLighterWallet(db, opts.lighter, w, {
+          trigger: opts.trigger,
+          budgetMs: remaining,
+          now: opts.now,
+          onProgress: opts.onProgress ? (e) => opts.onProgress!(w.label, e) : undefined,
+        }),
+      );
+      continue;
+    }
     results.push(
       await syncWallet(db, client, w, {
         ...opts,
@@ -397,7 +302,9 @@ export async function syncAll(
       }),
     );
   }
-  return { done: results.every((r) => r.done), results };
+  // a failed or already-running Lighter sync has nothing to continue: it must not make callers repeat the whole round
+  const settled = (r: WalletSyncResult) => r.exchange === "lighter" && (r.status === "error" || r.status === "skipped");
+  return { done: results.every((r) => r.done || settled(r)), results };
 }
 
 export async function recentRuns(db: DB, walletIds: string[], limit = 10) {

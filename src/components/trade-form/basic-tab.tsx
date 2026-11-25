@@ -1,5 +1,6 @@
 "use client";
 
+import { SOURCE_LABEL } from "@/lib/enums";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { AlertTriangle, ChevronDown, Info, Lock, Plus, Settings2, Trash2 } from "lucide-react";
@@ -112,7 +113,7 @@ export function BasicTab({
         description={
           !manual ? (
             <span className="inline-flex items-center gap-1">
-              <Lock className="size-3" /> Synced from Hyperliquid: pair, direction, status, prices, size,
+              <Lock className="size-3" /> Synced from {SOURCE_LABEL[t.source]}: pair, direction, status, prices, size,
               times and fees come from your fills and are read-only.
             </span>
           ) : (

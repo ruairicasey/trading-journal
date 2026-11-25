@@ -15,6 +15,7 @@
  */
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { DB } from "../db/client";
+import { EXCHANGES } from "../../lib/enums";
 import * as s from "../db/schema";
 
 export const INCLUDE_FUNDING_KEY = "include_funding_in_net";
@@ -95,7 +96,7 @@ export async function attributeFunding(db: DB, walletId: string, opts: { coins?:
       .where(
         and(
           eq(s.trades.walletId, walletId),
-          eq(s.trades.source, "hyperliquid"),
+          inArray(s.trades.source, [...EXCHANGES]),
           isNull(s.trades.deletedAt),
           ...(coinFilter ? [inArray(s.trades.coin, coinFilter)] : []),
         ),
@@ -127,7 +128,7 @@ export async function attributeFunding(db: DB, walletId: string, opts: { coins?:
     .where(
       and(
         eq(s.trades.walletId, walletId),
-        eq(s.trades.source, "hyperliquid"),
+        inArray(s.trades.source, [...EXCHANGES]),
         ...(coinFilter ? [inArray(s.trades.coin, coinFilter)] : []),
       ),
     );

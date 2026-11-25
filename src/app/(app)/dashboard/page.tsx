@@ -106,7 +106,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <EmptyState
           icon={LayoutDashboard}
           title="No trades yet"
-          body="Add a Hyperliquid wallet under Settings → Wallets & sync, or run npm run dev:demo to explore with fake data."
+          body="Add a Hyperliquid wallet or Lighter account under Settings → Wallets & sync, or run npm run dev:demo to explore with fake data."
         />
       </div>
     );
@@ -118,7 +118,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // $ mode: the real account balance when the ledger is synced; otherwise starting balance + realised P&L
   const balanceView = unit === "usd" && bal !== null;
   const curve = balanceView
-    ? balanceCurve(all, bal.flows, bal.cash, { from: start, to: end })
+    ? balanceCurve(all, bal.flows, bal.cash, { from: start, to: end, excludedIds: bal.excludedIds })
     : equityCurve(end === null ? all : all.filter((t) => t.exitTime < end), base, start);
   const lastPoint = curve.at(-1);
   const deposited: number | null = balanceView && lastPoint ? (lastPoint as BalancePoint).deposited : null;
@@ -266,7 +266,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {unit === "r" ? (
               "Trades without a stop count as 0R"
             ) : balanceView ? (
-              "Deposits, withdrawals and transfers included, open positions not marked to market"
+              `Deposits, withdrawals and transfers included, open positions not marked to market${
+                bal.excluded.length
+                  ? `. Not counted until its balance matches Lighter: ${bal.excluded.join(", ")}`
+                  : ""
+              }`
             ) : walletId ? (
               "This wallet's realised P&L from $0 (the starting balance is the whole account's)"
             ) : (

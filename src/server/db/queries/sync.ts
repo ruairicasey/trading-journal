@@ -15,9 +15,15 @@ export async function getSyncStatus(now = Date.now()) {
   const db = getDb();
   const wallets = await db.select().from(s.wallets).where(eq(s.wallets.enabled, true));
   const ids = wallets.map((w) => w.id);
-  const [lastRun] = ids.length
-    ? await db.select().from(s.syncRuns).where(inArray(s.syncRuns.walletId, ids)).orderBy(desc(s.syncRuns.startedAt)).limit(1)
-    : [];
+  // the newest run of EACH wallet: one exchange's success must not hide another's failure
+  const runs = await Promise.all(
+    ids.map(async (id) => (await db.select().from(s.syncRuns).where(eq(s.syncRuns.walletId, id)).orderBy(desc(s.syncRuns.startedAt)).limit(1))[0]),
+  );
+  const labelOf = new Map(wallets.map((w) => [w.id, w.label]));
+  const newest = runs.filter((r) => !!r).sort((a, b) => b.startedAt - a.startedAt);
+  const failing = newest.filter((r) => r.status === "error");
+  const lastRun = failing[0] ?? newest[0];
+  const isStale = (w: (typeof wallets)[number]) => !w.lastSuccessAt || now - w.lastSuccessAt > STALE_AFTER_MS;
   const [flagCounts] = ids.length
     ? await db
         .select({
@@ -31,7 +37,6 @@ export async function getSyncStatus(now = Date.now()) {
   const autoMinutesRow = await db.query.settings.findFirst({ where: eq(s.settings.key, "auto_sync_minutes") });
 
   const lastSuccessAt = wallets.reduce<number | null>((m, w) => (w.lastSuccessAt && (!m || w.lastSuccessAt < m) ? w.lastSuccessAt : m), null);
-  const neverSynced = wallets.some((w) => !w.lastSuccessAt);
   return {
     hasWallets: wallets.length > 0,
     autoSync: wallets.some((w) => w.autoSync),
@@ -39,7 +44,10 @@ export async function getSyncStatus(now = Date.now()) {
     lastSyncedAt: wallets.reduce<number | null>((m, w) => (w.lastSyncedAt && (!m || w.lastSyncedAt > m) ? w.lastSyncedAt : m), null),
     /** oldest "last success" across wallets — the one that matters for staleness */
     lastSuccessAt,
-    stale: wallets.length > 0 && (neverSynced || !lastSuccessAt || now - lastSuccessAt > STALE_AFTER_MS),
+    stale: wallets.some(isStale),
+    /** which wallets the warnings are about; empty with a single wallet, where it goes without saying */
+    staleWallets: wallets.length > 1 ? wallets.filter(isStale).map((w) => w.label) : [],
+    failedWallets: wallets.length > 1 ? failing.map((r) => labelOf.get(r.walletId) ?? "?") : [],
     lastRun: lastRun
       ? {
           status: lastRun.status,

@@ -34,6 +34,7 @@
     "debug:insights": "tsx scripts/debug-insights.ts",
     "debug:risk": "tsx scripts/debug-risk.ts",
     "debug:ctrader": "tsx scripts/debug-ctrader.ts",
+    "debug:lighter": "tsx scripts/debug-lighter.ts",
     "debug:playbook": "tsx scripts/debug-playbook.ts"
   },
   "dependencies": {

@@ -2,6 +2,7 @@
  * Dashboard statistics: pure functions over CLOSED trades (realised at exit time).
  * Money figures use net P&L (after fees). R figures only include trades that have a stop loss.
  */
+import type { TradeSource } from "./enums";
 import { TZDate } from "@date-fns/tz";
 import { addDays, startOfMonth, startOfWeek } from "date-fns";
 import { localDateKey } from "./periods";
@@ -15,7 +16,8 @@ export type ClosedTrade = {
   fees: number;
   /** attributed funding (negative = paid); 0 for manual trades */
   funding?: number | null;
-  source?: "hyperliquid" | "ctrader" | "manual";
+  source?: TradeSource;
+  walletId?: string | null;
   notionalUsd: number | null;
   entryTime: number | null;
   exitTime: number;
@@ -137,12 +139,22 @@ export type BalanceFlow = { t: number; usd: number; kind: string };
 export type BalanceCash = { t: number; usd: number };
 export type BalancePoint = EquityPoint & { deposited: number; flow?: { kind: string; usd: number } };
 
+/** how long money may take between exchanges, and the most that may be lost on the way (bridge and network fees) */
+const MOVE_MAX_MS = 24 * 3_600_000;
+const moveFee = (usd: number) => Math.max(5, usd * 0.005);
+/** Does this deposit look like this withdrawal arriving? Either way the totals are the same; only the dip goes. */
+const isExchangeMove = (o: BalanceFlow, i: BalanceFlow) => {
+  const lost = -o.usd - i.usd;
+  return i.t >= o.t && i.t - o.t <= MOVE_MAX_MS && lost >= -0.01 && lost <= moveFee(-o.usd);
+};
+
 /**
  * A transfer between two wallets that are both in view is not money in or out: each side is synced by its own
  * wallet, so the pair is folded into one "internal" flow worth their sum (just the fee, if any). A side whose
  * other wallet is out of view stays a transfer. Pairs match on tx hash + time + opposite kinds, across wallets.
+ * Between exchanges, a withdrawal pairs with the first deposit of about the same amount within a day.
  */
-export function foldOwnTransfers(rows: (BalanceFlow & { walletId: string; hash: string })[]): BalanceFlow[] {
+export function foldOwnTransfers(rows: (BalanceFlow & { walletId: string; hash: string; exchange?: string })[]): BalanceFlow[] {
   const isT = (k: string) => k === "transfer_in" || k === "transfer_out";
   const groups = new Map<string, typeof rows>();
   for (const r of rows) {
@@ -162,6 +174,17 @@ export function foldOwnTransfers(rows: (BalanceFlow & { walletId: string; hash: 
       out.push({ t: o.t, usd: o.usd + i.usd, kind: "internal" });
     }
   }
+  // moving funds between exchanges: a withdrawal from one and a deposit to the other have no hash in common
+  const taken = new Set<(typeof rows)[number]>();
+  const outs = rows.filter((r) => r.exchange && r.kind === "withdraw" && r.usd < 0).sort((a, b) => a.t - b.t);
+  const ins = rows.filter((r) => r.exchange && r.kind === "deposit" && r.usd > 0).sort((a, b) => a.t - b.t);
+  for (const o of outs) {
+    const i = ins.find((x) => !taken.has(x) && x.exchange !== o.exchange && isExchangeMove(o, x));
+    if (!i) continue;
+    taken.add(i);
+    folded.add(o).add(i);
+    out.push({ t: o.t, usd: o.usd + i.usd, kind: "internal" });
+  }
   for (const r of rows) if (!folded.has(r)) out.push({ t: r.t, usd: r.usd, kind: r.kind });
   return out.filter((f) => f.usd !== 0).sort((a, b) => a.t - b.t);
 }
@@ -175,12 +198,12 @@ export function foldOwnTransfers(rows: (BalanceFlow & { walletId: string; hash: 
  * the last of them. `deposited` is the running net of flows. Range is [from, to) by time; the first point is
  * the period start. Same-millisecond order: flows, then cash, then the trade marker (so it includes its exit fill).
  */
-export function balanceCurve(trades: ClosedTrade[], flows: BalanceFlow[], cash: BalanceCash[], o: { from: number | null; to: number | null }): BalancePoint[] {
+export function balanceCurve(trades: ClosedTrade[], flows: BalanceFlow[], cash: BalanceCash[], o: { from: number | null; to: number | null; /** wallets the balance leaves out: their trades are not marked on it */ excludedIds?: string[] }): BalancePoint[] {
   type Ev = { t: number; order: number; usd: number; dep: number; trade?: ClosedTrade; flow?: BalanceFlow };
   const evs: Ev[] = [
     ...flows.map((f) => ({ t: f.t, order: 0, usd: f.usd, dep: f.usd, flow: f })),
     ...cash.map((c) => ({ t: c.t, order: 1, usd: c.usd, dep: 0 })),
-    ...trades.filter((t) => t.source !== "manual").map((t) => ({ t: t.exitTime, order: 2, usd: 0, dep: 0, trade: t })),
+    ...trades.filter((t) => t.source !== "manual" && !(t.walletId && o.excludedIds?.includes(t.walletId))).map((t) => ({ t: t.exitTime, order: 2, usd: 0, dep: 0, trade: t })),
   ]
     .filter((e) => o.to === null || e.t < o.to)
     .sort((a, b) => a.t - b.t || a.order - b.order);

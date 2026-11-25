@@ -9,10 +9,10 @@ import type { OpenTradeRow } from "@/server/db/queries/dashboard";
 import type { LivePosition } from "@/app/api/positions/route";
 import { Direction } from "@/components/trades/direction";
 
-type Live = { live: boolean; reason?: string; at?: number; positions: LivePosition[] };
+type Live = { live: boolean; reason?: string; /** wallets whose positions could not be loaded */ missing?: string[]; at?: number; positions: LivePosition[] };
 const REFRESH_MS = 30_000;
 
-/** Open positions with live unrealised P&L from Hyperliquid (refreshed every 30s while visible). */
+/** Open positions with live unrealised P&L from the exchanges (refreshed every 30s while visible). */
 export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; demo: boolean }) {
   const [live, setLive] = useState<Live | null>(null);
   const [open, setOpen] = useState(false);
@@ -27,7 +27,7 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
         const json = (await res.json()) as Live;
         if (!stop) setLive(json);
       } catch {
-        if (!stop) setLive({ live: false, reason: "Could not reach Hyperliquid", positions: [] });
+        if (!stop) setLive({ live: false, reason: "Could not load live P&L", positions: [] });
       }
     };
     void load();
@@ -39,11 +39,11 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
   }, [demo]);
 
   const rows = useMemo(() => {
-    const pos = new Map((live?.positions ?? []).map((p) => [p.coin, p]));
-    const out = trades.map((t) => ({ trade: t, pos: pos.get(t.coin) ?? null }));
-    const known = new Set(trades.map((t) => t.coin));
+    const pos = new Map((live?.positions ?? []).map((p) => [`${p.walletId}|${p.coin}`, p])); // the same pair can be open on two wallets
+    const out = trades.map((t) => ({ trade: t, pos: pos.get(`${t.walletId}|${t.coin}`) ?? null }));
+    const known = new Set(trades.map((t) => `${t.walletId}|${t.coin}`));
     for (const p of live?.positions ?? [])
-      if (!known.has(p.coin)) out.push({ trade: null as unknown as OpenTradeRow, pos: p });
+      if (!known.has(`${p.walletId}|${p.coin}`)) out.push({ trade: null as unknown as OpenTradeRow, pos: p });
     return out;
   }, [trades, live]);
 
@@ -72,6 +72,7 @@ export function OpenTradesBanner({ trades, demo }: { trades: OpenTradeRow[]; dem
               <span className="money font-medium tabular-nums">
                 {fmtSignedUsd(upnl)}
               </span>
+              {!!live?.missing?.length && ` (without ${live.missing.join(", ")}, not reachable)`}
             </>
           ) : demo ? (
             "live P&L unavailable for demo data"

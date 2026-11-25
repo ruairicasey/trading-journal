@@ -107,11 +107,12 @@ export async function rebuildTrades(
 
   const out = await db.transaction(async (tx) => {
     // new trades go to the account that owns the wallet now (it may have moved while a sync was paging)
-    const [owner] = await tx.select({ accountId: s.wallets.accountId }).from(s.wallets).where(eq(s.wallets.id, walletId));
+    const [owner] = await tx.select({ accountId: s.wallets.accountId, exchange: s.wallets.exchange }).from(s.wallets).where(eq(s.wallets.id, walletId));
     const accountId = owner?.accountId ?? opts.accountId;
+    const source = owner?.exchange ?? "hyperliquid"; // a wallet's trades all come from its exchange
     const existingWhere = and(
+      eq(s.trades.source, source),
       eq(s.trades.walletId, walletId),
-      eq(s.trades.source, "hyperliquid"),
       isNotNull(s.trades.externalKey),
       ...(opts.coins?.length ? [inArray(s.trades.coin, opts.coins)] : []),
     );
@@ -158,7 +159,7 @@ export async function rebuildTrades(
       } else {
         const [ins] = await tx
           .insert(s.trades)
-          .values({ ...exchangeCols, accountId, walletId, source: "hyperliquid", externalKey: r.externalKey })
+          .values({ ...exchangeCols, accountId, walletId, source, externalKey: r.externalKey })
           .returning({ id: s.trades.id });
         tradeId = ins.id;
         result.created++;

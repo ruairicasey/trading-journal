@@ -1,7 +1,15 @@
 /** Fixed enumerations shared by the schema, server code and client components (no DB imports). */
 export const ACCOUNT_TYPES = ["crypto", "prop", "other"] as const;
 export const WALLET_KINDS = ["main", "sub", "vault"] as const;
-export const TRADE_SOURCES = ["hyperliquid", "ctrader", "manual"] as const;
+export const EXCHANGES = ["hyperliquid", "lighter"] as const;
+export type Exchange = (typeof EXCHANGES)[number];
+export const EXCHANGE_LABEL: Record<Exchange, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter" };
+export const isExchangeSource = (s: string | null | undefined): s is Exchange =>
+  (EXCHANGES as readonly string[]).includes(s ?? "");
+export const TRADE_SOURCES = ["hyperliquid", "lighter", "ctrader", "manual"] as const;
+export type TradeSource = (typeof TRADE_SOURCES)[number];
+/** "Hyperliquid", "Lighter", "cTrader" or "Manual" */
+export const SOURCE_LABEL: Record<TradeSource, string> = { ...EXCHANGE_LABEL, ctrader: "cTrader", manual: "Manual" };
 export const TRADE_STATUSES = ["planned", "open", "closed"] as const;
 export const DIRECTIONS = ["long", "short"] as const;
 export const MARKET_TYPES = ["perp", "hip3", "spot", "cfd"] as const;
