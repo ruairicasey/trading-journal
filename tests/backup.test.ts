@@ -40,6 +40,18 @@ describe("backups", () => {
     await expect(copyDatabase(src, out)).rejects.toThrow(/already exists/);
   });
 
+  test("copyDatabase keeps foreign keys: a table copied before the one it points to", async () => {
+    const src = createClient({ url: `file:${path.join(tmp("tj-bk-fk-"), "src.db")}` });
+    await src.execute("create table wallets (id text primary key)");
+    await src.execute("create table fills (tid integer primary key, wallet_id text not null references wallets(id))");
+    await src.execute("insert into wallets values ('w')");
+    await src.execute("insert into fills values (1, 'w')");
+    const out = path.join(tmp("tj-bk-out-"), "copy.db");
+    expect(await copyDatabase(src, out)).toEqual({ fills: 1, wallets: 1 });
+    const copy = createClient({ url: `file:${out}` });
+    expect((await copy.execute("pragma foreign_key_check")).rows).toHaveLength(0);
+  });
+
   test("local snapshot + archive round-trips", async () => {
     const src = await sampleDb();
     const staging = tmp("tj-bk-stage-");

@@ -36,6 +36,8 @@ export async function copyDatabase(src: Client, destFile: string, pageSize = 500
   if (fs.existsSync(destFile)) throw new Error(`${destFile} already exists`);
   const dest = createClient({ url: `file:${destFile}` });
   try {
+    // tables are copied by name, so rows can arrive before the ones they point to (fills before wallets)
+    await dest.execute("pragma foreign_keys = off");
     const schema = await src.execute(
       "select type, name, sql from sqlite_master where sql is not null and name not like 'sqlite_%' and name not like '_litestream%' and name not like 'libsql_%' order by case type when 'table' then 0 when 'index' then 1 else 2 end, name",
     );
